@@ -4,7 +4,7 @@ import Combine
 /// One line of the operation log: what was done, where, and how it ended.
 struct OperationRecord: Codable, Identifiable, Equatable {
     enum Kind: String, Codable {
-        case copy, move, upload, download, moveOnServer, trash, duplicate
+        case copy, move, upload, download, moveOnServer, trash, duplicate, synchronize
 
         var title: String {
             switch self {
@@ -15,6 +15,7 @@ struct OperationRecord: Codable, Identifiable, Equatable {
             case .moveOnServer: return tr("Move on server")
             case .trash: return tr("Move to Trash")
             case .duplicate: return tr("Duplicate")
+            case .synchronize: return tr("Synchronize")
             }
         }
 
@@ -25,6 +26,7 @@ struct OperationRecord: Codable, Identifiable, Equatable {
             case .upload: return "arrow.up.circle"
             case .download: return "arrow.down.circle"
             case .trash: return "trash"
+            case .synchronize: return "arrow.triangle.2.circlepath"
             }
         }
     }
@@ -233,7 +235,7 @@ enum OperationUndo {
             }
             do {
                 switch step.kind {
-                case .copy, .duplicate:
+                case .copy, .duplicate, .synchronize:
                     try fm.trashItem(at: pair.target, resultingItemURL: nil)
                     outcome.folders.append(pair.target.deletingLastPathComponent())
                 case .move, .trash:

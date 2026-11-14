@@ -88,7 +88,7 @@ struct SelectByAttributesView: View {
     @State private var dateMode = 0            // 0 any, 1 within last, 2 older than
     @State private var days = "7"
 
-    private static let units: [(name: String, bytes: Int64)] = [("KB", 1_000), ("MB", 1_000_000), ("GB", 1_000_000_000)]
+    static let units: [(name: String, bytes: Int64)] = [("KB", 1_000), ("MB", 1_000_000), ("GB", 1_000_000_000)]
 
     /// `value` × the unit, clamped: a huge, infinite or NaN entry must not trap in the Int64 conversion.
     static func bytes(_ value: Double, unit: Int) -> Int64 {

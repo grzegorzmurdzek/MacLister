@@ -2,9 +2,10 @@ import AppKit
 import Network
 
 /// Places in the Go menu that are lists, not folders: files opened recently, and what is shared on the
-/// network. A lister showing one has the address maclister://recents or maclister://shared.
+/// network, and the results of a search. A lister showing one has the address maclister://recents, maclister://shared
+/// or maclister://find?….
 enum VirtualPlace: String, CaseIterable {
-    case recents, shared
+    case recents, shared, find
 
     static let scheme = "maclister"
 
@@ -14,13 +15,22 @@ enum VirtualPlace: String, CaseIterable {
         switch self {
         case .recents: return tr("Recents")
         case .shared: return tr("Shared")
+        case .find: return tr("Find")
         }
+    }
+
+    /// Name of the list at `url`: a search is called after what it looks for.
+    static func title(for url: URL) -> String? {
+        guard let place = place(for: url) else { return nil }
+        if place == .find, let query = FindQuery(url: url) { return query.title }
+        return place.title
     }
 
     var symbol: String {
         switch self {
         case .recents: return "clock"
         case .shared: return "network"
+        case .find: return "magnifyingglass"
         }
     }
 

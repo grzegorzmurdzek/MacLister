@@ -132,7 +132,8 @@ extension ListerViewController {
     }
 
     /// The row of colour dots and "Tags…".
-    func addTagItems(to menu: NSMenu, urls: [URL]) {
+    /// `tagsMenu`: where the "Tags…" item goes (a submenu); next to the dots when nil.
+    func addTagItems(to menu: NSMenu, urls: [URL], tagsMenu: NSMenu? = nil) {
         guard !urls.isEmpty else { return }
         let row = TagColorRowView(frame: NSRect(x: 0, y: 0, width: TagColorRowView.width, height: 26))
         row.autoresizingMask = [.width]
@@ -146,7 +147,7 @@ extension ListerViewController {
         rowItem.view = row
         rowItem.title = tr("Tag Colors")
         menu.addItem(rowItem)
-        addFinderItem(tr("Tags…"), to: menu, symbol: "tag") { [weak self] in self?.promptTags(for: urls) }
+        addFinderItem(tr("Tags…"), to: tagsMenu ?? menu, symbol: "tag") { [weak self] in self?.promptTags(for: urls) }
     }
 
     /// "Quick Actions": image actions and the user's Automator Quick Action workflows.

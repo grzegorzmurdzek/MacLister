@@ -130,7 +130,7 @@ struct PathSegment: Equatable {
 enum PathSegments {
     /// "/Users/me/Docs" → [Macintosh HD, Users, me, Docs], each with the URL it leads to.
     static func make(for url: URL) -> [PathSegment] {
-        if let place = VirtualPlace.place(for: url) { return [PathSegment(title: place.title, url: place.url)] }
+        if let title = VirtualPlace.title(for: url) { return [PathSegment(title: title, url: url)] }
         if RemoteURL.isRemote(url) {
             // server first ("me@host"), then every folder of the path
             let root = RemoteURL.with(path: "/", on: url)

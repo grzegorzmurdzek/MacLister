@@ -110,8 +110,8 @@ enum TitleFormat {
         var c = Context()
         let url = model.url
         c.label = model.label
-        if let place = model.virtualPlace {
-            c.name = place.title
+        if let title = VirtualPlace.title(for: url), model.virtualPlace != nil {
+            c.name = title
         } else if url.isFileURL {
             c.name = FileManager.default.displayName(atPath: url.path)
             c.path = url.path

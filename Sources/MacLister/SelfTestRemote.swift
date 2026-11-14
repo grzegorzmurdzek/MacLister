@@ -251,7 +251,7 @@ enum SelfTestRemote {
             let menu = NSMenu()
             if let item = remoteC?.model.items.first(where: { $0.name == "from-server.txt" }) {
                 rvc()?.populate(menu, selection: [item])
-                let titles = menu.items.map(\.title)
+                let titles = menu.flatTitles
                 check(titles.contains("Delete from Server…") && titles.contains("Rename…") && titles.contains("Quick Look")
                       && !titles.contains("Open With") && !titles.contains("Reveal in Finder") && !titles.contains("Info") && !titles.contains("Make Alias"),
                       "ui: the context menu of a server offers only what works: \(titles)")

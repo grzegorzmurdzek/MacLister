@@ -63,7 +63,7 @@ struct ButtonEditorView: View {
             }
             Divider()
             HStack(spacing: 4) {
-                Button { insert(ListerButton(title: tr("New Button"), symbol: "star.fill", action: .refresh)) } label: { Image(systemName: "plus") }
+                Button { insert(ListerButton(title: ListerAction.refresh.title, symbol: ListerAction.refresh.suggestedSymbol, action: .refresh)) } label: { Image(systemName: "plus") }
                     .help("Add a button")
                 Button { insert(ListerButton(title: "", symbol: nil, action: .separator)) } label: { Image(systemName: "minus.rectangle") }
                     .help("Add a separator")
@@ -115,29 +115,49 @@ struct ButtonEditorView: View {
         }
     }
 
+    @State private var choosingIcon = false
+
     private func form(for index: Int) -> some View {
         // SwiftUI may still call these once after the row is gone (Remove, Reset): never index blindly.
         let button = Binding(get: { buttons.indices.contains(index) ? buttons[index] : ListerButton(title: "", symbol: nil, action: .separator) },
                              set: { if buttons.indices.contains(index) { buttons[index] = $0 } })
+        // Choosing another action also updates the title and the icon, as long as they are still the old action's.
+        let leftAction = Binding<ListerAction>(get: { button.wrappedValue.action }, set: { new in
+            var edited = button.wrappedValue
+            let old = edited.action
+            let titles = [old.title, tr(old.title), tr("New Button"), "New Button", ""]
+            if titles.contains(where: { edited.title.caseInsensitiveCompare($0) == .orderedSame }) { edited.title = tr(new.title) }
+            if edited.symbol == nil || edited.symbol == old.suggestedSymbol || edited.symbol == "star.fill" { edited.symbol = new.suggestedSymbol }
+            edited.action = new
+            button.wrappedValue = edited
+        })
         return Form {
+            Section("What the button does") {
+                actionRow("Left click", action: leftAction, command: button.command, optional: false)
+                actionRow("Right click", action: button.rightAction, command: button.rightCommand, optional: true)
+                actionRow("Middle click", action: button.middleAction, command: button.middleCommand, optional: true)
+            }
             Section("Look") {
                 TextField("Title", text: button.title)
                 HStack {
-                    TextField("Icon (SF Symbol)", text: Binding(get: { button.wrappedValue.symbol ?? "" }, set: { button.wrappedValue.symbol = $0.isEmpty ? nil : $0 }))
+                    TextField("Icon", text: Binding(get: { button.wrappedValue.symbol ?? "" }, set: { button.wrappedValue.symbol = $0.isEmpty ? nil : $0 }))
                     if let symbol = button.wrappedValue.symbol, !symbol.isEmpty { Image(systemName: symbol).foregroundStyle(button.wrappedValue.tint) }
+                    Button("Choose…") { choosingIcon = true }
+                        .popover(isPresented: $choosingIcon) {
+                            SymbolGrid { name in
+                                button.wrappedValue.symbol = name
+                                choosingIcon = false
+                            }
+                        }
                 }
+                Text("The icon is an SF Symbol, one of the icons that come with macOS. Choose one from the list, or type the name of any symbol (the free SF Symbols app from Apple shows them all).")
+                    .font(.caption).foregroundStyle(.secondary)
                 Picker("Color", selection: Binding(get: { button.wrappedValue.color ?? "" }, set: { button.wrappedValue.color = $0.isEmpty ? nil : $0 })) {
                     ForEach(Self.colors, id: \.self) { name in
                         if name.isEmpty { Text("Neutral").tag(name) } else { Label(name.capitalized, systemImage: "circle.fill").foregroundStyle(LabelPalette.color(name) ?? .primary).tag(name) }
                     }
                 }
                 TextField("Tooltip", text: Binding(get: { button.wrappedValue.help ?? "" }, set: { button.wrappedValue.help = $0.isEmpty ? nil : $0 }))
-            }
-            Section("Mouse buttons") {
-                actionRow("Left click", action: Binding(get: { button.wrappedValue.action }, set: { button.wrappedValue.action = $0 }),
-                          command: button.command, optional: false)
-                actionRow("Right click", action: button.rightAction, command: button.rightCommand, optional: true)
-                actionRow("Middle click", action: button.middleAction, command: button.middleCommand, optional: true)
             }
         }
         .formStyle(.grouped)
@@ -195,5 +215,36 @@ enum ButtonEditorWindow {
         } else {
             NSWorkspace.shared.activateFileViewerSelecting([file])
         }
+    }
+}
+
+/// A grid of common SF Symbols to pick an icon from.
+struct SymbolGrid: View {
+    var onPick: (String) -> Void
+
+    static let names = [
+        "folder.fill", "folder.fill.badge.plus", "doc.fill", "doc.on.doc.fill", "trash.fill", "archivebox.fill", "tray.full.fill", "externaldrive.fill",
+        "arrow.up.circle.fill", "arrow.down.circle.fill", "arrow.left.circle.fill", "arrow.right.circle.fill", "arrow.clockwise.circle.fill", "arrow.triangle.2.circlepath.circle.fill",
+        "arrowshape.turn.up.right.fill", "arrow.left.arrow.right.circle.fill", "square.and.arrow.up.fill", "square.and.arrow.down.fill", "link.circle.fill", "network",
+        "magnifyingglass", "line.3.horizontal.decrease.circle.fill", "checkmark.circle.fill", "xmark.circle.fill", "plus.circle.fill", "minus.circle.fill",
+        "star.fill", "heart.fill", "bookmark.fill", "tag.fill", "flag.fill", "pin.fill",
+        "terminal.fill", "gearshape.fill", "wrench.and.screwdriver.fill", "hammer.fill", "bolt.fill", "wand.and.stars",
+        "info.circle.fill", "questionmark.circle.fill", "exclamationmark.triangle.fill", "lock.fill", "key.fill", "eye.circle.fill",
+        "photo.fill", "music.note", "film.fill", "text.alignleft", "pencil.circle.fill", "paintbrush.fill",
+        "clock.fill", "calendar", "house.fill", "globe", "icloud.fill", "cpu.fill",
+    ]
+
+    var body: some View {
+        ScrollView {
+            LazyVGrid(columns: Array(repeating: GridItem(.fixed(34), spacing: 4), count: 8), spacing: 4) {
+                ForEach(Self.names, id: \.self) { name in
+                    Button { onPick(name) } label: { Image(systemName: name).font(.system(size: 16)).frame(width: 30, height: 30) }
+                        .buttonStyle(.plain)
+                        .help(name)
+                }
+            }
+            .padding(10)
+        }
+        .frame(width: 8 * 38 + 24, height: 260)
     }
 }

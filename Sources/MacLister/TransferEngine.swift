@@ -76,6 +76,8 @@ final class TransferJob {
     let destination: URL
 
     var resolver: (TransferConflict) -> ConflictDecision = { _ in ConflictDecision(action: .keepBoth) }
+    /// Copy As / Move As: the name a top-level item gets in the destination (the others keep their own).
+    var topLevelNames: [URL: String] = [:]
     /// Delivered on the main queue, at most about ten times a second.
     var onProgress: ((TransferProgress) -> Void)?
 
@@ -137,7 +139,8 @@ final class TransferJob {
     private func transferNode(_ source: URL, into directory: URL, topLevel: Bool, knownSize: Int64? = nil) -> Bool {
         gate.waitWhilePaused { isCancelled }
         if isCancelled { return false }
-        var target = directory.appendingPathComponent(source.lastPathComponent)
+        let targetName = topLevel ? (topLevelNames[source] ?? source.lastPathComponent) : source.lastPathComponent
+        var target = directory.appendingPathComponent(targetName)
         let sourceInfo = Self.info(of: source)
         let size = knownSize ?? (sourceInfo.isDirectory ? FolderSize.total(of: source) : sourceInfo.size)
 

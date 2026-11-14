@@ -462,6 +462,8 @@ final class ListerViewController: NSViewController {
             duplicateSelection()
         case 2 where mods == [.command, .option]: // ⌥⌘D → duplicate this lister
             duplicateLister()
+        case 3 where mods == [.command, .shift]:  // ⇧⌘F → find
+            promptFind()
         case 3 where command:                     // ⌘F → filter
             promptFilter()
         case 11 where command:                    // ⌘B → bookmark this folder
@@ -470,6 +472,10 @@ final class ListerViewController: NSViewController {
             if selectedItems.count == 1 { promptRename(selectedItems[0]) } else { promptBatchRename() }
         case 14 where command:                    // ⌘E → extract archives
             extractSelection()
+        case 96 where mods == .shift:             // ⇧F5 → copy as (new names)
+            startTransferAs(.copy)
+        case 97 where mods == .shift:             // ⇧F6 → move as
+            startTransferAs(.move)
         case 96 where plain:                      // F5 → copy to destination
             startTransfer(.copy)
         case 97 where plain:                      // F6 → move to destination
@@ -699,6 +705,8 @@ extension ListerViewController {
         case .shell:          runShell(button.command)
         case .copy:           startTransfer(.copy)
         case .move:           startTransfer(.move)
+        case .copyAs:         startTransferAs(.copy)
+        case .moveAs:         startTransferAs(.move)
         case .setSource:      toggleRole(.source)
         case .setDestination: toggleRole(.destination)
         case .swapSourceDestination: ListerManager.shared.swapRoles()
@@ -730,7 +738,10 @@ extension ListerViewController {
         case .filter:         promptFilter()
         case .clearFilter:    model.setFilter("")
         case .calcSizes:      calculateFolderSizes()
+        case .find:           promptFind()
+        case .flatView:       toggleFlatView()
         case .compare:        compareWithDestination()
+        case .synchronize:    promptSynchronize()
         case .info:           showInfo()
         case .showInDestination: showInDestination()
         case .destinationHere: destinationHere()
@@ -1011,12 +1022,36 @@ extension ListerViewController: NSMenuDelegate {
         menu.removeAllItems()
         menu.autoenablesItems = false
 
-        func add(_ title: String, _ run: @escaping () -> Void) {
+        func make(_ title: String, _ run: @escaping () -> Void) -> NSMenuItem {
             let item = NSMenuItem(title: title, action: #selector(contextMenuItemChosen(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = MenuAction(run)
-            menu.addItem(item)
+            return item
         }
+        func add(_ title: String, to target: NSMenu? = nil, _ run: @escaping () -> Void) {
+            (target ?? menu).addItem(make(title, run))
+        }
+        /// A submenu that rarely used commands live in; it only appears when it got an item.
+        func submenu(_ title: String, symbol: String? = nil) -> NSMenu {
+            let sub = NSMenu(title: title)
+            sub.autoenablesItems = false
+            return sub
+        }
+        func attach(_ sub: NSMenu, symbol: String? = nil) {
+            guard sub.numberOfItems > 0 else { return }
+            let parent = NSMenuItem(title: sub.title, action: nil, keyEquivalent: "")
+            parent.submenu = sub
+            if let symbol { parent.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) }
+            menu.addItem(parent)
+        }
+        func hiddenItem() -> NSMenuItem {
+            let hidden = make(tr("Show Hidden Files")) { [weak self] in self?.model.toggleHidden() }
+            hidden.state = model.showHidden ? .on : .off
+            return hidden
+        }
+
+        /// Commands about this lister, not about the selection.
+        let lister = submenu(tr("This Lister"))
 
         if !items.isEmpty {
             let local = !isRemote
@@ -1042,36 +1077,42 @@ extension ListerViewController: NSMenuDelegate {
             addTrashItem(to: menu, title: local ? tr("Move to Trash") : tr("Delete from Server…")) { [weak self] in self?.confirmTrash() }
             menu.addItem(.separator())
 
-            // Info, Rename, Compress, Duplicate, Make Alias, Quick Look, Copy
+            // The everyday commands stay on top; the rest is in Details and Make.
             if local { add(tr("Info")) { [weak self] in self?.showInfo() } }
-            if local, items.contains(where: \.isDirectory) {
-                add(items.count == 1 ? tr("Calculate Folder Size") : tr("Calculate Folder Sizes")) { [weak self] in self?.calculateFolderSizes() }
-            }
             if items.count == 1 {
                 add(tr("Rename…")) { [weak self] in self?.promptRename(items[0]) }
             } else if local {
                 add(trCount("Rename %d Items…", items.count)) { [weak self] in self?.promptBatchRename() }
             }
-            if local {
-                add(tr("Attributes…")) { [weak self] in self?.promptAttributes() }
-                add(items.count == 1 ? tr("Compress “%@”", items[0].name) : trCount("Compress %d Items", items.count)) { [weak self] in self?.compressSelection() }
-                add(tr("Duplicate")) { [weak self] in self?.duplicateSelection() }
-                add(tr("Make Alias")) { [weak self] in self?.makeLinks(symbolic: false) }
-                add(tr("Make Symbolic Link")) { [weak self] in self?.makeLinks(symbolic: true) }
-            }
             add(tr("Quick Look")) { [weak self] in self?.toggleQuickLook() }
             if local { add(tr("Copy")) { [weak self] in self?.copyFilesToPasteboard() } }
             add(tr("Copy Path")) { [weak self] in self?.copyPaths(items.map(\.url)) }
+
+            let details = submenu(tr("Details"))
+            let make = submenu(tr("Make"))
+            if local {
+                add(tr("Attributes…"), to: details) { [weak self] in self?.promptAttributes() }
+                if items.contains(where: \.isDirectory) {
+                    add(items.count == 1 ? tr("Calculate Folder Size") : tr("Calculate Folder Sizes"), to: details) { [weak self] in self?.calculateFolderSizes() }
+                }
+                add(items.count == 1 ? tr("Compress “%@”", items[0].name) : trCount("Compress %d Items", items.count), to: make) { [weak self] in self?.compressSelection() }
+                add(tr("Duplicate"), to: make) { [weak self] in self?.duplicateSelection() }
+                add(tr("Make Alias"), to: make) { [weak self] in self?.makeLinks(symbolic: false) }
+                add(tr("Make Symbolic Link"), to: make) { [weak self] in self?.makeLinks(symbolic: true) }
+                make.addItem(.separator())
+                add(tr("Copy As…"), to: make) { [weak self] in self?.startTransferAs(.copy) }
+                add(tr("Move As…"), to: make) { [weak self] in self?.startTransferAs(.move) }
+            }
+            if local {
+                attach(details, symbol: "info.circle")
+                attach(make, symbol: "plus.square.on.square")
+            }
             menu.addItem(.separator())
 
             if local {
-                // Share
+                // Share, tag colours (Tags… is in Details), Quick Actions and Services
                 addShareItem(to: menu, urls: urls)
-                menu.addItem(.separator())
-                // Tag colours and Tags…
-                addTagItems(to: menu, urls: urls)
-                menu.addItem(.separator())
-                // Quick Actions and Services
+                addTagItems(to: menu, urls: urls, tagsMenu: details)
                 addQuickActions(to: menu, urls: urls)
                 addServicesItem(to: menu)
                 menu.addItem(.separator())
@@ -1082,36 +1123,45 @@ extension ListerViewController: NSMenuDelegate {
             }
             if local { add(tr("Reveal in Finder")) { [weak self] in self?.revealInFinder() } }
             menu.addItem(.separator())
-        }
 
-        if items.isEmpty {
-            add(tr("Select by Pattern…")) { [weak self] in self?.promptPattern(select: true) }
-            add(tr("Select by Attributes…")) { [weak self] in self?.promptSelectByAttributes() }
-            add(tr("Select All")) { [weak self] in self?.selectAllRows() }
-            add(tr("Invert Selection")) { [weak self] in self?.invertSelection() }
+            // Folder-level commands are one step further when files are selected.
+            add(tr("New Folder…"), to: lister) { [weak self] in self?.promptNewFolder() }
+            if local { add(tr("Terminal Here"), to: lister) { [weak self] in self?.openTerminal() } }
+            lister.addItem(hiddenItem())
+            add(tr("Refresh"), to: lister) { [weak self] in self?.model.reload() }
+            lister.addItem(.separator())
+        } else {
+            // Nothing under the pointer: selecting, finding and the folder's own commands.
+            let select = submenu(tr("Select"))
+            add(tr("Select by Pattern…"), to: select) { [weak self] in self?.promptPattern(select: true) }
+            add(tr("Select by Attributes…"), to: select) { [weak self] in self?.promptSelectByAttributes() }
+            add(tr("Select All"), to: select) { [weak self] in self?.selectAllRows() }
+            add(tr("Invert Selection"), to: select) { [weak self] in self?.invertSelection() }
+            attach(select, symbol: "checkmark.circle")
             add(tr("Filter…")) { [weak self] in self?.promptFilter() }
             if !model.filter.isEmpty { add(tr("Clear Filter (%@)", model.filter)) { [weak self] in self?.model.setFilter("") } }
+            if !isRemote { add(tr("Find…")) { [weak self] in self?.promptFind() } }
+            if !isRemote { add(flatViewMenuTitle) { [weak self] in self?.toggleFlatView() } }
             if !isRemote { add(tr("Calculate Folder Sizes")) { [weak self] in self?.calculateFolderSizes() } }
             if ListerManager.shared.destinationController != nil {
                 add(tr("Compare with Destination")) { [weak self] in self?.compareWithDestination() }
+                if !isRemote { add(tr("Synchronize…")) { [weak self] in self?.promptSynchronize() } }
             }
             menu.addItem(.separator())
-        }
-        add(tr("Duplicate Lister")) { [weak self] in self?.duplicateLister() }
-        add(model.label.isEmpty ? tr("Name This Lister…") : tr("Rename This Lister…")) { [weak self] in self?.promptLabel() }
-        add(tr("Add Bookmark")) { [weak self] in self?.addBookmark() }
-        menu.addItem(.separator())
-        add(tr("New Folder…")) { [weak self] in self?.promptNewFolder() }
-        if !isRemote { add(tr("Terminal Here")) { [weak self] in self?.openTerminal() } }
-        if items.isEmpty {
+            add(tr("New Folder…")) { [weak self] in self?.promptNewFolder() }
+            if !isRemote { add(tr("Terminal Here")) { [weak self] in self?.openTerminal() } }
             add(tr("Copy Folder Path")) { [weak self] in self.map { $0.copyPaths([$0.model.url]) } }
+            menu.addItem(hiddenItem())
+            add(tr("Refresh")) { [weak self] in self?.model.reload() }
+            menu.addItem(.separator())
         }
-        let hidden = NSMenuItem(title: tr("Show Hidden Files"), action: #selector(contextMenuItemChosen(_:)), keyEquivalent: "")
-        hidden.target = self
-        hidden.state = model.showHidden ? .on : .off
-        hidden.representedObject = MenuAction { [weak self] in self?.model.toggleHidden() }
-        menu.addItem(hidden)
-        add(tr("Refresh")) { [weak self] in self?.model.reload() }
+
+        add(tr("Duplicate Lister"), to: lister) { [weak self] in self?.duplicateLister() }
+        add(model.label.isEmpty ? tr("Name This Lister…") : tr("Rename This Lister…"), to: lister) { [weak self] in self?.promptLabel() }
+        add(tr("Add Bookmark"), to: lister) { [weak self] in self?.addBookmark() }
+        attach(lister, symbol: "macwindow")
+        // no trailing separator
+        if menu.items.last?.isSeparatorItem == true { menu.removeItem(at: menu.numberOfItems - 1) }
     }
 
     @objc private func contextMenuItemChosen(_ sender: NSMenuItem) {
@@ -1241,6 +1291,8 @@ extension ListerViewController {
         add(tr("Refresh")) { [weak self] in self?.model.reload() }
         add(tr("Show Hidden Files"), checked: model.showHidden) { [weak self] in self?.model.toggleHidden() }
         add(model.filter.isEmpty ? tr("Filter…") : tr("Filter… (%@)", model.filter), key: "f") { [weak self] in self?.promptFilter() }
+        add(tr("Find…"), key: "f", mask: [.command, .shift]) { [weak self] in self?.promptFind() }
+        add(flatViewMenuTitle, enabled: !isRemote) { [weak self] in self?.toggleFlatView() }
         addSubmenu(tr("Bookmarks"), to: menu) { sub, addItem in
             let bookmarks = BookmarkStore.shared.paths
             if bookmarks.isEmpty { addItem(tr("No bookmarks"), false) { } }

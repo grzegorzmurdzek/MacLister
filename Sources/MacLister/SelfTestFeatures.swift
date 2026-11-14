@@ -63,6 +63,66 @@ enum SelfTestFeatures {
         let bigTree = dirA.appendingPathComponent("big")
         check(FolderSize.measure(bigTree, cancel: stopped) == nil, "a cancelled folder measure returns nil")
 
+        // Copy As / Move As: top-level items get the new names, what is inside keeps its own
+        let asSource = root.appendingPathComponent("AsSource"), asTarget = root.appendingPathComponent("AsTarget")
+        for dir in [asSource.appendingPathComponent("folder"), asTarget] { try? fm.createDirectory(at: dir, withIntermediateDirectories: true) }
+        write("note.txt", 7, in: asSource); write("inner.dat", 9, in: asSource.appendingPathComponent("folder"))
+        let copyAs = TransferJob(kind: .copy, items: [asSource.appendingPathComponent("note.txt"), asSource.appendingPathComponent("folder")], destination: asTarget)
+        copyAs.topLevelNames = [asSource.appendingPathComponent("note.txt"): "memo.txt", asSource.appendingPathComponent("folder"): "renamed folder"]
+        let copyAsResult = copyAs.runSync()
+        check(fm.fileExists(atPath: asTarget.appendingPathComponent("memo.txt").path) && !fm.fileExists(atPath: asTarget.appendingPathComponent("note.txt").path),
+              "Copy As: a file arrives under the new name")
+        check(fm.fileExists(atPath: asTarget.appendingPathComponent("renamed folder/inner.dat").path), "Copy As: a folder arrives under the new name, its contents keep theirs")
+        check(fm.fileExists(atPath: asSource.appendingPathComponent("note.txt").path) && copyAsResult.failures.isEmpty, "Copy As leaves the originals alone")
+        check(copyAsResult.pairs.contains { $0.target.lastPathComponent == "memo.txt" }, "Copy As is recorded for undo under its new name")
+        let moveAs = TransferJob(kind: .move, items: [asSource.appendingPathComponent("note.txt")], destination: asSource)
+        moveAs.topLevelNames = [asSource.appendingPathComponent("note.txt"): "note moved.txt"]
+        _ = moveAs.runSync()
+        check(fm.fileExists(atPath: asSource.appendingPathComponent("note moved.txt").path) && !fm.fileExists(atPath: asSource.appendingPathComponent("note.txt").path),
+              "Move As in the same folder is a rename")
+        check(CopyAsRules.problem(for: "  ", others: [], sameFolderAsSource: false, originalName: "a") != nil, "Copy As refuses an empty name")
+        check(CopyAsRules.problem(for: "a/b", others: [], sameFolderAsSource: false, originalName: "a") != nil, "Copy As refuses a slash")
+        check(CopyAsRules.problem(for: "B", others: ["b"], sameFolderAsSource: false, originalName: "a") != nil, "Copy As refuses two equal names")
+        check(CopyAsRules.problem(for: "a", others: [], sameFolderAsSource: true, originalName: "a") != nil, "Copy As in the same folder needs another name")
+        check(CopyAsRules.problem(for: "a", others: [], sameFolderAsSource: false, originalName: "a") == nil, "the same name is fine in another folder")
+
+        // Synchronize: plan, run, and nothing left to do afterwards
+        let syncA = root.appendingPathComponent("SyncA"), syncB = root.appendingPathComponent("SyncB")
+        for dir in [syncA.appendingPathComponent("sub"), syncB] { try? fm.createDirectory(at: dir, withIntermediateDirectories: true) }
+        let old = Date(timeIntervalSinceNow: -86_400), recent = Date()
+        func put(_ rel: String, _ bytes: Int, in dir: URL, date: Date) {
+            let url = dir.appendingPathComponent(rel)
+            try? Data(repeating: 0x42, count: bytes).write(to: url)
+            try? fm.setAttributes([.modificationDate: date], ofItemAtPath: url.path)
+        }
+        put("new.txt", 3, in: syncA, date: recent); put("sub/deep.txt", 4, in: syncA, date: recent)
+        put("same.txt", 5, in: syncA, date: old); put("same.txt", 5, in: syncB, date: old)
+        put("fresh.txt", 6, in: syncA, date: recent); put("fresh.txt", 2, in: syncB, date: old)
+        put("kept.txt", 2, in: syncA, date: old); put("kept.txt", 8, in: syncB, date: recent)
+        put("extra.txt", 1, in: syncB, date: old)
+        if let a = Synchronizer.scan(syncA), let b = Synchronizer.scan(syncB) {
+            let oneWay = Synchronizer.plan(source: a, destination: b, options: .init())
+            check(Set(oneWay.items.map(\.rel)) == ["new.txt", "sub/deep.txt", "fresh.txt"] && oneWay.items.allSatisfy { $0.action == .copyToDestination },
+                  "sync one way copies new and newer files: \(oneWay.items.map(\.rel))")
+            check(oneWay.keptNewer == 1, "sync one way keeps a newer destination file")
+            let mirror = Synchronizer.plan(source: a, destination: b, options: .init(deleteExtras: true, replaceNewer: true))
+            check(mirror.items.contains { $0.rel == "extra.txt" && $0.action == .trashInDestination } && mirror.items.contains { $0.rel == "kept.txt" && $0.action == .copyToDestination },
+                  "sync as a mirror trashes extras and replaces newer files")
+            let twoWay = Synchronizer.plan(source: a, destination: b, options: .init(twoWay: true))
+            check(twoWay.items.contains { $0.rel == "extra.txt" && $0.action == .copyToSource } && twoWay.items.contains { $0.rel == "kept.txt" && $0.action == .copyToSource }
+                  && twoWay.items.contains { $0.rel == "fresh.txt" && $0.action == .copyToDestination }, "sync both ways: the newer file wins in each direction")
+            let ran = Synchronizer.run(twoWay.items, source: syncA, destination: syncB, cancel: CancelToken()) { _, _, _ in }
+            check(ran.failures.isEmpty && ran.pairs.count == twoWay.items.count, "sync ran without failures: \(ran.failures)")
+            check((try? Data(contentsOf: syncB.appendingPathComponent("sub/deep.txt")).count) == 4, "sync created the sub-folder and copied the file")
+            check((try? fm.attributesOfItem(atPath: syncB.appendingPathComponent("fresh.txt").path)[.size] as? Int) == 6, "sync replaced the older file")
+            if let a2 = Synchronizer.scan(syncA), let b2 = Synchronizer.scan(syncB) {
+                let again = Synchronizer.plan(source: a2, destination: b2, options: .init(twoWay: true))
+                check(again.items.isEmpty, "after a sync there is nothing left to do (copies keep their dates): \(again.items.map(\.rel))")
+            }
+            let stoppedRun = Synchronizer.run(oneWay.items, source: syncA, destination: syncB, cancel: { let t = CancelToken(); t.cancel(); return t }()) { _, _, _ in }
+            check(stoppedRun.cancelled && stoppedRun.done.isEmpty, "a cancelled sync does nothing")
+        } else { check(false, "sync scan") }
+
         let dup1 = FileTransfer.duplicate([dirA.appendingPathComponent("a.txt")])
         let dup2 = FileTransfer.duplicate([dirA.appendingPathComponent("a.txt")])
         let dup3 = FileTransfer.duplicate([dirA.appendingPathComponent("big")])
@@ -116,6 +176,90 @@ enum SelfTestFeatures {
             one.model.reload()
             check(one.model.items.first(where: { $0.name == "big" })?.size == 1500, "size survives a reload")
         }
+        // find: the address round-trips, and a directory scan finds by name, by content and by size
+        let dirC = root.appendingPathComponent("C")
+        try? fm.createDirectory(at: dirC.appendingPathComponent("sub"), withIntermediateDirectories: true)
+        try? "hello Needle here".write(to: dirC.appendingPathComponent("report.txt"), atomically: true, encoding: .utf8)
+        try? "nothing".write(to: dirC.appendingPathComponent("sub/other.txt"), atomically: true, encoding: .utf8)
+        try? "needle again".write(to: dirC.appendingPathComponent("sub/deep.txt"), atomically: true, encoding: .utf8)
+        try? "needle".write(to: dirC.appendingPathComponent(".secret.txt"), atomically: true, encoding: .utf8)
+        write("photo.jpg", 5000, in: dirC.appendingPathComponent("sub"))
+        var findQuery = FindQuery(scope: dirC)
+        findQuery.name = "*.jpg *.txt"
+        findQuery.minBytes = 2
+        findQuery.withinDays = 3
+        findQuery.category = .files
+        findQuery.scanFolders = true
+        check(FindQuery(url: findQuery.url) == findQuery, "a search survives being turned into an address and back")
+        check(VirtualPlace.place(for: findQuery.url) == .find && VirtualPlace.title(for: findQuery.url) == "Find: *.jpg *.txt", "a search is a list called after what it looks for")
+        check(FindQuery(url: URL(string: "maclister://find")!) == nil, "an address without a folder is no search")
+        check(SpotlightFind.predicate(for: FindQuery(scope: dirC)).predicateFormat.contains("kMDItemFSName"), "Spotlight predicate for an empty query still has a condition")
+        check(SpotlightFind.predicate(for: findQuery).predicateFormat.contains("kMDItemFSSize"), "Spotlight predicate carries the size condition")
+        let finder = ListerModel(url: dirA)
+        var byName = FindQuery(scope: dirC)
+        byName.name = "*.txt"
+        byName.scanFolders = true
+        later { finder.navigate(to: byName.url) }
+        later(1.0) {
+            let names = Set(finder.items.map(\.name))
+            check(names == ["report.txt", "other.txt", "deep.txt"], "find by name walks the sub-folders and skips hidden files: \(names.sorted())")
+            check(finder.isVirtual && finder.progress == nil, "the search is a list and has finished")
+            check((finder.statusMessage ?? "").contains("3 items"), "the status line tells how many were found: \(finder.statusMessage ?? "nil")")
+            var byContent = FindQuery(scope: dirC)
+            byContent.content = "NEEDLE"
+            byContent.scanFolders = true
+            finder.navigate(to: byContent.url)
+        }
+        later(1.0) {
+            let names = Set(finder.items.map(\.name))
+            check(names == ["report.txt", "deep.txt"], "find by the text inside the files: \(names.sorted())")
+            var bySize = FindQuery(scope: dirC)
+            bySize.minBytes = 1000
+            bySize.scanFolders = true
+            finder.navigate(to: bySize.url)
+        }
+        later(1.0) {
+            check(finder.items.map(\.name) == ["photo.jpg"], "find by size: \(finder.items.map(\.name))")
+            finder.goBack()
+            check(finder.items.map(\.name).contains("deep.txt") == false && finder.virtualPlace == .find, "Back returns to the previous search")
+            finder.navigate(to: dirA)
+            check(!finder.isVirtual && finder.items.contains(where: { $0.name == "a.txt" }), "leaving a search shows the folder again")
+        }
+        // flat view: every file below the folder, no folders; the same command leaves it
+        var flatQuery = FindQuery(scope: dirA)
+        flatQuery.flat = true
+        check(FindQuery(url: flatQuery.url) == flatQuery && VirtualPlace.title(for: flatQuery.url) == "Flat view: A", "flat view survives the address round trip and is named after the folder")
+        later {
+            check(one.model.url.standardizedFileURL == dirA.standardizedFileURL, "flat view starts from the lister's own folder")
+            vc.toggleFlatView()
+        }
+        later(1.0) {
+            let names = Set(one.model.items.map(\.name))
+            check(names == ["a.txt", "b.jpg", "c.png", "one.bin", "two.bin"], "flat view lists the files of all sub-folders, no folders: \(names.sorted())")
+            check(vc.flatViewMenuTitle == "Leave Flat View", "the menu offers to leave the flat view")
+            vc.toggleFlatView()
+        }
+        later(0.5) {
+            check(!one.model.isVirtual && one.model.url.standardizedFileURL == dirA.standardizedFileURL, "the same command leaves the flat view for the folder")
+            check(one.model.items.contains(where: { $0.name == "big" }), "the folder is listed normally again")
+        }
+        later {
+            let form = NSHostingView(rootView: FindView(initial: FindQuery(scope: dirC), onFind: { _ in }, close: { }))
+            DebugLog.write("features info Find form needs \(form.fittingSize)")
+            check(form.fittingSize.height <= 440 && form.fittingSize.width <= 500, "the Find form fits its sheet (\(form.fittingSize))")
+        }
+        // find with Spotlight: the query must at least start and answer (the index may know nothing about a temp folder)
+        var spotlightAnswered = false
+        var spotlightQuery = FindQuery(scope: dirC)
+        spotlightQuery.name = "*.txt"
+        later {
+            DebugLog.write("features info home volume indexed: \(SpotlightIndex.isIndexed(URL(fileURLWithPath: NSHomeDirectory())))")
+            FindEngine.run(spotlightQuery, showHidden: false, cancel: CancelToken(), batch: { _ in }, done: { outcome in
+                spotlightAnswered = true
+                DebugLog.write("features info spotlight used: \(outcome.usedSpotlight)")
+            })
+        }
+        later(6.0) { check(spotlightAnswered, "a one-condition Spotlight query starts and answers without an exception") }
         // compare
         later {
             manager.toggleRole(.source, for: one)
@@ -542,13 +686,13 @@ enum SelfTestFeatures {
             let menu = NSMenu()
             if let textItem = one.model.items.first(where: { $0.name == "a.txt" }) {
                 vc.populate(menu, selection: [textItem])
-                let titles = menu.items.map(\.title)
+                let titles = menu.flatTitles
                 check(titles.contains("Open With") && titles.contains("Make Alias") && titles.contains("Make Symbolic Link"), "file menu has Open With and link entries")
                 let openWith = menu.items.first { $0.title == "Open With" }?.submenu?.items.map(\.title) ?? []
                 check(openWith.contains("Other…") && openWith.count > 1, "Open With lists applications and 'Other…': \(openWith.prefix(4))")
             } else { check(false, "a.txt row for the menu test") }
             vc.populate(menu, selection: [])
-            check(menu.items.map(\.title).contains("Select by Attributes…"), "empty-area menu offers Select by Attributes")
+            check(menu.flatTitles.contains("Select by Attributes…"), "empty-area menu offers Select by Attributes")
         }
         // configurable columns
         let originalColumns = ColumnSettings.visible.filter { $0 != .name }
@@ -960,15 +1104,26 @@ enum SelfTestFeatures {
             check(at("Open") != nil && at("Open With") != nil && at("Open")! < at("Open With")!, "menu: Open, then Open With: \(layout)")
             let trash = menu.items.first { $0.title == "Move to Trash" }
             check(trash?.image != nil, "Move to Trash has an icon")
-            check(at("Move to Trash")! < at("Info")! && at("Info")! < at("Rename…")! && at("Rename…")! < at("Duplicate")! && at("Duplicate")! < at("Make Alias")! && at("Make Alias")! < at("Quick Look")!,
-                  "menu order follows Finder: Trash, Info, Rename, Duplicate, Make Alias, Quick Look")
-            check(layout.contains { $0.hasPrefix("Compress") } && layout.contains("Copy"), "menu has Compress and Copy")
+            check(at("Move to Trash")! < at("Info")! && at("Info")! < at("Rename…")! && at("Rename…")! < at("Quick Look")! && at("Quick Look")! < at("Copy")!,
+                  "menu order follows Finder: Trash, Info, Rename, Quick Look, Copy")
+            let details = menu.items.first { $0.title == "Details" }?.submenu?.items.map(\.title) ?? []
+            let makeMenu = menu.items.first { $0.title == "Make" }?.submenu?.items.map(\.title) ?? []
+            check(details.contains("Attributes…") && details.contains("Tags…"), "Details holds Attributes and Tags: \(details)")
+            check(makeMenu.contains("Duplicate") && makeMenu.contains("Make Alias") && makeMenu.contains("Make Symbolic Link")
+                  && makeMenu.contains { $0.hasPrefix("Compress") } && makeMenu.contains("Copy As…") && makeMenu.contains("Move As…"), "Make holds Compress, Duplicate, links and Copy/Move As: \(makeMenu)")
+            check(!layout.contains("Duplicate") && !layout.contains("Attributes…") && !layout.contains("New Folder…"), "the rarer commands are not on the first level")
+            check(layout.count(where: { !$0.isEmpty && $0 != "—" }) <= 20, "the menu of a file is short: \(layout.filter { $0 != "—" }.count) entries")
+            check(layout.contains("Copy"), "menu has Copy")
             check(at("Share") != nil && at("Share")! > at("Copy")!, "menu has Share after the file commands")
             let tagRow = menu.items.first { $0.view is TagColorRowView }
-            check(tagRow != nil && at("Tags…") != nil, "menu has the colour dots and Tags…")
+            check(tagRow != nil && menu.flatTitles.contains("Tags…"), "menu has the colour dots and Tags…")
             check(at("Quick Actions") != nil && at("Services") != nil && at("Quick Actions")! < at("Services")!, "menu has Quick Actions and Services")
-            for ours in ["Attributes…", "Make Symbolic Link", "Copy Path", "Reveal in Finder", "Duplicate Lister", "Add Bookmark", "New Folder…", "Terminal Here", "Refresh"] {
-                check(layout.contains(ours), "our own menu item is kept: \(ours)")
+            let thisLister = menu.items.first { $0.title == "This Lister" }?.submenu?.items.map(\.title) ?? []
+            for ours in ["New Folder…", "Terminal Here", "Show Hidden Files", "Refresh", "Duplicate Lister", "Add Bookmark"] {
+                check(thisLister.contains(ours), "This Lister holds: \(ours)")
+            }
+            for ours in ["Copy Path", "Reveal in Finder"] {
+                check(layout.contains(ours), "our own menu item is kept on top: \(ours)")
             }
             check(menu.items.first { $0.title == "Quick Actions" }?.submenu?.items.contains { $0.title == "Rotate Left" } == false, "no image quick actions for a text file")
 
@@ -1180,7 +1335,7 @@ enum SelfTestFeatures {
             check(one.model.displayName == "NAS", "the label is the lister's name in menus")
             let menu = NSMenu()
             vc.populate(menu, selection: [])
-            let titles = menu.items.map(\.title)
+            let titles = menu.flatTitles
             check(titles.contains("Rename This Lister…") && !titles.contains("Name This Lister…"), "the folder menu offers Rename once a label exists")
             check(vc.makeTitleBarMenu().items.contains { $0.title == "Rename This Lister…" }, "the title-bar menu offers it too")
             check(ListerAction.nameLister.title == "Name lister", "the action can be put on a button or a key")

@@ -20,7 +20,7 @@ menu-bar app with an optional Dock icon.
 - **Source / destination listers** with Copy (F5), Move (F6), Extract, Compare, Swap.
 - **Drag and drop** between listers and to/from Finder (Finder rules: same volume moves, ⌥ copies, ⌘ moves).
 - **Configurable button bar**, **filetype actions** (what a double-click does), **bookmarks**, **saved layouts**.
-- Select by pattern, filter, folder sizes, info panel, rename, duplicate, Quick Look on Space, archive extraction
+- Select by pattern, filter, **find** (Spotlight or a folder scan), folder sizes, info panel, rename, duplicate, Quick Look on Space, archive extraction
   (zip, tar.\*, 7z, rar, gz, bz2 …).
 - **Right-click the title bar** for lister commands (duplicate, source/destination, close all …).
 - **Undo** for the last copy, move, duplicate or Trash (⌘Z) and an **operation log** with a retention limit.
@@ -100,8 +100,10 @@ Then:
 |---|---|
 | **Copy** (F5) | copies the selection of the source lister into the destination lister's folder |
 | **Move** (F6) | moves it there |
+| **Copy As** (⇧F5) / **Move As** (⇧F6) | the same, but first asks for a new name for every item, so the copy or move and the rename are one step; without a destination lister the copy goes into this folder |
 | **Extract** (⌘E) | unpacks selected archives into a new sub-folder of the destination folder |
 | **Compare** | selects, in both listers, items that are missing on the other side or differ (size / newer) |
+| **Synchronize…** | compares the two folders including everything below them and shows a list of what would be copied (or sent to the Trash); you tick what to do |
 | **Swap** | exchanges the roles |
 | **Open in Destination** | context menu: shows the selected folder in the destination lister |
 
@@ -115,6 +117,165 @@ same volume is a plain rename.
 Trash), **Replace If Newer**, **Keep Both** ("name 2.ext"), **Skip**, **Cancel**, and **Merge** when a folder
 meets a folder (its contents are then resolved item by item). Tick **Apply to all remaining conflicts** to stop
 being asked.
+
+**Synchronize** works on the folders of the source and destination listers (both local). *Update the destination from
+the source* copies new files and files that are newer in the source (an option also replaces files that are newer in the
+destination, another moves files that exist only in the destination to the Trash); *Both ways* lets the newer file win in
+each direction and copies one-sided files across. Nothing happens before you press **Synchronize**: the list shows
+every planned step with a tick box. A replaced file goes to the Trash first, copies keep their dates (so the next
+comparison is clean), and the operation is in the log and can be undone with ⌘Z (files moved to the Trash by the
+*only in the destination* option are not part of Undo; take them out of the Trash). Empty folders are not copied.
+
+**Lock Role** (title-bar menu) pins a lister as source or destination: no other lister can take the role, it
+cannot be cleared or swapped away until you unlock it.
+
+### Keyboard
+
+| Key | Action |
+|---|---|
+| Space | Quick Look (arrows move through files, Space closes) |
+| Return, ⌘↓ | open file / enter folder |
+| Backspace, ⌘↑ | parent folder |
+| ⌘⌫ | move selection to the Trash |
+| F2 | rename (with several items selected: batch rename) |
+| F5 / F6 | copy / move to the destination lister |
+| ⌘E | extract archives |
+| ⌘I | info (size, dates, permissions, owner) |
+| ⌥⌘I | edit attributes (permissions, dates, hidden, tags, comment) |
+| ⌘L | type a path instead of using the breadcrumb |
+| ⌘D | duplicate the selected files (`name copy.ext`) |
+| ⌥⌘D | **duplicate this lister** (same folder, size, sort, filter) |
+| ⌘F | filter by pattern |
+| `+` / `-` / `*` | select by pattern / deselect by pattern / invert selection |
+| ⌘A | select all |
+| ⌘B | bookmark this folder |
+| ⌘⇧. | show or hide hidden files |
+| ⌘⇧L | bring all listers to the front |
+| ⌘W | close the lister |
+| ⌘Z | undo the last copy, move, duplicate or Move to Trash (this session) |
+| Tab / ⇧Tab | move to the next / previous lister |
+
+On many laptops F-keys need **fn**.
+
+### Menus
+
+- **Right-click the file list** – laid out like Finder's menu; the commands you use less often are in submenus so the
+  menu stays short. On top: *Open*, *Open With*, *Extract*, Copy/Move to the destination lister, **Move to Trash**
+  (with its icon), *Info*, *Rename*, *Quick Look*, *Copy* (puts the files on the pasteboard), *Copy Path*, then the
+  submenu **Details** (*Attributes…*, *Calculate Folder Size*, *Tags…*) and **Make** (**Compress** – `name.zip`, or
+  `Archive.zip` for several items –, *Duplicate*, *Make Alias*, *Make Symbolic Link*, *Copy As…*, *Move As…*), then
+  **Share** (the system sharing menu), a row of **coloured tag dots**, **Quick Actions** (rotate, create PDF and
+  convert for images, plus your Automator Quick Action workflows from `~/Library/Services`) and **Services**
+  (whatever the installed services offer for the selected files, e.g. “New iTerm2 Tab Here”), *Open in Destination*,
+  *Reveal in Finder*, and **This Lister** (*New Folder…*, *Terminal Here*, *Show Hidden Files*, *Refresh*,
+  *Duplicate Lister*, *Name This Lister…*, *Add Bookmark*). Clicking empty space gives the folder commands: the
+  submenu **Select** (by pattern, by attributes, all, invert), Filter, Find, Flat View, Calculate Folder Sizes,
+  Compare and Synchronize with the destination, New Folder, Terminal Here, Copy Folder Path, Hidden Files, Refresh, and
+  **This Lister**. Tag dots toggle a colour on every selected item (a dot with a check mark means all of them have
+  it); *Tags…* adds and removes any tags, coloured or not.
+- **Right-click the title bar** for lister commands (duplicate, source/destination, close all …).
+- **Undo** for the last copy, move, duplicate or Trash (⌘Z) and an **operation log** with a retention limit.
+- **Drag-select** (press on a row and drag down or up to select the rows in between), **Tab** between listers, a **history
+  menu** under right-click on Back.
+- **Left, right and middle click** of every button can do something different; a **button editor** and a
+  **title format** with `%` variables.
+- **Update check** — manual, or automatic if you agree (off by default).
+
+## Requirements
+
+macOS 13 Ventura or later. Apple Silicon or Intel (universal build; the Intel half has not been run on real
+Intel hardware).
+
+## Install
+
+1. Download `MacLister-<version>-macos.zip` from the **Releases** page of this repository. Optionally verify it
+   against the `.sha256` file: `shasum -a 256 -c MacLister-<version>-macos.zip.sha256`.
+2. Unzip it and drag **MacLister.app** into `/Applications`.
+3. **First launch.** The app is ad-hoc signed, not notarized, so Gatekeeper blocks it at first:
+   - Control-click the app → **Open** → **Open**, or
+   - System Settings → Privacy & Security → **Open Anyway** (macOS 15 and later), or
+   - run `xattr -dr com.apple.quarantine /Applications/MacLister.app` once.
+4. **Grant two permissions** in System Settings → Privacy & Security:
+   - **Accessibility** – to recognise what is under the cursor (empty desktop vs. icon, window, Dock).
+   - **Input Monitoring** – macOS requires it for the passive event tap that sees double-clicks.
+
+   Switch both on for MacLister, then **quit and start the app again** (menu-bar icon → *Quit MacLister*).
+5. Click the menu-bar icon. The first line should read **Desktop double-click: active**.
+6. *Recommended:* turn off the system's "reveal desktop" feature, otherwise the first click of a double-click
+   slides all windows aside and the new lister can end up partly off-screen.
+   System Settings → Desktop & Dock → **Click wallpaper to reveal desktop** → *Only in Stage Manager*, or:
+
+   ```bash
+   defaults write com.apple.WindowManager EnableStandardClickToShowDesktop -bool false
+   ```
+
+7. *Optional:* start at login via System Settings → General → Login Items → **+** → MacLister.
+
+**Uninstall:** quit from the menu-bar icon, delete the app, remove `~/Library/Application Support/MacLister`,
+run `defaults delete com.example.MacLister`, and remove MacLister from the two Privacy lists.
+
+## Using MacLister
+
+### Opening a lister
+
+- **Double-click an empty spot on the desktop.** Nothing happens on icons, windows, the menu bar or the Dock,
+  and clicks with ⌘/⇧/⌥/⌃ held are ignored. Prefer the mouse wheel? **Settings → General → Open a lister with** lets a
+  **single click of the middle button** open a lister instead of, or in addition to, the double-click.
+- Or use the menu-bar icon → **New Lister**.
+- By default the window's top-left corner sits on the click; **Settings → General → Center the lister on the pointer**
+  centres it instead. A lister opens on your home folder (see *startDirectory* below).
+
+### Anatomy of a lister
+
+- **Path bar:** *Back*, *Parent*, the **Go** menu (places, volumes, bookmarks, recent folders), the path as a
+  clickable **breadcrumb** (click a folder to jump there; click the empty part of the bar or press **⌘L** to
+  type a path instead, `~` works) and the **SRC** / **DST** badges.
+- **File list:** icon, name, size, modified date. Click a header to sort; folders come first by default, or switch *Keep folders above files when sorting* off (Settings → Listers, or the column header menu) to sort folders and files together.
+  Double-click or Return opens a file or enters a folder. **Right-click the column header** to choose the
+  columns: Size, Modified, Created, Kind, Extension, Permissions, Tags, Comment.
+- **The list refreshes itself** when files are added, removed or changed on disk (FSEvents), and the window
+  subtitle shows the free space of the volume.
+- **Button bar** above the path bar, as in Ambient on MorphOS (see *Configuration*): icons only, the name is in
+  the tooltip. **Settings → Listers → Button bar** puts it above the path, below the path or at the bottom;
+  **Show Button Labels** adds text.
+- A thin **status line** at the bottom: item count, selection size, filter, progress and errors.
+- New listers open at 560 × 400 and remember the size you last gave a lister by dragging its edge.
+- The window subtitle shows the item count and the lister's role (SOURCE / DESTINATION).
+
+### Source and destination
+
+Mark one lister as **SRC** and another as **DST** with the badges in the path bar (click again to clear).
+Then:
+
+| Action | What it does |
+|---|---|
+| **Copy** (F5) | copies the selection of the source lister into the destination lister's folder |
+| **Move** (F6) | moves it there |
+| **Copy As** (⇧F5) / **Move As** (⇧F6) | the same, but first asks for a new name for every item, so the copy or move and the rename are one step; without a destination lister the copy goes into this folder |
+| **Extract** (⌘E) | unpacks selected archives into a new sub-folder of the destination folder |
+| **Compare** | selects, in both listers, items that are missing on the other side or differ (size / newer) |
+| **Synchronize…** | compares the two folders including everything below them and shows a list of what would be copied (or sent to the Trash); you tick what to do |
+| **Swap** | exchanges the roles |
+| **Open in Destination** | context menu: shows the selected folder in the destination lister |
+
+If no lister is marked SRC, the lister whose button you pressed is the source.
+
+**Progress and Cancel.** Copy and Move show a progress bar in the status line (item, bytes, current file) with a
+**Cancel** button; folders are processed file by file, so cancelling takes effect between files. A move on the
+same volume is a plain rename.
+
+**Conflicts** are asked one at a time, with the old and new size and date: **Replace** (the old item goes to the
+Trash), **Replace If Newer**, **Keep Both** ("name 2.ext"), **Skip**, **Cancel**, and **Merge** when a folder
+meets a folder (its contents are then resolved item by item). Tick **Apply to all remaining conflicts** to stop
+being asked.
+
+**Synchronize** works on the folders of the source and destination listers (both local). *Update the destination from
+the source* copies new files and files that are newer in the source (an option also replaces files that are newer in the
+destination, another moves files that exist only in the destination to the Trash); *Both ways* lets the newer file win in
+each direction and copies one-sided files across. Nothing happens before you press **Synchronize**: the list shows
+every planned step with a tick box. A replaced file goes to the Trash first, copies keep their dates (so the next
+comparison is clean), and the operation is in the log and can be undone with ⌘Z (files moved to the Trash by the
+*only in the destination* option are not part of Undo; take them out of the Trash). Empty folders are not copied.
 
 **Lock Role** (title-bar menu) pins a lister as source or destination: no other lister can take the role, it
 cannot be cleared or swapped away until you unlock it.
@@ -217,7 +378,19 @@ bottom of the *Recent Folders* menu (**Go** and the context menu) and in the Ope
 - **Select by Attributes** (context menu on empty space, or a button): conditions on name, kind (images, audio,
   video, documents, archives, folders, files), size (larger / smaller than) and modified date (within the last N
   days / older than N days). Every condition you set must match.
-- **Sizes**: calculates the recursive size of the selected folders (or all folders) into the Size column.
+- **Sizes**: calculates the recursive size of the selected folders (or all folders) into the Size column. It shows
+  progress with a Cancel button, and ends with the total and the space on disk. Also in the context menu of selected folders.
+- **Find** (⇧⌘F, context menu on empty space, title-bar menu, or a button): searches the folder and everything below
+  it by name (wildcards), by the **text inside the files**, kind, size and modified date. The results are a list in the
+  same lister, like Recents: the *Where* column shows each folder, and Copy, Move, Delete, Info and Quick Look work on
+  them; Back returns to the folder you came from. Results appear while the search runs, and the status line has
+  a Cancel button. **Spotlight does the search** when the folder is on a volume it indexes, so MacLister keeps no index
+  of its own and a search over the whole home folder is fast. Network volumes, volumes without an index and
+  **Search the folders directly** in the window use a plain walk through the folders instead (slower, finds hidden and
+  unindexed files too; text is searched in files up to 16 MB). Shows the first 5000 matches.
+- **Flat View** (context menu on empty space, title-bar menu, or the `flatView` button action): lists every file below
+  the folder, in all sub-folders, as one list (no folders; bundles such as `.app` stay). Sort, filter, select and copy
+  as usual, *Where* shows the folder of each file. The same command (*Leave Flat View*) or Back returns to the folder.
 
 ### Renaming, attributes, links
 
@@ -589,7 +762,7 @@ Layout: `Sources/MacLister/` – `DesktopDoubleClickMonitor` (event tap), `Deskt
 
 ## Known limitations
 
-No file search, tree view or hex viewer, and archives cannot be browsed like folders (they are extracted).
+No tree view or hex viewer, no search on servers, and archives cannot be browsed like folders (they are extracted).
 Servers support browsing, copying and the basic folder operations only (see *Servers*).
 Dragging uses Finder conventions; spring-loaded folders are not implemented. Password-protected archives report
 an error.

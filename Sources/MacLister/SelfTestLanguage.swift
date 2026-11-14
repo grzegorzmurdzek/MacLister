@@ -41,7 +41,7 @@ enum SelfTestLanguage {
             guard let vc = one.listerViewController else { check(false, "lister available"); finish(root); return }
             let menu = NSMenu()
             vc.populate(menu, selection: one.model.items.filter { $0.name == "a.txt" })
-            let titles = menu.items.map(\.title)
+            let titles = menu.flatTitles
             for expected in ["Otwórz", "Przenieś do Kosza", "Informacje", "Zmień nazwę…", "Duplikuj".replacingOccurrences(of: "Duplikuj", with: "Powiel"), "Utwórz alias", "Szybki podgląd", "Kopiuj", "Udostępnij", "Tagi…", "Szybkie czynności", "Usługi", "Pokaż w Finderze", "Dodaj zakładkę", "Odśwież"] {
                 check(titles.contains(expected), "context menu has “\(expected)”")
             }

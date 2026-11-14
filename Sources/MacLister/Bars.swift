@@ -96,7 +96,7 @@ struct PathBarView: View {
 extension PathBarView {
     /// "Documents — ~/Documents" for the Back menu.
     static func historyTitle(_ url: URL) -> String {
-        if let place = VirtualPlace.place(for: url) { return place.title }
+        if let title = VirtualPlace.title(for: url) { return title }
         if RemoteURL.isRemote(url) { return RemoteURL.serverLabel(of: url) + RemoteURL.path(of: url) }
         let name = FileManager.default.displayName(atPath: url.path)
         return url.path == "/" ? name : "\(name) — \(PathText.short(url.path))"

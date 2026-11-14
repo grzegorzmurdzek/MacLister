@@ -11,8 +11,10 @@
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
     <key>CFBundleName</key><string>MacLister</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>1.4.3</string>
-    <key>CFBundleVersion</key><string>10</string>
+    <key>CFBundleShortVersionString</key><string>1.5.0</string>
+    <key>CFBundleVersion</key><string>11</string>
+    <key>MacListerReleaseDate</key><string>2026-11-14</string>
+    <key>NSHumanReadableCopyright</key><string>© 2026 Grzegorz Murdzek. MIT License.</string>
     <key>MacListerUpdateFeed</key>
     <string>https://api.github.com/repos/grzegorzmurdzek/MacLister/releases/latest</string>
     <key>LSMinimumSystemVersion</key><string>13.0</string>

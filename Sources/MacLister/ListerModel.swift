@@ -93,7 +93,7 @@ final class ListerModel: ObservableObject {
 
     /// What the path field shows: a plain path for local folders, the URL for servers.
     static func displayPath(_ url: URL) -> String {
-        if let place = VirtualPlace.place(for: url) { return place.title }
+        if let title = VirtualPlace.title(for: url) { return title }
         return url.isFileURL ? url.path : (RemoteURL.normalized(url).absoluteString.removingPercentEncoding ?? url.absoluteString)
     }
 
@@ -112,19 +112,28 @@ final class ListerModel: ObservableObject {
         }
     }
 
-    deinit { if let sharedObserver { NotificationCenter.default.removeObserver(sharedObserver) } }
+    /// The running search of a Find list, if any.
+    private var findToken: CancelToken?
+
+    func cancelFind() {
+        findToken?.cancel()
+        findToken = nil
+        if progress != nil, virtualPlace == .find { progress = nil }
+    }
+
+    deinit { findToken?.cancel(); if let sharedObserver { NotificationCenter.default.removeObserver(sharedObserver) } }
 
     // MARK: Recents and Shared
 
-    private func navigateVirtual(_ place: VirtualPlace, recordHistory: Bool) -> Bool {
-        if place.url != url, recordHistory { backStack.append(url) }
+    private func navigateVirtual(_ place: VirtualPlace, to target: URL, recordHistory: Bool) -> Bool {
+        if target != url, recordHistory { backStack.append(url) }
         if sortBeforeVirtual == nil { sortBeforeVirtual = (sortKey, ascending) }
         sortKey = place == .recents ? .date : .name
         ascending = place != .recents
         watcher?.stop()
         watcher = nil
         sizeCache = [:]
-        url = place.url
+        url = target
         items = []
         errorMessage = nil
         loadVirtual()
@@ -163,12 +172,55 @@ final class ListerModel: ObservableObject {
                 self.items = shown(made)
                 if self.items.isEmpty { self.flash(tr("No recently opened files found")) }
             }
+        case .find:
+            loadFind(generation: generation, shown: shown)
         case .shared:
             SharedPlaces.shared.start()
             items = shown(SharedPlaces.shared.rows())
             if items.isEmpty { statusMessage = tr("Searching the network…") }
             else if statusMessage == tr("Searching the network…") { statusMessage = nil }
         }
+    }
+
+    /// Runs the search of a Find list; the rows appear while it works, and Cancel (in the status line) stops it.
+    private func loadFind(generation: Int, shown: @escaping ([FileItem]) -> [FileItem]) {
+        cancelFind()
+        guard let query = FindQuery(url: url) else {
+            items = []
+            flash(tr("This search cannot be repeated"))
+            return
+        }
+        let token = CancelToken()
+        findToken = token
+        items = []
+        statusMessage = nil
+        let columns = ColumnSettings.visible
+        let keys = Self.itemKeys(columns)
+        func progressText(_ count: Int) -> String { count == 0 ? tr("Searching…") : tr("Searching… %d found", count) }
+        progress = TransferStatus(text: progressText(0), fraction: nil, cancel: { [weak self] in self?.cancelFind() })
+        FindEngine.run(query, showHidden: showHidden, cancel: token, batch: { [weak self] urls in
+            guard let self, generation == self.loadGeneration, self.virtualPlace == .find else { return }
+            let made = urls.map { self.makeItem(for: $0, keys: keys, columns: columns) }
+            self.items = shown(self.items + made)
+            if self.progress != nil {
+                self.progress = TransferStatus(text: progressText(self.items.count), fraction: nil, cancel: { [weak self] in self?.cancelFind() })
+            }
+        }, done: { [weak self] outcome in
+            guard let self, generation == self.loadGeneration, self.virtualPlace == .find else { return }
+            self.progress = nil
+            self.findToken = nil
+            let count = self.items.count
+            if outcome.cancelled {
+                self.flash(tr("Search stopped: %d found so far", count))
+            } else if count == 0 {
+                self.flash(outcome.usedSpotlight ? tr("Nothing found (Spotlight). For folders it does not index, search the folders directly.")
+                                                 : tr("Nothing found"), seconds: 10)
+            } else {
+                let how = outcome.usedSpotlight ? tr("Spotlight") : tr("folder scan")
+                let more = outcome.truncated ? " · " + tr("only the first %d are shown", FindEngine.limit) : ""
+                self.flash(trCount("%d items", count) + " · " + how + more, seconds: 15)
+            }
+        })
     }
 
     // MARK: Auto-refresh
@@ -198,7 +250,8 @@ final class ListerModel: ObservableObject {
 
     @discardableResult
     func navigate(to target: URL, selecting: URL? = nil, recordHistory: Bool = true) -> Bool {
-        if let place = VirtualPlace.place(for: target) { return navigateVirtual(place, recordHistory: recordHistory) }
+        cancelFind()
+        if let place = VirtualPlace.place(for: target) { return navigateVirtual(place, to: target, recordHistory: recordHistory) }
         if RemoteURL.isRemote(target) { return navigateRemote(RemoteURL.normalized(target), selecting: selecting, recordHistory: recordHistory) }
         let target = target.standardizedFileURL
         if target != url { sizeCache = [:] }
@@ -363,7 +416,7 @@ final class ListerModel: ObservableObject {
     /// How this lister is called in menus: its label, else the folder's name.
     var displayName: String {
         if !label.isEmpty { return label }
-        if let place = virtualPlace { return place.title }
+        if let title = VirtualPlace.title(for: url), virtualPlace != nil { return title }
         return url.isFileURL ? FileManager.default.displayName(atPath: url.path) : RemoteURL.serverLabel(of: url)
     }
 

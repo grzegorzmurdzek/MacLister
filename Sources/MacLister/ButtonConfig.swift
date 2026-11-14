@@ -5,7 +5,7 @@ enum ListerAction: String, Codable, CaseIterable, Identifiable {
     case newFolder, terminalHere, delete, parent, back, refresh
     case revealInFinder, open, newLister, toggleHidden
     /// Source → destination lister (see the SRC / DST toggles in the path bar).
-    case copy, move, setSource, setDestination, swapSourceDestination
+    case copy, move, copyAs, moveAs, setSource, setDestination, swapSourceDestination
     /// Unpacks the selected archives (zip, tar.*, tgz, 7z, rar, gz, bz2 …) into a sub-folder of the
     /// destination lister's folder, or of the current folder when no destination is set.
     case extract
@@ -15,6 +15,12 @@ enum ListerAction: String, Codable, CaseIterable, Identifiable {
     case duplicateLister, duplicateFile
     case selectPattern, deselectPattern, selectAll, selectNone, invertSelection
     case filter, clearFilter, calcSizes, compare, info
+    /// Compares the source and destination folders and copies what differs (see the preview first).
+    case synchronize
+    /// Searches the folder and everything below it (Spotlight, or the folders themselves); the results are a list.
+    case find
+    /// Shows every file below this folder as one list; the same action leaves it again.
+    case flatView
     case showInDestination, destinationHere, addBookmark
     case makeAlias, makeSymlink, selectByAttributes, toggleRoleLock, batchRename, attributes, connectToServer
     /// Gives this lister a name and colour of your own.
@@ -163,5 +169,47 @@ final class ButtonStore: ObservableObject {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         return try encoder.encode(buttons)
+    }
+}
+
+extension ListerAction {
+    /// The icon (an SF Symbol: one of the icons that ship with macOS) a button gets when you choose this action.
+    var suggestedSymbol: String {
+        switch self {
+        case .newFolder: return "folder.fill.badge.plus"
+        case .terminalHere, .shell: return "terminal.fill"
+        case .delete: return "trash.fill"
+        case .parent: return "arrow.up.circle.fill"
+        case .back: return "chevron.backward.circle.fill"
+        case .refresh: return "arrow.clockwise.circle.fill"
+        case .revealInFinder: return "magnifyingglass.circle.fill"
+        case .open: return "arrow.up.forward.app.fill"
+        case .newLister, .duplicateLister: return "macwindow.badge.plus"
+        case .toggleHidden: return "eye.circle.fill"
+        case .copy, .copyAs, .duplicateFile: return "doc.on.doc.fill"
+        case .move, .moveAs: return "arrowshape.turn.up.right.fill"
+        case .setSource, .setDestination, .swapSourceDestination, .showInDestination, .destinationHere: return "arrow.left.arrow.right.circle.fill"
+        case .extract: return "archivebox.fill"
+        case .bringAllToFront, .gatherListers: return "rectangle.on.rectangle"
+        case .selectPattern, .deselectPattern, .selectAll, .selectNone, .invertSelection, .selectByAttributes: return "checkmark.circle.fill"
+        case .filter, .clearFilter: return "line.3.horizontal.decrease.circle.fill"
+        case .calcSizes: return "externaldrive.fill"
+        case .compare: return "arrow.left.arrow.right.circle.fill"
+        case .synchronize: return "arrow.triangle.2.circlepath.circle.fill"
+        case .info: return "info.circle.fill"
+        case .find: return "magnifyingglass"
+        case .flatView: return "list.bullet.indent"
+        case .addBookmark: return "bookmark.fill"
+        case .makeAlias, .makeSymlink: return "link.circle.fill"
+        case .toggleRoleLock: return "lock.fill"
+        case .batchRename, .attributes, .nameLister: return "pencil.circle.fill"
+        case .connectToServer, .showShared: return "network"
+        case .showRecents: return "clock.fill"
+        case .undo: return "arrow.uturn.backward.circle.fill"
+        case .showLog: return "list.bullet.rectangle.fill"
+        case .nextLister: return "arrow.right.circle.fill"
+        case .previousLister: return "arrow.left.circle.fill"
+        case .separator: return "minus"
+        }
     }
 }

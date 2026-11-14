@@ -176,6 +176,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add(OperationLog.shared.undoMenuTitle, #selector(undoFromMenu), enabled: OperationLog.shared.lastUndoable != nil)
         add(tr("Operation Log…"), #selector(showOperationLog))
         add(tr("Settings…"), #selector(showSettings))
+        add(tr("About MacLister"), #selector(showAbout))
         return menu
     }
 
@@ -207,6 +208,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let menu = NSMenu()
         menu.delegate = self
+
+        let about = menu.addItem(withTitle: tr("About MacLister"), action: #selector(showAbout), keyEquivalent: "")
+        about.target = self
+        let versionLine = menu.addItem(withTitle: tr("Version %@", AboutInfo.versionText), action: nil, keyEquivalent: "")
+        versionLine.isEnabled = false
+        menu.addItem(.separator())
 
         let newLister = menu.addItem(withTitle: tr("New Lister"), action: #selector(newLister), keyEquivalent: "")
         newLister.target = self
@@ -408,6 +415,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
     @objc private func showOperationLog() { OperationLogWindow.show() }
+    @objc func showAbout() { AboutWindow.show() }
+
     @objc private func checkForUpdates() { UpdateManager.shared.check(userInitiated: true) }
 
     /// While anything copies, moves, downloads or deletes, the menu-bar icon becomes a progress ring with a
@@ -461,6 +470,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let appMenuItem = NSMenuItem()
         main.addItem(appMenuItem)
         let appMenu = NSMenu()
+        let about = appMenu.addItem(withTitle: tr("About MacLister"), action: #selector(showAbout), keyEquivalent: "")
+        about.target = self
+        appMenu.addItem(.separator())
         let prefs = appMenu.addItem(withTitle: tr("Settings…"), action: #selector(showSettings), keyEquivalent: ",")
         prefs.target = self
         appMenu.addItem(.separator())

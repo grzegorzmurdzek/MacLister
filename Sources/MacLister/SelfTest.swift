@@ -33,6 +33,16 @@ enum SelfTest {
         check(titles.allSatisfy(menuTitles.contains) && menuTitles.contains("Bring All to Front") && menuTitles.contains("Close All Listers"),
               "status-bar menu shows the listers plus Bring All to Front / Close All: \(menuTitles.prefix(8))")
 
+        check(menuTitles.first == "About MacLister" && menuTitles.contains { $0.hasPrefix("Version ") }, "status-bar menu starts with About and the version: \(menuTitles.prefix(3))")
+        check(appDelegate.makeDockMenu().items.map(\.title).contains("About MacLister"), "the Dock menu has About")
+        AboutWindow.show()
+        check(AboutWindow.isOpen, "the About window opens")
+        let aboutDate = AboutInfo.parse("2026-11-14")
+        check(aboutDate != nil && AboutInfo.dateText(aboutDate!, language: "en") == "November 14, 2026" && AboutInfo.dateText(aboutDate!, language: "pl") == "14 listopada 2026",
+              "release date is shown in the interface language: \(aboutDate.map { AboutInfo.dateText($0, language: "pl") } ?? "nil")")
+        check(AboutInfo.parse("soon") == nil && AboutInfo.author == "Grzegorz Murdzek", "the release date must parse; the author is named")
+        NSApp.windows.filter { $0.title == "About MacLister" }.forEach { $0.close() }
+
         // 1. Roles
         manager.toggleRole(.source, for: one)
         manager.toggleRole(.destination, for: two)
@@ -115,15 +125,15 @@ enum SelfTest {
                         }
                         let menu = NSMenu()
                         vcOne.populate(menu, selection: [zipItem])
-                        let titles = menu.items.map(\.title)
+                        let titles = menu.flatTitles
                         check(["Open", "Quick Look", "Extract", "Rename…", "Reveal in Finder", "Copy Path", "Move to Trash", "New Folder…"].allSatisfy(titles.contains),
                               "archive menu has Open, Quick Look, Extract, Rename, Reveal, Copy Path, Trash, New Folder: \(titles)")
                         check(titles.contains { $0.hasPrefix("Copy to “dst”") } && titles.contains { $0.hasPrefix("Move to “dst”") },
                               "menu offers Copy/Move to the destination lister")
                         vcOne.populate(menu, selection: [fileItem])
-                        check(!menu.items.map(\.title).contains("Extract"), "plain file menu has no Extract")
+                        check(!menu.flatTitles.contains("Extract"), "plain file menu has no Extract")
                         vcOne.populate(menu, selection: [])
-                        let background = menu.items.map(\.title)
+                        let background = menu.flatTitles
                         check(background.contains("New Folder…") && !background.contains("Move to Trash") && background.contains("Copy Folder Path"),
                               "empty-area menu has folder commands only")
 
@@ -168,5 +178,12 @@ enum SelfTest {
         try? FileManager.default.removeItem(at: root)
         DebugLog.write("selftest \(failures == 0 ? "PASS" : "FAILED (\(failures))")")
         NSApp.terminate(nil)
+    }
+}
+
+extension NSMenu {
+    /// Titles of all items, submenus included (the self-tests look for commands wherever they live).
+    var flatTitles: [String] {
+        items.flatMap { item in [item.title] + (item.submenu?.flatTitles ?? []) }
     }
 }
