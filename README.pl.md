@@ -67,8 +67,11 @@ wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list 
   pole ścieżki (wpisz ścieżkę, `~` działa, Return) oraz znaczki **SRC** / **DST**.
 - **Lista plików:** ikona, nazwa, rozmiar, data modyfikacji. Kliknięcie nagłówka sortuje; foldery zawsze są
   na początku. Dwuklik lub Return otwiera plik albo wchodzi do folderu.
-- **Pasek przycisków** na dole (zob. *Konfiguracja*) i linia stanu: liczba elementów, rozmiar zaznaczenia, filtr,
-  postęp i błędy.
+- **Pasek przycisków** nad paskiem ścieżki, jak w Ambiencie na MorphOS (zob. *Konfiguracja*): same ikony, nazwa
+  w podpowiedzi. Ikona w pasku menu → **Button Bar** ustawia go nad ścieżką, pod ścieżką albo na dole;
+  **Show Button Labels** dodaje napisy.
+- Cienka **linia stanu** na dole: liczba elementów, rozmiar zaznaczenia, filtr, postęp i błędy.
+- Nowe listery mają 560 × 400 i pamiętają rozmiar, który ostatnio nadałeś listerowi przeciągając krawędź.
 - Podtytuł okna pokazuje liczbę elementów i rolę listera (SOURCE / DESTINATION).
 
 ### Źródło i cel
@@ -176,7 +179,10 @@ Pliki w `~/Library/Application Support/MacLister/`:
 ### Przyciski
 
 Ikona w pasku menu → **Edit Buttons…**, potem **Reload Buttons** (odświeża wszystkie otwarte listery). **Reset
-Buttons to Defaults** nadpisuje plik ustawieniami domyślnymi (użyj po aktualizacji, żeby dostać nowe przyciski).
+Buttons to Defaults** nadpisuje plik ustawieniami domyślnymi (użyj po aktualizacji, żeby dostać nowe przyciski;
+działa też `MacLister --reset-buttons`). Domyślny zestaw jest krótki: New Folder, Terminal Here, Copy, Move,
+Extract, Compare, Info, Delete. Resztę (zaznaczanie, filtr, rozmiary, duplikowanie listera, swap …) masz w menu
+i skrótach albo dodajesz jako przycisk.
 
 ```json
 [
@@ -187,11 +193,12 @@ Buttons to Defaults** nadpisuje plik ustawieniami domyślnymi (użyj po aktualiz
 ]
 ```
 
-`symbol` to nazwa z SF Symbols (opcjonalnie), `help` to podpowiedź, `requiresSelection` (true/false) nadpisuje to,
-kiedy przycisk jest aktywny. **Akcje:** `newFolder terminalHere delete parent back refresh revealInFinder open
+`symbol` to nazwa z SF Symbols (opcjonalnie), `color` barwi ikonę (`blue green orange red purple teal pink yellow
+brown gray`; domyślnie neutralna), `help` to podpowiedź, `requiresSelection` (true/false) nadpisuje to, kiedy
+przycisk jest aktywny. `{ "title": "", "action": "separator" }` rysuje cienką kreskę między grupami. **Akcje:** `newFolder terminalHere delete parent back refresh revealInFinder open
 newLister toggleHidden copy move setSource setDestination swapSourceDestination extract bringAllToFront
 duplicateLister duplicateFile selectPattern deselectPattern selectAll selectNone invertSelection filter
-clearFilter calcSizes compare info showInDestination destinationHere addBookmark shell`.
+clearFilter calcSizes compare info showInDestination destinationHere addBookmark separator shell`.
 `shell` uruchamia `command` w `/bin/zsh` w bieżącym folderze; `$LISTER_DIR` to ten folder, a `$LISTER_SELECTION`
 to zaznaczone ścieżki, po jednej w wierszu.
 
@@ -206,6 +213,8 @@ Ustawiane przez `defaults write com.example.MacLister <klucz> <wartość>`:
 | `startDirectory` | `~` | folder otwierany dwuklikiem na pulpicie |
 | `terminalBundleID` | `com.apple.Terminal` | terminal dla *Terminal Here* (także: ikona w pasku menu → *Terminal App*) |
 | `restoreLayoutAtLaunch` | false | otwórz zapisany układ przy starcie |
+| `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` albo `bottom` |
+| `showButtonLabels` | false | napisy obok ikon przycisków |
 | `debugHitTest` | false | zapisuj decyzję dla każdego kliknięcia do `~/Library/Logs/MacLister.log` |
 
 ## Rozwiązywanie problemów

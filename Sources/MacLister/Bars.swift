@@ -1,5 +1,60 @@
 import SwiftUI
 
+/// Toolbar look: borderless icon, tinted when enabled, soft rounded highlight on hover and press.
+struct ToolbarIconButtonStyle: ButtonStyle {
+    var tint: Color = .primary
+    var iconSize: CGFloat = 16
+
+    func makeBody(configuration: Configuration) -> some View {
+        Face(configuration: configuration, tint: tint, iconSize: iconSize)
+    }
+
+    private struct Face: View {
+        let configuration: ButtonStyleConfiguration
+        let tint: Color
+        let iconSize: CGFloat
+        @Environment(\.isEnabled) private var isEnabled
+        @State private var hovering = false
+
+        var body: some View {
+            configuration.label
+                .font(.system(size: iconSize, weight: .medium))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(isEnabled ? tint : Color.secondary.opacity(0.45))
+                .padding(.horizontal, 6)
+                .frame(minWidth: 34, minHeight: 30)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.primary.opacity(configuration.isPressed ? 0.20 : (hovering && isEnabled ? 0.10 : 0)))
+                )
+                .contentShape(Rectangle())
+                .onHover { hovering = $0 }
+                .animation(.easeOut(duration: 0.12), value: hovering)
+        }
+    }
+}
+
+extension ListerButton {
+    /// Icon colour from the `color` field; neutral when unset or unknown.
+    var tint: Color {
+        switch color?.lowercased() {
+        case "blue": return .blue
+        case "green": return .green
+        case "orange": return .orange
+        case "red": return .red
+        case "purple": return .purple
+        case "teal": return .teal
+        case "pink": return .pink
+        case "yellow": return .yellow
+        case "brown": return .brown
+        case "gray", "grey": return .gray
+        default: return .primary
+        }
+    }
+
+    static let knownColors = ["blue", "green", "orange", "red", "purple", "teal", "pink", "yellow", "brown", "gray"]
+}
+
 /// Top bar: Back, Parent and an editable path field.
 struct PathBarView: View {
     @ObservedObject var model: ListerModel
@@ -12,10 +67,12 @@ struct PathBarView: View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Button { model.goBack() } label: { Image(systemName: "chevron.left") }
+                    .buttonStyle(ToolbarIconButtonStyle(iconSize: 14))
                     .disabled(!model.canGoBack)
                     .help("Back")
 
-                Button { model.goParent() } label: { Label("Parent", systemImage: "arrow.up") }
+                Button { model.goParent() } label: { Image(systemName: "arrow.up") }
+                    .buttonStyle(ToolbarIconButtonStyle(iconSize: 14))
                     .disabled(!model.canGoParent)
                     .help("Go to the enclosing folder")
 
@@ -37,7 +94,7 @@ struct PathBarView: View {
 
             Divider()
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(.bar)
         .onReceive(model.$url) { text = $0.path }
     }
 }
@@ -117,41 +174,64 @@ extension PathBarView {
     }
 }
 
-/// Bottom bar: configurable buttons (buttons.json) and a status line.
+/// Configurable buttons (buttons.json). Sits under the path bar (like Magellan's button banks) or at the
+/// bottom of the window; the divider follows the position.
 struct ButtonBarView: View {
     @ObservedObject var model: ListerModel
     @ObservedObject var store: ButtonStore
     var onAction: (ListerButton) -> Void
+    /// Off by default: icons only, the title is in the tooltip. Toggled from the menu-bar icon.
+    @AppStorage("showButtonLabels") private var showLabels = false
+    @AppStorage("buttonBarPosition") private var position = ButtonBarPosition.abovePath.rawValue
+    private var atBottom: Bool { position == ButtonBarPosition.bottom.rawValue }
 
     var body: some View {
         VStack(spacing: 0) {
-            Divider()
-            HStack(spacing: 12) {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(Array(store.buttons.enumerated()), id: \.offset) { _, button in
+            if atBottom { Divider() }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 2) {
+                    ForEach(Array(store.buttons.enumerated()), id: \.offset) { _, button in
+                        if button.action == .separator {
+                            Divider().frame(height: 18).padding(.horizontal, 4)
+                        } else {
                             Button { onAction(button) } label: { label(for: button) }
+                                .buttonStyle(ToolbarIconButtonStyle(tint: button.tint))
                                 .disabled(button.needsSelection && model.selectedURLs.isEmpty)
-                                .help(button.help ?? button.title)
+                                .help(button.help.map { "\(button.title) – \($0)" } ?? button.title)
                         }
                     }
                 }
-                status.layoutPriority(1)
+                .padding(.horizontal, 14)
+                .frame(maxHeight: .infinity)
             }
             .controlSize(.regular)
-            .padding(.horizontal, 14)
-            .frame(maxHeight: .infinity)
+            if !atBottom { Divider() }
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(.bar)
     }
 
     @ViewBuilder
     private func label(for button: ListerButton) -> some View {
         if let symbol = button.symbol, !symbol.isEmpty {
-            Label(button.title, systemImage: symbol)
+            if showLabels { Label(button.title, systemImage: symbol) } else { Image(systemName: symbol) }
         } else {
             Text(button.title)
         }
+    }
+}
+
+/// Thin status line at the bottom: item count, selection size, filter, progress and errors.
+struct StatusBarView: View {
+    @ObservedObject var model: ListerModel
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Divider()
+            HStack { status; Spacer(minLength: 0) }
+                .padding(.horizontal, 14)
+                .frame(maxHeight: .infinity)
+        }
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 
     @ViewBuilder

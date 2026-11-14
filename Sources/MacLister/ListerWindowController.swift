@@ -38,13 +38,13 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
             defer: false
         )
         window.isReleasedWhenClosed = false      // lifetime is owned by ListerManager
-        window.minSize = NSSize(width: 400, height: 260)
+        window.minSize = Settings.minListerSize
         super.init(window: window)
 
         window.delegate = self
         window.titleBarMenuProvider = { [weak self] in self?.listerViewController?.makeTitleBarMenu() }
         window.contentViewController = ListerViewController(model: model)
-        window.setContentSize(NSSize(width: 680, height: 440))
+        window.setContentSize(Settings.listerContentSize)
 
         model.$url
             .sink { [weak window] url in
@@ -83,6 +83,11 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         var title = path == name || path == "/" ? name : "\(name) — \(path)"
         if title.count > 64 { title = String(title.prefix(30)) + "…" + String(title.suffix(32)) }
         return title + role
+    }
+
+    /// New listers start with the size the user last chose.
+    func windowDidEndLiveResize(_ notification: Notification) {
+        if let size = window?.contentLayoutRect.size { Settings.listerContentSize = size }
     }
 
     func windowWillClose(_ notification: Notification) {

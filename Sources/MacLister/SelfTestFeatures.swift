@@ -215,6 +215,53 @@ enum SelfTestFeatures {
             check(asked == 1 && shown != nil, "right-click on the title bar opens the lister menu (asked \(asked)x)")
             window.titleBarMenuProvider = original
         }
+        // button bar position, default buttons, remembered window size
+        later {
+            let real = ListerButton.defaults.filter { $0.action != .separator }
+            check(real.count == 8 && real.allSatisfy { $0.symbol != nil }, "default button bar is short and every button has an icon (\(real.count))")
+            let missing = real.compactMap(\.symbol).filter { NSImage(systemSymbolName: $0, accessibilityDescription: nil) == nil }
+            check(missing.isEmpty, "every default icon exists as an SF Symbol on this macOS (missing: \(missing))")
+            check(real.allSatisfy { $0.color.map(ListerButton.knownColors.contains) ?? true }, "default icon colours are known names")
+            let decoded = (try? JSONDecoder().decode([ListerButton].self, from: JSONEncoder().encode(ListerButton.defaults))) ?? []
+            check(decoded == ListerButton.defaults, "button definitions survive a JSON round trip (colour and separator included)")
+            func geometry() -> (button: NSView, path: NSView, scroll: NSView)? {
+                guard let root = one.listerViewController?.view else { return nil }
+                root.layoutSubtreeIfNeeded()
+                guard let button = root.subviews.first(where: { abs($0.frame.height - 44) < 1 }),
+                      let path = root.subviews.first(where: { abs($0.frame.height - 48) < 1 }),
+                      let scroll = root.subviews.first(where: { $0 is NSScrollView }) else { return nil }
+                return (button, path, scroll)
+            }
+            let original = Settings.buttonBarPosition
+            // (non-flipped coordinates: a larger midY is higher on screen)
+            Settings.buttonBarPosition = .abovePath
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                if let g = geometry() {
+                    check(g.button.frame.midY > g.path.frame.midY && g.path.frame.midY > g.scroll.frame.midY, "above-path: buttons, then path, then list")
+                } else { check(false, "bars found (above path)") }
+                Settings.buttonBarPosition = .belowPath
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    if let g = geometry() {
+                        check(g.path.frame.midY > g.button.frame.midY && g.button.frame.midY > g.scroll.frame.midY, "below-path: path, then buttons, then list")
+                    } else { check(false, "bars found (below path)") }
+                    Settings.buttonBarPosition = .bottom
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        if let g = geometry() {
+                            check(g.path.frame.midY > g.scroll.frame.midY && g.scroll.frame.midY > g.button.frame.midY, "bottom: path, then list, then buttons")
+                        } else { check(false, "bars found (bottom)") }
+                        Settings.buttonBarPosition = original
+                    }
+                }
+            }
+            let savedSize = Settings.listerContentSize
+            Settings.listerContentSize = NSSize(width: 500, height: 333)
+            let probe = manager.openLister(directory: dirA, anchor: .cursor(NSPoint(x: 300, y: 300), centered: false))
+            let size = probe.window?.contentLayoutRect.size ?? .zero
+            check(abs(size.width - 500) < 2 && abs(size.height - 333) < 2, "new listers open with the remembered size (\(size))")
+            probe.close()
+            Settings.listerContentSize = savedSize
+        }
+        later(1.2) { }
         // terminal choice
         later {
             let original = Settings.terminalBundleID

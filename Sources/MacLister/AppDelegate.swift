@@ -8,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusLine: NSMenuItem!
     private var settingsItem: NSMenuItem!
     private var centerItem: NSMenuItem!
+    private var labelsItem: NSMenuItem!
+    private let buttonBarMenu = NSMenu(title: "Button Bar")
     private let terminalMenu = NSMenu(title: "Terminal App")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -26,6 +28,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         startMonitoringWhenTrusted()
         if Settings.restoreLayoutAtLaunch { LayoutStore.restore(into: ListerManager.shared) }
 
+        // `MacLister --reset-buttons` rewrites buttons.json with the defaults and quits (scripting aid).
+        if CommandLine.arguments.contains("--reset-buttons") {
+            ButtonStore.shared.resetToDefaults()
+            NSApp.terminate(nil)
+            return
+        }
         if CommandLine.arguments.contains("--selftest-features") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestFeatures.run() }
             return
@@ -85,6 +93,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         centerItem = menu.addItem(withTitle: "Center Lister on Cursor", action: #selector(toggleCenter), keyEquivalent: "")
         centerItem.target = self
+        labelsItem = menu.addItem(withTitle: "Show Button Labels", action: #selector(toggleButtonLabels), keyEquivalent: "")
+        labelsItem.target = self
+        let buttonBarItem = menu.addItem(withTitle: "Button Bar", action: nil, keyEquivalent: "")
+        buttonBarItem.submenu = buttonBarMenu
+        for position in ButtonBarPosition.allCases {
+            let item = buttonBarMenu.addItem(withTitle: position.menuTitle, action: #selector(chooseButtonBarPosition(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = position.rawValue
+        }
         let terminalItem = menu.addItem(withTitle: "Terminal App", action: nil, keyEquivalent: "")
         terminalItem.submenu = terminalMenu
         let duplicate = menu.addItem(withTitle: "Duplicate Frontmost Lister", action: #selector(duplicateFrontmost), keyEquivalent: "")
@@ -212,7 +229,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    @objc private func toggleButtonLabels() { Settings.showButtonLabels.toggle() }
+
+    @objc private func chooseButtonBarPosition(_ sender: NSMenuItem) {
+        if let raw = sender.representedObject as? String, let position = ButtonBarPosition(rawValue: raw) {
+            Settings.buttonBarPosition = position
+        }
+    }
+
     func menuWillOpen(_ menu: NSMenu) {
+        labelsItem?.state = Settings.showButtonLabels ? .on : .off
+        for item in buttonBarMenu.items {
+            item.state = (item.representedObject as? String) == Settings.buttonBarPosition.rawValue ? .on : .off
+        }
         rebuildTerminalMenu()
         rebuildListerItems(in: menu)
         switch monitor.mode {

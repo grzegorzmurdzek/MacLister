@@ -1,4 +1,16 @@
-import Foundation
+import AppKit
+
+enum ButtonBarPosition: String, CaseIterable {
+    case abovePath, belowPath, bottom
+
+    var menuTitle: String {
+        switch self {
+        case .abovePath: return "Above the Path (like Ambient)"
+        case .belowPath: return "Below the Path"
+        case .bottom:    return "At the Bottom"
+        }
+    }
+}
 
 /// Small preferences layer on top of UserDefaults.
 ///
@@ -16,6 +28,8 @@ enum Settings {
             "showStatusItem": true,
             "debugHitTest": false,
             "restoreLayoutAtLaunch": false,
+            "showButtonLabels": false,
+            "buttonBarPosition": ButtonBarPosition.abovePath.rawValue,
             "terminalBundleID": "com.apple.Terminal",
         ])
     }
@@ -28,6 +42,31 @@ enum Settings {
 
     /// Reopen the layout saved with "Save Layout" when the app starts.
     static var restoreLayoutAtLaunch: Bool { defaults.bool(forKey: "restoreLayoutAtLaunch") }
+
+    static var showButtonLabels: Bool {
+        get { defaults.bool(forKey: "showButtonLabels") }
+        set { defaults.set(newValue, forKey: "showButtonLabels") }
+    }
+
+    /// Where the button bar sits. Default: above the path bar, as in Ambient on MorphOS.
+    static var buttonBarPosition: ButtonBarPosition {
+        get { ButtonBarPosition(rawValue: defaults.string(forKey: "buttonBarPosition") ?? "") ?? .abovePath }
+        set { defaults.set(newValue.rawValue, forKey: "buttonBarPosition") }
+    }
+
+    static let minListerSize = NSSize(width: 360, height: 240)
+
+    /// Content size of new listers: the size the user last gave a lister by dragging its edge.
+    static var listerContentSize: NSSize {
+        get {
+            let w = defaults.double(forKey: "listerWidth"), h = defaults.double(forKey: "listerHeight")
+            return w >= minListerSize.width && h >= minListerSize.height ? NSSize(width: w, height: h) : NSSize(width: 560, height: 400)
+        }
+        set {
+            defaults.set(Double(newValue.width), forKey: "listerWidth")
+            defaults.set(Double(newValue.height), forKey: "listerHeight")
+        }
+    }
 
     static var showStatusItem: Bool { defaults.bool(forKey: "showStatusItem") }
     static var debugHitTest: Bool { defaults.bool(forKey: "debugHitTest") }

@@ -65,8 +65,11 @@ run `defaults delete com.example.MacLister`, and remove MacLister from the two P
   path field (type a path, `~` works, press Return) and the **SRC** / **DST** badges.
 - **File list:** icon, name, size, modified date. Click a header to sort; folders always come first.
   Double-click or Return opens a file or enters a folder.
-- **Button bar** at the bottom (see *Configuration*) and a status line: item count, selection size, filter,
-  progress and errors.
+- **Button bar** above the path bar, as in Ambient on MorphOS (see *Configuration*): icons only, the name is in
+  the tooltip. Menu-bar icon → **Button Bar** puts it above the path, below the path or at the bottom;
+  **Show Button Labels** adds text.
+- A thin **status line** at the bottom: item count, selection size, filter, progress and errors.
+- New listers open at 560 × 400 and remember the size you last gave a lister by dragging its edge.
 - The window subtitle shows the item count and the lister's role (SOURCE / DESTINATION).
 
 ### Source and destination
@@ -173,7 +176,10 @@ Files in `~/Library/Application Support/MacLister/`:
 ### Buttons
 
 Menu-bar icon → **Edit Buttons…**, then **Reload Buttons** (all open listers update). **Reset Buttons to
-Defaults** rewrites the file (use it after an update to get new default buttons).
+Defaults** rewrites the file (use it after an update to get new default buttons; also
+`MacLister --reset-buttons`). The default set is short: New Folder, Terminal Here, Copy, Move, Extract,
+Compare, Info, Delete. Everything else (select, filter, sizes, duplicate lister, swap …) is in the menus and
+shortcuts, or add it as a button.
 
 ```json
 [
@@ -184,11 +190,12 @@ Defaults** rewrites the file (use it after an update to get new default buttons)
 ]
 ```
 
-`symbol` is an SF Symbols name (optional), `help` the tooltip, `requiresSelection` (true/false) overrides when a
-button is enabled. **Actions:** `newFolder terminalHere delete parent back refresh revealInFinder open newLister
+`symbol` is an SF Symbols name (optional), `color` tints the icon (`blue green orange red purple teal pink yellow
+brown gray`; default neutral), `help` the tooltip, `requiresSelection` (true/false) overrides when a button is
+enabled. `{ "title": "", "action": "separator" }` draws a thin divider between groups. **Actions:** `newFolder terminalHere delete parent back refresh revealInFinder open newLister
 toggleHidden copy move setSource setDestination swapSourceDestination extract bringAllToFront duplicateLister
 duplicateFile selectPattern deselectPattern selectAll selectNone invertSelection filter clearFilter calcSizes
-compare info showInDestination destinationHere addBookmark shell`.
+compare info showInDestination destinationHere addBookmark separator shell`.
 `shell` runs `command` with `/bin/zsh` in the current folder; `$LISTER_DIR` is that folder and
 `$LISTER_SELECTION` the selected paths, one per line.
 
@@ -203,6 +210,8 @@ Set with `defaults write com.example.MacLister <key> <value>`:
 | `startDirectory` | `~` | folder a desktop double-click opens |
 | `terminalBundleID` | `com.apple.Terminal` | terminal used by *Terminal Here* (also: menu-bar icon → *Terminal App*) |
 | `restoreLayoutAtLaunch` | false | reopen the saved layout at start |
+| `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` or `bottom` |
+| `showButtonLabels` | false | text next to the button icons |
 | `debugHitTest` | false | log every click decision to `~/Library/Logs/MacLister.log` |
 
 ## Troubleshooting

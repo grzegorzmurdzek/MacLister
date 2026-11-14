@@ -28,6 +28,9 @@ final class ListerViewController: NSViewController {
     var rows: [FileItem] = []
     private var lastURL: URL?
     private var cancellables = Set<AnyCancellable>()
+    private var layouts: [ButtonBarPosition: [NSLayoutConstraint]] = [:]
+    private var currentPosition: ButtonBarPosition?
+    private var didFitColumns = false
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -58,44 +61,84 @@ final class ListerViewController: NSViewController {
         let buttonBar = NSHostingView(rootView: ButtonBarView(model: model, store: .shared) { [weak self] in
             self?.perform($0)
         })
+        let statusBar = NSHostingView(rootView: StatusBarView(model: model))
         // Fixed-height bars: don't let SwiftUI's ideal size drive the window size.
         pathBar.sizingOptions = []
         buttonBar.sizingOptions = []
+        statusBar.sizingOptions = []
 
         let scrollView = NSScrollView()
         scrollView.hasVerticalScroller = true
         scrollView.documentView = tableView
         configureTable()
 
-        for v in [pathBar, scrollView, buttonBar] as [NSView] {
+        for v in [pathBar, scrollView, buttonBar, statusBar] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(v)
+            v.leadingAnchor.constraint(equalTo: root.leadingAnchor).isActive = true
+            v.trailingAnchor.constraint(equalTo: root.trailingAnchor).isActive = true
         }
         NSLayoutConstraint.activate([
-            pathBar.topAnchor.constraint(equalTo: root.topAnchor),
-            pathBar.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            pathBar.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             pathBar.heightAnchor.constraint(equalToConstant: 48),
-
-            scrollView.topAnchor.constraint(equalTo: pathBar.bottomAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: buttonBar.topAnchor),
-
-            buttonBar.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            buttonBar.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            buttonBar.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-            buttonBar.heightAnchor.constraint(equalToConstant: 48),
+            buttonBar.heightAnchor.constraint(equalToConstant: 44),
+            statusBar.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            statusBar.heightAnchor.constraint(equalToConstant: 28),
         ])
+        // The vertical stacking of the bars is switchable.
+        layouts = [
+            .abovePath: [
+                buttonBar.topAnchor.constraint(equalTo: root.topAnchor),
+                pathBar.topAnchor.constraint(equalTo: buttonBar.bottomAnchor),
+                scrollView.topAnchor.constraint(equalTo: pathBar.bottomAnchor),
+                scrollView.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
+            ],
+            .belowPath: [
+                pathBar.topAnchor.constraint(equalTo: root.topAnchor),
+                buttonBar.topAnchor.constraint(equalTo: pathBar.bottomAnchor),
+                scrollView.topAnchor.constraint(equalTo: buttonBar.bottomAnchor),
+                scrollView.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
+            ],
+            .bottom: [
+                pathBar.topAnchor.constraint(equalTo: root.topAnchor),
+                scrollView.topAnchor.constraint(equalTo: pathBar.bottomAnchor),
+                buttonBar.topAnchor.constraint(equalTo: scrollView.bottomAnchor),
+                buttonBar.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
+            ],
+        ]
         view = root
+        applyButtonBarPosition()
+    }
+
+    /// Restacks the bars when the button-bar position setting changes.
+    private func applyButtonBarPosition() {
+        let position = Settings.buttonBarPosition
+        guard position != currentPosition else { return }
+        if let old = currentPosition { NSLayoutConstraint.deactivate(layouts[old] ?? []) }
+        NSLayoutConstraint.activate(layouts[position] ?? [])
+        currentPosition = position
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .sink { [weak self] _ in self?.applyButtonBarPosition() }
+            .store(in: &cancellables)
         // Combine's $items emits the *new* value before the property changes, so use the argument.
         model.$items
             .sink { [weak self] items in self?.apply(items) }
             .store(in: &cancellables)
+    }
+
+    /// Columns start with fixed widths; once the real width is known the Name column takes what is left,
+    /// so the Modified column is not cut off in narrow windows.
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        guard !didFitColumns, let scroll = tableView.enclosingScrollView, scroll.contentSize.width > 0,
+              let name = tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("name")) else { return }
+        didFitColumns = true
+        let others = tableView.tableColumns.filter { $0 !== name }.map(\.width).reduce(0, +)
+        let spacing = CGFloat(tableView.tableColumns.count) * tableView.intercellSpacing.width
+        name.width = max(name.minWidth, scroll.contentSize.width - others - spacing)
     }
 
     override func viewDidAppear() {
@@ -112,9 +155,9 @@ final class ListerViewController: NSViewController {
             c.sortDescriptorPrototype = NSSortDescriptor(key: key, ascending: true)
             return c
         }
-        let name = column("name", "Name", width: 300, min: 140, key: "name")
-        let size = column("size", "Size", width: 80, min: 60, key: "size")
-        let date = column("date", "Modified", width: 150, min: 110, key: "date")
+        let name = column("name", "Name", width: 260, min: 110, key: "name")
+        let size = column("size", "Size", width: 76, min: 60, key: "size")
+        let date = column("date", "Modified", width: 176, min: 150, key: "date")
         size.headerCell.alignment = .right
         for c in [name, size, date] { tableView.addTableColumn(c) }
 
@@ -478,6 +521,7 @@ extension ListerViewController {
         case .setDestination: toggleRole(.destination)
         case .swapSourceDestination: ListerManager.shared.swapRoles()
         case .extract:        extractSelection()
+        case .separator:      break
         case .bringAllToFront: ListerManager.shared.bringAllToFront()
         case .duplicateLister: duplicateLister()
         case .duplicateFile:  duplicateSelection()
