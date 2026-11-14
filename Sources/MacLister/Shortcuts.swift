@@ -183,13 +183,14 @@ enum BuiltInShortcuts {
         e(2, .command, "D", tr("Duplicate files")), e(2, [.command, .option], "D", tr("Duplicate lister")),
         e(3, .command, "F", tr("Filter")), e(11, .command, "B", tr("Bookmark")), e(37, [.command, .shift], "L", tr("Bring all listers to front")),
         e(37, .command, "L", tr("Type a path")), e(40, .command, "K", tr("Connect to Server")),
+        e(48, [], "Tab", tr("Next lister")), e(48, .shift, "⇧Tab", tr("Previous lister")),
     ]
 
     /// Built-in key of an action, for display next to the custom one.
     static let byAction: [ListerAction: String] = [
         .copy: "F5", .move: "F6", .extract: "⌘E", .info: "⌘I", .attributes: "⌥⌘I", .duplicateFile: "⌘D", .duplicateLister: "⌥⌘D",
         .filter: "⌘F", .addBookmark: "⌘B", .bringAllToFront: "⇧⌘L", .connectToServer: "⌘K", .parent: "Delete", .open: "Return",
-        .toggleHidden: "⇧⌘.", .delete: "⌘Delete", .selectPattern: "+", .deselectPattern: "-", .invertSelection: "*",
+        .nextLister: "Tab", .previousLister: "⇧Tab", .undo: "⌘Z", .toggleHidden: "⇧⌘.", .delete: "⌘Delete", .selectPattern: "+", .deselectPattern: "-", .invertSelection: "*",
     ]
 
     /// Menu and window commands that are handled before a lister sees the key.

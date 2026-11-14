@@ -86,6 +86,9 @@ extension ListerViewController {
             job.start { [weak self] result in
                 monitor.finish(result.cancelled ? .cancelled : (result.failures.isEmpty ? .finished : .failed))
                 for m in models { m.progress = nil }
+                OperationLog.shared.record(kind: direction == .upload ? .upload : direction == .download ? .download : .moveOnServer,
+                                           items: items, result: result,
+                                           from: Self.placeName(items.first?.deletingLastPathComponent()), to: Self.placeName(folder))
                 ListerManager.shared.reloadListers(showing: [folder] + items.map { $0.deletingLastPathComponent() })
                 done()
                 guard let self else { return }
@@ -168,6 +171,8 @@ extension ListerViewController {
             job.start { [weak self] result in
                 monitor.finish(result.cancelled ? .cancelled : (result.failures.isEmpty ? .finished : .failed))
                 for m in models { m.progress = nil }
+                OperationLog.shared.record(kind: kind == .copy ? .copy : .move, items: items, result: result,
+                                           from: Self.placeName(items.first?.deletingLastPathComponent()), to: Self.placeName(folder))
                 let folders = [folder] + items.map { $0.deletingLastPathComponent() }
                 ListerManager.shared.reloadListers(showing: folders)
                 done()

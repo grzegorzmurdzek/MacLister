@@ -1162,6 +1162,7 @@ enum SelfTestFeatures {
             guard let vc = one.listerViewController else { check(false, "lister for the label test"); return }
             check(one.model.label.isEmpty && one.model.displayName == FileManager.default.displayName(atPath: one.model.url.path), "a lister has no label at first")
             one.model.setLabel("NAS", color: "orange")
+            one.updateTitle()                                              // the window follows the model a moment later by itself
             check(one.window?.title.hasPrefix("NAS — ") == true, "the window title starts with the label: \(one.window?.title ?? "")")
             check(one.menuTitle.hasPrefix("NAS  ·  "), "the menu-bar list shows the label: \(one.menuTitle)")
             check(one.model.displayName == "NAS", "the label is the lister's name in menus")
@@ -1199,6 +1200,7 @@ enum SelfTestFeatures {
             check(hosting.fittingSize.width >= 380 && hosting.fittingSize.height > 150, "the label sheet lays out: \(hosting.fittingSize)")
             LocalizationAudit.touch(PathBarView(model: one.model, onToggleRole: { _ in }, onConnect: { _ in }), size: NSSize(width: 700, height: 80))
             one.model.setLabel("", color: nil)
+            one.updateTitle()
             check(one.model.labelColor == nil && one.model.label.isEmpty && one.window?.title.contains("—") == false || one.window?.title.hasPrefix("NAS") == false, "removing the label restores the title: \(one.window?.title ?? "")")
         }
         // Recents and Shared
@@ -1226,10 +1228,12 @@ enum SelfTestFeatures {
             RecentFiles.override = { done in done([RecentFiles.Seed(url: docs.appendingPathComponent("old.txt"), lastUsed: older), RecentFiles.Seed(url: docs.appendingPathComponent("new.txt"), lastUsed: newer)]) }
             let backTo = one.model.url
             one.model.navigate(to: VirtualPlace.recents.url)
+            one.updateTitle()
             check(one.model.isVirtual && one.model.virtualPlace == .recents && !one.model.canGoParent, "the lister shows Recents and has no parent")
-            check(one.window?.title == "Recents" && one.model.displayName == "Recents", "the window is titled Recents: \(one.window?.title ?? "")")
+            check(one.window?.title == "NAS — Recents" || one.window?.title == "Recents", "the window is titled Recents: \(one.window?.title ?? "")")
             check(one.model.sortKey == .date && one.model.ascending == false, "Recents sorts by date, newest first")
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                check(one.window?.title == "Recents", "the title follows the lister on its own: \(one.window?.title ?? "")")
                 check(one.model.items.map(\.name) == ["new.txt", "old.txt"], "Recents lists the files, newest first: \(one.model.items.map(\.name))")
                 check(one.model.items.first?.modified.map { abs($0.timeIntervalSince(newer)) < 1 } == true, "the date shown is the last-opened date")
                 check(vc.tableView.tableColumns.contains { $0.identifier.rawValue == "folder" }, "a list gets the Where column")

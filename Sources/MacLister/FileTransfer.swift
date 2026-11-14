@@ -7,8 +7,19 @@ enum TransferKind {
     var progressVerb: String { self == .copy ? tr("Copying") : tr("Moving") }
 }
 
+/// One top-level item of an operation: enough to take it back.
+struct TransferPair: Codable, Equatable {
+    var source: URL
+    var target: URL
+    /// An existing item that was moved to the Trash to make room (Replace); put back by Undo.
+    var replaced: URL?
+    /// false when Undo could not be done safely (a folder merge, a half-moved folder).
+    var undoable = true
+}
+
 struct TransferResult {
     var done: [URL] = []          // resulting URLs in the destination
+    var pairs: [TransferPair] = []
     var skipped = 0
     var failures: [String] = []
     var cancelled = false
@@ -35,6 +46,7 @@ enum FileTransfer {
             do {
                 try fm.copyItem(at: source, to: target)
                 result.done.append(target)
+                result.pairs.append(TransferPair(source: source, target: target))
             } catch {
                 result.failures.append("\(source.lastPathComponent): \(error.localizedDescription)")
             }

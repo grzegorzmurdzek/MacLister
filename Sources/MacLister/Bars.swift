@@ -61,7 +61,12 @@ struct PathBarView: View {
                 Button { model.goBack() } label: { Image(systemName: "chevron.left") }
                     .buttonStyle(ToolbarIconButtonStyle(iconSize: 14))
                     .disabled(!model.canGoBack)
-                    .help("Back")
+                    .help("Back (right-click for the folders you came from)")
+                    .contextMenu {
+                        ForEach(Array(model.backHistory.prefix(20).enumerated()), id: \.offset) { index, url in
+                            Button(Self.historyTitle(url)) { model.goBack(steps: index + 1) }
+                        }
+                    }
 
                 Button { model.goParent() } label: { Image(systemName: "arrow.up") }
                     .buttonStyle(ToolbarIconButtonStyle(iconSize: 14))
@@ -89,6 +94,14 @@ struct PathBarView: View {
 }
 
 extension PathBarView {
+    /// "Documents — ~/Documents" for the Back menu.
+    static func historyTitle(_ url: URL) -> String {
+        if let place = VirtualPlace.place(for: url) { return place.title }
+        if RemoteURL.isRemote(url) { return RemoteURL.serverLabel(of: url) + RemoteURL.path(of: url) }
+        let name = FileManager.default.displayName(atPath: url.path)
+        return url.path == "/" ? name : "\(name) — \(PathText.short(url.path))"
+    }
+
     /// The name the user gave this lister, as a coloured tag; click to change it.
     fileprivate var labelBadge: some View {
         let tint = LabelPalette.color(model.labelColor) ?? Color.secondary
@@ -255,7 +268,16 @@ struct ButtonBarView: View {
                             Button { onAction(button) } label: { label(for: button) }
                                 .buttonStyle(ToolbarIconButtonStyle(tint: button.tint))
                                 .disabled(button.needsSelection && model.selectedURLs.isEmpty)
-                                .help(button.help.map { "\(tr(button.title)) – \(tr($0))" } ?? tr(button.title))
+                                .help(help(for: button))
+                                .overlay {
+                                    if button.hasExtraClicks {
+                                        MouseButtonCatcher { click in
+                                            guard let variant = button.variant(for: click) else { return }
+                                            if variant.needsSelection && model.selectedURLs.isEmpty { NSSound.beep(); return }
+                                            onAction(variant)
+                                        }
+                                    }
+                                }
                         }
                     }
                 }
@@ -266,6 +288,11 @@ struct ButtonBarView: View {
             if !atBottom { Divider() }
         }
         .background(.bar)
+    }
+
+    private func help(for button: ListerButton) -> String {
+        let base = button.help.map { "\(tr(button.title)) – \(tr($0))" } ?? tr(button.title)
+        return button.hasExtraClicks ? base + "\n" + button.clickHelp : base
     }
 
     @ViewBuilder
@@ -421,5 +448,34 @@ struct BreadcrumbView: View {
             .buttonStyle(.plain)
             .onHover { hovering = $0 }
         }
+    }
+}
+
+
+/// Sits on top of a toolbar button and answers only the right and the middle mouse button; the left one
+/// passes through to the button underneath.
+struct MouseButtonCatcher: NSViewRepresentable {
+    var onClick: (ListerButton.Click) -> Void
+
+    func makeNSView(context: Context) -> CatcherView {
+        let view = CatcherView()
+        view.onClick = onClick
+        return view
+    }
+
+    func updateNSView(_ view: CatcherView, context: Context) { view.onClick = onClick }
+
+    final class CatcherView: NSView {
+        var onClick: (ListerButton.Click) -> Void = { _ in }
+
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            switch NSApp.currentEvent?.type {
+            case .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp: return super.hitTest(point)
+            default: return nil
+            }
+        }
+
+        override func rightMouseDown(with event: NSEvent) { onClick(.right) }
+        override func otherMouseDown(with event: NSEvent) { if event.buttonNumber == 2 { onClick(.middle) } }
     }
 }

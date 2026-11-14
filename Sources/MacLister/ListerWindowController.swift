@@ -46,36 +46,28 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         window.contentViewController = ListerViewController(model: model)
         window.setContentSize(Settings.listerContentSize)
 
-        Publishers.CombineLatest(model.$url, model.$label)
-            .sink { [weak window] url, label in
-                let prefix = label.isEmpty ? "" : "\(label) — "
-                if let place = VirtualPlace.place(for: url) {
-                    window?.title = prefix + place.title
-                    window?.representedURL = nil
-                } else if url.isFileURL {
-                    window?.title = prefix + FileManager.default.displayName(atPath: url.path)
-                    window?.representedURL = url          // proxy icon; ⌘-click the title for the path menu
-                } else {
-                    let path = RemoteURL.path(of: url)
-                    let server = RemoteURL.serverLabel(of: url)
-                    window?.title = prefix + (path == "/" ? server : "\((path as NSString).lastPathComponent) – \(server)")
-                    window?.representedURL = nil
-                }
-            }
-            .store(in: &cancellables)
+        // Title and the line under it come from the title format (Lister Title…).
         let model = model
-        Publishers.CombineLatest3(model.$items, model.$role, model.$roleLocked)
-            .sink { [weak window, weak model] items, role, locked in
-                var text = trCount("%d items", items.count)
-                if let model, model.url.isFileURL, let space = VolumeInfo.summary(for: model.url) { text += " · " + space }
-                switch role {
-                case .source:      text += " · " + tr("SOURCE") + (locked ? " " + tr("(locked)") : "")
-                case .destination: text += " · " + tr("DESTINATION") + (locked ? " " + tr("(locked)") : "")
-                case .none:        break
-                }
-                window?.subtitle = text
-            }
-            .store(in: &cancellables)
+        Publishers.MergeMany([
+            model.$url.map { _ in () }.eraseToAnyPublisher(), model.$label.map { _ in () }.eraseToAnyPublisher(),
+            model.$items.map { _ in () }.eraseToAnyPublisher(), model.$role.map { _ in () }.eraseToAnyPublisher(),
+            model.$roleLocked.map { _ in () }.eraseToAnyPublisher(), model.$filter.map { _ in () }.eraseToAnyPublisher(),
+            model.$selectedURLs.map { _ in () }.eraseToAnyPublisher(),
+            NotificationCenter.default.publisher(for: .titleFormatChanged).map { _ in () }.eraseToAnyPublisher(),
+        ])
+        .receive(on: DispatchQueue.main)         // the @Published values have changed by then
+        .sink { [weak self] in self?.updateTitle() }
+        .store(in: &cancellables)
+        updateTitle()
+    }
+
+    /// Applies the title format to the window.
+    func updateTitle() {
+        guard let window else { return }
+        let context = TitleFormat.context(for: model)
+        window.title = TitleFormat.render(TitleFormat.title, context)
+        window.subtitle = TitleFormat.render(TitleFormat.subtitle, context)
+        window.representedURL = model.url.isFileURL && !model.isVirtual ? model.url : nil      // proxy icon; ⌘-click the title for the path menu
     }
 
     @available(*, unavailable)
@@ -144,6 +136,21 @@ final class ListerManager {
 
     var openCount: Int { controllers.count }
     var allControllers: [ListerWindowController] { controllers }
+
+    /// The lister Tab (or Shift-Tab) goes to: the next one in the order they were opened, wrapping around.
+    func neighbour(of current: ListerWindowController?, forward: Bool) -> ListerWindowController? {
+        let visible = controllers.filter { $0.window?.isMiniaturized == false }
+        guard visible.count > 1 else { return nil }
+        let index = current.flatMap { c in visible.firstIndex { $0 === c } } ?? 0
+        return visible[(index + (forward ? 1 : visible.count - 1)) % visible.count]
+    }
+
+    /// Tab / Shift-Tab: the keyboard moves to the next (or previous) lister.
+    func focusNeighbour(of current: ListerWindowController?, forward: Bool) {
+        guard let next = neighbour(of: current, forward: forward) else { NSSound.beep(); return }
+        next.window?.makeKeyAndOrderFront(nil)
+        if let table = next.listerViewController?.tableView { next.window?.makeFirstResponder(table) }
+    }
 
     /// Puts one lister above every other app's windows and gives it keyboard focus.
     func bringToFront(_ controller: ListerWindowController) {

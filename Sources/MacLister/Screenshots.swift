@@ -38,6 +38,11 @@ enum Screenshots {
             queue("name-lister") { nameLister(named: "name-lister") }
             queue("connect-to-server") { connectSheet(named: "connect-to-server") }
             queue("keyboard-shortcuts") { shortcuts(named: "keyboard-shortcuts") }
+            queue("drag-select") { dragSelect(named: "drag-select") }
+            queue("back-history") { backHistory(named: "back-history") }
+            queue("operation-log") { operationLog(named: "operation-log") }
+            queue("button-editor") { buttonEditor(named: "button-editor") }
+            queue("lister-title") { listerTitle(named: "lister-title") }
         }
         next()
     }
@@ -189,6 +194,123 @@ enum Screenshots {
         let window = show(ShortcutsView(), title: tr("Keyboard Shortcuts"), size: NSSize(width: 620, height: 640))
         window.setFrameOrigin(NSPoint(x: screen().minX + 200, y: screen().maxY - 700))
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { capture(to: name); finishScene() }
+    }
+
+    /// A selection rectangle across four rows, as drawn while the mouse button is held.
+    private static func dragSelect(named name: String) {
+        let area = screen()
+        let origin = NSPoint(x: area.minX + 100, y: area.maxY - 500)
+        let controller = ListerManager.shared.openLister(directory: demo.projects, anchor: .origin(origin))
+        controller.window?.setContentSize(NSSize(width: 700, height: 400))
+        controller.window?.setFrameOrigin(origin)
+        controller.model.setLabel(tr("Work"), color: "blue")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            guard let vc = controller.listerViewController else { finishScene(); return }
+            let table = vc.tableView
+            NSApp.activate(ignoringOtherApps: true)
+            controller.window?.makeKeyAndOrderFront(nil)
+            table.layoutSubtreeIfNeeded()
+            let from = NSPoint(x: table.bounds.maxX - 90, y: table.rect(ofRow: 2).midY + 3)
+            let to = NSPoint(x: table.bounds.midX - 60, y: table.rect(ofRow: 5).midY - 3)
+            table.applyLasso(from: from, to: to, extending: nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { capture(to: name); finishScene() }
+        }
+    }
+
+    /// The folders Back can return to, listed under a right-click on the Back button.
+    private static func backHistory(named name: String) {
+        let area = screen()
+        let origin = NSPoint(x: area.minX + 100, y: area.maxY - 500)
+        let controller = ListerManager.shared.openLister(directory: demo.base, anchor: .origin(origin))
+        controller.window?.setContentSize(NSSize(width: 700, height: 400))
+        controller.window?.setFrameOrigin(origin)
+        for url in [demo.backup, demo.projects, demo.project("f_photos"), demo.project("f_brand"), demo.project("f_web")] { controller.model.navigate(to: url) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            guard let vc = controller.listerViewController else { finishScene(); return }
+            let menu = NSMenu()
+            menu.autoenablesItems = false
+            for url in controller.model.backHistory.prefix(20) {
+                let item = NSMenuItem(title: PathBarView.historyTitle(url), action: nil, keyEquivalent: "")
+                item.isEnabled = true
+                item.image = NSWorkspace.shared.icon(forFile: url.path).copy() as? NSImage
+                item.image?.size = NSSize(width: 16, height: 16)
+                menu.addItem(item)
+            }
+            NSApp.activate(ignoringOtherApps: true)
+            controller.window?.makeKeyAndOrderFront(nil)
+            popUp(menu, at: NSPoint(x: 26, y: vc.view.bounds.height - 94), in: vc.view, capturing: name)
+        }
+    }
+
+    /// The operation log with a few invented operations.
+    private static func operationLog(named name: String) {
+        let log = OperationLog.shared
+        log.clear()
+        let base = Date()
+        func add(_ kind: OperationRecord.Kind, _ keys: [String], minutesAgo: Double, from: String, to: String, problems: [String] = [], cancelled: Bool = false, undoable: Bool = false) {
+            log.now = { base.addingTimeInterval(-minutesAgo * 60) }
+            let urls = keys.map { demo.project($0) }
+            var result = TransferResult()
+            result.done = problems.isEmpty && !cancelled ? urls : Array(urls.dropLast())
+            result.failures = problems
+            result.cancelled = cancelled
+            if undoable { result.pairs = urls.map { TransferPair(source: $0, target: demo.backup.appendingPathComponent($0.lastPathComponent)) } }
+            log.record(kind: kind, items: urls, result: result, from: from, to: to)
+        }
+        let projects = demo.name("projects"), backup = "NAS · " + demo.name("backup")
+        add(.copy, ["wireframes"], minutesAgo: 1500, from: projects, to: backup)
+        add(.upload, ["archive", "deck"], minutesAgo: 380, from: projects, to: "files.example.org/web")
+        add(.move, ["notes", "logo"], minutesAgo: 95, from: projects, to: backup)
+        add(.trash, ["contract"], minutesAgo: 41, from: projects, to: tr("Trash"))
+        add(.copy, ["report", "budget", "video"], minutesAgo: 12, from: projects, to: backup, problems: [demo.name("video") + ": " + tr("cannot copy a folder into itself")])
+        add(.move, ["deck", "archive"], minutesAgo: 3, from: projects, to: backup, cancelled: true)
+        add(.copy, ["report", "budget"], minutesAgo: 1, from: projects, to: backup, undoable: true)
+        log.now = Date.init
+        let window = show(OperationLogView(), title: tr("Operation Log"), size: NSSize(width: 660, height: 440))
+        window.setFrameOrigin(NSPoint(x: screen().minX + 160, y: screen().maxY - 620))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            capture(to: name)
+            log.clear()
+            finishScene()
+        }
+    }
+
+    /// The button editor with Copy selected: Copy on the left button, Move on the right, Info on the middle one.
+    private static func buttonEditor(named name: String) {
+        var buttons = ListerButton.defaults
+        if let copy = buttons.firstIndex(where: { $0.action == .copy }) {
+            buttons[copy].rightAction = .move
+            buttons[copy].middleAction = .compare
+        }
+        if let terminal = buttons.firstIndex(where: { $0.action == .terminalHere }) {
+            buttons[terminal].middleAction = .shell
+            buttons[terminal].middleCommand = "open -a Finder \"$LISTER_DIR\""
+        }
+        let selected = buttons.firstIndex { $0.action == .copy }
+        let window = show(ButtonEditorView(initial: buttons, selection: selected, close: { }), title: tr("Edit Buttons"), size: NSSize(width: 720, height: 500))
+        window.setFrameOrigin(NSPoint(x: screen().minX + 160, y: screen().maxY - 640))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { capture(to: name); finishScene() }
+    }
+
+    /// The title format editor with a lister behind it that supplies the preview.
+    private static func listerTitle(named name: String) {
+        let area = screen()
+        let origin = NSPoint(x: area.minX + 60, y: area.maxY - 440)
+        let controller = ListerManager.shared.openLister(directory: demo.projects, anchor: .origin(origin))
+        controller.window?.setContentSize(NSSize(width: 640, height: 300))
+        controller.window?.setFrameOrigin(origin)
+        controller.model.setLabel(tr("Work"), color: "blue")
+        ListerManager.shared.toggleRole(.source, for: controller)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            controller.listerViewController?.setSelectionForSheetTest(["report", "budget"].map { demo.project($0) })
+            let window = show(TitleFormatEditor(title: "{%l — }%n", subtitle: "%c · %s selected{ · %S}{ · %R}", close: { }), title: tr("Lister Title"))
+            window.setFrameOrigin(NSPoint(x: area.minX + 260, y: area.maxY - 900))
+            controller.window?.makeKeyAndOrderFront(nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                window.makeKeyAndOrderFront(nil)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { capture(to: name); finishScene() }
+            }
+        }
     }
 
     // MARK: Helpers

@@ -187,6 +187,8 @@ extension ListerViewController {
             let result = FileTransfer.duplicate(urls)
             DispatchQueue.main.async {
                 guard let self else { return }
+                OperationLog.shared.record(kind: .duplicate, items: urls, result: result,
+                                           from: Self.placeName(urls.first?.deletingLastPathComponent()), to: Self.placeName(self.model.url))
                 var selection: [ObjectIdentifier: URL] = [:]
                 if let first = result.done.first, let controller = self.view.window?.windowController {
                     selection[ObjectIdentifier(controller)] = first

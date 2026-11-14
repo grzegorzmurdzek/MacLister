@@ -23,6 +23,96 @@ final class ListerTableView: NSTableView, NSServicesMenuRequestor {
         super.keyDown(with: event)
     }
 
+    // MARK: Drag-select (Directory Opus style)
+
+    /// Press on empty space of a row, or below the rows, and drag: a rectangle selects every row it touches.
+    /// A press on a file name drags the file itself, unless "Drag-select from file names" is on and the file
+    /// is not selected yet (a selected file is always dragged as a file).
+    var lassoFromNames: () -> Bool = { Settings.dragSelectFromNames }
+    private var lassoView: NSView?
+
+    /// Does a press at `point` (table coordinates) start a selection rectangle?
+    func startsLasso(at point: NSPoint) -> Bool {
+        let row = self.row(at: point)
+        guard row >= 0 else { return true }
+        guard let nameColumn = tableColumns.firstIndex(where: { $0.identifier.rawValue == "name" }),
+              let cell = view(atColumn: nameColumn, row: row, makeIfNecessary: false) as? NSTableCellView,
+              let icon = cell.imageView, let text = cell.textField else { return true }
+        let font = text.font ?? .systemFont(ofSize: NSFont.systemFontSize)
+        let textWidth = ceil((text.stringValue as NSString).size(withAttributes: [.font: font]).width)
+        let textFrame = NSRect(x: text.frame.minX, y: text.frame.minY, width: min(textWidth + 4, text.frame.width), height: text.frame.height)
+        let nameArea = icon.frame.union(textFrame)
+        guard nameArea.contains(convert(point, to: cell)) else { return true }      // size, date … or blank part of the row
+        return lassoFromNames() && !selectedRowIndexes.contains(row)
+    }
+
+    /// The rows a rectangle (table coordinates) touches.
+    func rowsTouched(by rect: NSRect) -> IndexSet {
+        let range = rows(in: NSRect(x: rect.minX, y: rect.minY, width: max(rect.width, 1), height: max(rect.height, 1)))
+        return range.length > 0 ? IndexSet(integersIn: range.location..<(range.location + range.length)) : IndexSet()
+    }
+
+    /// Selection after the rectangle from `start` to `end`: replaces the selection, or adds to `base` with ⌘ / ⇧.
+    func applyLasso(from start: NSPoint, to end: NSPoint, extending base: IndexSet?) {
+        let rect = NSRect(x: min(start.x, end.x), y: min(start.y, end.y), width: abs(end.x - start.x), height: abs(end.y - start.y))
+        let hit = rowsTouched(by: rect)
+        selectRowIndexes(base.map { $0.union(hit) } ?? hit, byExtendingSelection: false)
+        showLasso(rect.intersection(bounds))
+    }
+
+    private func showLasso(_ rect: NSRect?) {
+        guard let rect else { lassoView?.removeFromSuperview(); lassoView = nil; return }
+        if lassoView == nil {
+            let overlay = NSView()
+            overlay.wantsLayer = true
+            overlay.layer?.borderWidth = 1
+            overlay.layer?.cornerRadius = 2
+            addSubview(overlay, positioned: .above, relativeTo: nil)
+            lassoView = overlay
+        }
+        lassoView?.layer?.borderColor = NSColor.controlAccentColor.cgColor
+        lassoView?.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.15).cgColor
+        lassoView?.frame = rect
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        guard event.clickCount == 1, !event.modifierFlags.contains(.control), startsLasso(at: point) else {
+            super.mouseDown(with: event)
+            return
+        }
+        window?.makeFirstResponder(self)
+        let extend = !event.modifierFlags.intersection([.command, .shift]).isEmpty
+        let base = extend ? selectedRowIndexes : nil
+        let clickedRow = row(at: point)
+        var moved = false
+        while let next = window?.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) {
+            if next.type == .leftMouseUp {
+                if !moved { select(clickAt: clickedRow, event: event) }
+                break
+            }
+            let here = convert(next.locationInWindow, from: nil)
+            if !moved, hypot(here.x - point.x, here.y - point.y) < 3 { continue }
+            moved = true
+            autoscroll(with: next)
+            applyLasso(from: point, to: convert(next.locationInWindow, from: nil), extending: base)
+        }
+        showLasso(nil)
+    }
+
+    /// A plain click on the blank part of a row (the press did not turn into a drag).
+    private func select(clickAt row: Int, event: NSEvent) {
+        if row < 0 {
+            if event.modifierFlags.intersection([.command, .shift]).isEmpty { deselectAll(nil) }
+        } else if event.modifierFlags.contains(.command) {
+            if selectedRowIndexes.contains(row) { deselectRow(row) } else { selectRowIndexes([row], byExtendingSelection: true) }
+        } else if event.modifierFlags.contains(.shift), let anchor = selectedRowIndexes.first {
+            selectRowIndexes(IndexSet(integersIn: min(anchor, row)...max(anchor, row)), byExtendingSelection: false)
+        } else {
+            selectRowIndexes([row], byExtendingSelection: false)
+        }
+    }
+
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         // ⌘-combinations normally never reach keyDown; give the handler a chance first.
         if window?.firstResponder === self, event.modifierFlags.contains(.command), keyHandler?(event) == true {
@@ -336,6 +426,12 @@ final class ListerViewController: NSViewController {
             toggleQuickLook()
         case 36 where plain, 76 where plain:      // Return / Enter → open
             openSelection()
+        case 48 where plain:                      // Tab → next lister
+            ListerManager.shared.focusNeighbour(of: view.window?.windowController as? ListerWindowController, forward: true)
+        case 48 where mods == .shift:             // ⇧Tab → previous lister
+            ListerManager.shared.focusNeighbour(of: view.window?.windowController as? ListerWindowController, forward: false)
+        case 6 where command:                     // ⌘Z → undo the last copy / move
+            undoLastOperation()
         case 51 where plain:                      // Backspace → Parent
             model.goParent()
         case 126 where command:                   // ⌘↑ → Parent
@@ -606,6 +702,10 @@ extension ListerViewController {
         case .nameLister:     promptLabel()
         case .showRecents:    model.navigate(to: VirtualPlace.recents.url)
         case .showShared:     model.navigate(to: VirtualPlace.shared.url)
+        case .undo:           undoLastOperation()
+        case .showLog:        OperationLogWindow.show()
+        case .nextLister:     ListerManager.shared.focusNeighbour(of: view.window?.windowController as? ListerWindowController, forward: true)
+        case .previousLister: ListerManager.shared.focusNeighbour(of: view.window?.windowController as? ListerWindowController, forward: false)
         case .duplicateFile:  duplicateSelection()
         case .selectPattern:  promptPattern(select: true)
         case .deselectPattern: promptPattern(select: false)
@@ -799,11 +899,18 @@ extension ListerViewController {
 
         alert.beginSheetModal(for: window) { [weak self] response in
             guard let self, response == .alertFirstButtonReturn else { return }
-            var failures: [String] = []
+            var result = TransferResult()
             for url in urls {
-                do { try FileManager.default.trashItem(at: url, resultingItemURL: nil) }
-                catch { failures.append("\(url.lastPathComponent): \(error.localizedDescription)") }
+                do {
+                    var landed: NSURL?
+                    try FileManager.default.trashItem(at: url, resultingItemURL: &landed)
+                    result.done.append(url)
+                    if let landed { result.pairs.append(TransferPair(source: url, target: landed as URL)) }
+                } catch { result.failures.append("\(url.lastPathComponent): \(error.localizedDescription)") }
             }
+            let failures = result.failures
+            OperationLog.shared.record(kind: .trash, items: urls, result: result,
+                                       from: Self.placeName(urls.first?.deletingLastPathComponent()), to: tr("Trash"))
             self.model.reload()
             if !failures.isEmpty { self.model.errorMessage = failures.joined(separator: "; ") }
         }
@@ -1084,6 +1191,7 @@ extension ListerViewController {
         }
         add(tr("Connect to Server…"), key: "k") { [weak self] in self?.connectToServer() }
         add(tr("Keyboard Shortcuts…")) { ShortcutsWindowController.shared.show() }
+        add(tr("Lister Title…")) { TitleFormatWindow.show() }
         if isRemote { add(tr("Disconnect from %@", RemoteURL.serverLabel(of: model.url))) { [weak self] in self?.disconnectCurrent() } }
         menu.addItem(.separator())
 
@@ -1097,6 +1205,9 @@ extension ListerViewController {
         }
         menu.addItem(.separator())
 
+        add(OperationLog.shared.undoMenuTitle, key: "z", enabled: OperationLog.shared.lastUndoable != nil) { [weak self] in self?.undoLastOperation() }
+        add(tr("Operation Log…")) { OperationLogWindow.show() }
+        menu.addItem(.separator())
         add(tr("Parent"), enabled: model.canGoParent) { [weak self] in self?.model.goParent() }
         add(tr("Back"), enabled: model.canGoBack) { [weak self] in self?.model.goBack() }
         add(tr("Refresh")) { [weak self] in self?.model.reload() }

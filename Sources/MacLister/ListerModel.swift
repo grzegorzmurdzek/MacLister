@@ -294,6 +294,18 @@ final class ListerModel: ObservableObject {
         navigate(to: url.deletingLastPathComponent(), selecting: url)
     }
 
+    /// Folders Back can return to, nearest first (the list under a right-click on Back).
+    var backHistory: [URL] { Array(backStack.reversed()) }
+
+    /// Jumps back several steps at once: the folder `steps` entries back becomes current.
+    func goBack(steps: Int) {
+        guard steps >= 1, steps <= backStack.count else { return }
+        let saved = backStack
+        let target = backStack[backStack.count - steps]
+        backStack.removeLast(steps)
+        if !navigate(to: target, selecting: url, recordHistory: false) { backStack = saved }
+    }
+
     func goBack() {
         guard let previous = backStack.popLast() else { return }
         if !navigate(to: previous, selecting: url, recordHistory: false) { backStack.append(previous) }

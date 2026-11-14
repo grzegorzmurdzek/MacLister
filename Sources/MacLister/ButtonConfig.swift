@@ -21,6 +21,10 @@ enum ListerAction: String, Codable, CaseIterable, Identifiable {
     case nameLister
     /// Show the lists of recently opened files and of what is shared on the network.
     case showRecents, showShared
+    /// Takes back the last copy, move, duplicate or Move to Trash; shows the operation log.
+    case undo, showLog
+    /// Moves the keyboard focus to the next / previous lister (Tab / Shift-Tab).
+    case nextLister, previousLister
     /// A thin divider between groups of buttons (no action).
     case separator
     /// Runs `command` with /bin/zsh in the current folder.
@@ -46,6 +50,36 @@ struct ListerButton: Codable, Hashable {
     var requiresSelection: Bool?   // overrides the action's default
     var help: String?              // tooltip
     var color: String?             // icon tint: blue green orange red purple teal pink yellow brown gray (default: neutral)
+    /// What the right and the middle mouse button do on this button (Directory Opus 5 style); nothing when absent.
+    var rightAction: ListerAction?
+    var rightCommand: String?      // only for rightAction == .shell
+    var middleAction: ListerAction?
+    var middleCommand: String?     // only for middleAction == .shell
+
+    enum Click { case left, right, middle }
+
+    /// The button as it acts for a click with the given mouse button; nil when that button has no job here.
+    func variant(for click: Click) -> ListerButton? {
+        switch click {
+        case .left: return self
+        case .right:
+            guard let rightAction, rightAction != .separator else { return nil }
+            return ListerButton(title: title, symbol: symbol, action: rightAction, command: rightCommand)
+        case .middle:
+            guard let middleAction, middleAction != .separator else { return nil }
+            return ListerButton(title: title, symbol: symbol, action: middleAction, command: middleCommand)
+        }
+    }
+
+    var hasExtraClicks: Bool { variant(for: .right) != nil || variant(for: .middle) != nil }
+
+    /// "Right-click: Move · Middle-click: Info", added to the tooltip.
+    var clickHelp: String {
+        var parts: [String] = []
+        if let right = variant(for: .right) { parts.append(tr("Right-click: %@", right.action.title)) }
+        if let middle = variant(for: .middle) { parts.append(tr("Middle-click: %@", middle.action.title)) }
+        return parts.joined(separator: " · ")
+    }
 
     var needsSelection: Bool { requiresSelection ?? action.needsSelection }
 
@@ -73,9 +107,7 @@ final class ButtonStore: ObservableObject {
     @Published private(set) var buttons: [ListerButton] = ListerButton.defaults
 
     static var configURL: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("MacLister", isDirectory: true)
-            .appendingPathComponent("buttons.json")
+        AppSupport.directory.appendingPathComponent("buttons.json")
     }
 
     private init() { reload() }
@@ -90,6 +122,17 @@ final class ButtonStore: ObservableObject {
         } catch {
             NSLog("[MacLister] cannot write default buttons.json: %@", error.localizedDescription)
         }
+    }
+
+    /// Writes a new button layout (from the button editor) and applies it to every lister.
+    func save(_ buttons: [ListerButton]) {
+        do {
+            try FileManager.default.createDirectory(at: Self.configURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try encode(buttons).write(to: Self.configURL, options: .atomic)
+        } catch {
+            NSLog("[MacLister] cannot write buttons.json: %@", error.localizedDescription)
+        }
+        reload()
     }
 
     /// Overwrites buttons.json with the built-in defaults (new releases add buttons that an old file lacks).

@@ -1,6 +1,7 @@
 #!/bin/bash
-# Draws the README / forum pictures with made-up files (English into docs/screenshots, Polish into docs/screenshots/pl).
-#   Tools/make_screenshots.sh
+# Draws the README / forum pictures with made-up files (English into docs/screenshots).
+#   Tools/make_screenshots.sh            English only
+#   LANGS="en pl" Tools/make_screenshots.sh   Polish pictures go to docs/screenshots/pl too
 # Needs Screen Recording access for the app that runs the script. Only MacLister's own windows end up in the
 # pictures: a window of the app covers the screen behind them. The invented files live in
 # /Users/Shared/MacLister Demo while the pictures are made and are removed afterwards.
@@ -9,7 +10,7 @@ cd "$(dirname "$0")/.."
 ./build.sh release >/dev/null
 APP="build/MacLister.app/Contents/MacOS/MacLister"
 COLUMNS_ARG="(size,date,kind)"        # a command-line default: nothing is written to the user's settings
-for lang in en pl; do
+for lang in ${LANGS:-en}; do
     out="docs/screenshots"; [ "$lang" = pl ] && out="docs/screenshots/pl"
     for mode in light dark; do
         extra=(); [ "$mode" = dark ] && extra=(dark)

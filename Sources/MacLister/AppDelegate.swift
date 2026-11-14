@@ -45,6 +45,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestRemote.run(arguments: rest) }
             return
         }
+        if CommandLine.arguments.contains("--selftest-ops") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestOperations.run() }
+            return
+        }
         if CommandLine.arguments.contains("--selftest-features") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestFeatures.run() }
             return
@@ -87,6 +91,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTest.run() }
             return
         }
+
+        // Ask once about automatic update checks; check daily when the user agreed.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) { UpdateManager.shared.launchCheck() }
 
         // `MacLister --open [folder]` opens one lister at launch (handy for scripts and testing).
         let args = CommandLine.arguments
@@ -177,10 +184,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         filetypes.target = self
         let edit = menu.addItem(withTitle: tr("Edit Buttons…"), action: #selector(editButtons), keyEquivalent: "")
         edit.target = self
+        let titleItem = menu.addItem(withTitle: tr("Lister Title…"), action: #selector(editTitleFormat), keyEquivalent: "")
+        titleItem.target = self
         let reload = menu.addItem(withTitle: tr("Reload Buttons"), action: #selector(reloadButtons), keyEquivalent: "")
         reload.target = self
         let reset = menu.addItem(withTitle: tr("Reset Buttons to Defaults"), action: #selector(resetButtons), keyEquivalent: "")
         reset.target = self
+        menu.addItem(.separator())
+        undoItem = menu.addItem(withTitle: tr("Undo"), action: #selector(undoFromMenu), keyEquivalent: "")
+        undoItem.target = self
+        let log = menu.addItem(withTitle: tr("Operation Log…"), action: #selector(showOperationLog), keyEquivalent: "")
+        log.target = self
+        dragSelectItem = menu.addItem(withTitle: tr("Drag-Select from File Names"), action: #selector(toggleDragSelect), keyEquivalent: "")
+        dragSelectItem.target = self
+        menu.addItem(.separator())
+        let update = menu.addItem(withTitle: tr("Check for Updates…"), action: #selector(checkForUpdates), keyEquivalent: "")
+        update.target = self
+        autoUpdateItem = menu.addItem(withTitle: tr("Check for Updates Automatically"), action: #selector(toggleAutoUpdate), keyEquivalent: "")
+        autoUpdateItem.target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: tr("Quit MacLister"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
@@ -349,6 +370,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         settingsItem.isHidden = monitor.mode != .stopped
         centerItem.state = Settings.centerOnCursor ? .on : .off
+        undoItem?.title = OperationLog.shared.undoMenuTitle
+        undoItem?.isEnabled = OperationLog.shared.lastUndoable != nil
+        dragSelectItem?.state = Settings.dragSelectFromNames ? .on : .off
+        autoUpdateItem?.state = Settings.autoUpdateCheck ? .on : .off
     }
 
     @objc private func newLister() {
@@ -359,6 +384,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openAccessibilitySettings() { Accessibility.openSystemSettings() }
 
     @objc private func toggleCenter() { Settings.centerOnCursor.toggle() }
+
+    private var undoItem: NSMenuItem!
+    private var dragSelectItem: NSMenuItem!
+    private var autoUpdateItem: NSMenuItem!
+
+    @objc private func undoFromMenu() {
+        OperationLog.shared.undoLast { outcome in
+            guard let outcome else { return }
+            ListerManager.shared.reloadListers(showing: outcome.folders)
+            if !outcome.failures.isEmpty { ListerManager.shared.frontmost?.model.errorMessage = outcome.failures.joined(separator: "; ") }
+        }
+    }
+    @objc private func showOperationLog() { OperationLogWindow.show() }
+    @objc private func toggleDragSelect() { Settings.dragSelectFromNames.toggle() }
+    @objc private func checkForUpdates() { UpdateManager.shared.check(userInitiated: true) }
+    @objc private func toggleAutoUpdate() { Settings.autoUpdateCheck.toggle(); Settings.updateQuestionAsked = true }
 
     /// While anything copies, moves, downloads or deletes, the menu-bar icon becomes a progress ring with a
     /// percentage; its tooltip says what is going on.
@@ -419,15 +460,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func resetButtons() { ButtonStore.shared.resetToDefaults() }
 
-    @objc private func editButtons() {
-        ButtonStore.shared.ensureConfigFileExists()
-        let file = ButtonStore.configURL
-        if let editor = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.TextEdit") {
-            NSWorkspace.shared.open([file], withApplicationAt: editor, configuration: NSWorkspace.OpenConfiguration())
-        } else {
-            NSWorkspace.shared.activateFileViewerSelecting([file])
-        }
-    }
+    @objc private func editButtons() { ButtonEditorWindow.show() }
+
+    @objc private func editTitleFormat() { TitleFormatWindow.show() }
 
     // MARK: - Main menu (an agent app shows no menu bar, but key equivalents still need one)
 

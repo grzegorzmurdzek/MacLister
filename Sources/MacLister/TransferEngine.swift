@@ -152,6 +152,7 @@ final class TransferJob {
         }
 
         var merging = false
+        var replaced: URL?
         if Self.exists(target) {
             let existing = Self.info(of: target)
             let conflict = TransferConflict(
@@ -173,12 +174,14 @@ final class TransferJob {
             case .keepBoth:
                 target = FileTransfer.uniqueURL(for: target)
             case .replace:
-                guard trash(target, named: source.lastPathComponent) else { return false }
+                guard let gone = trash(target, named: source.lastPathComponent) else { return false }
+                replaced = gone.url
             case .replaceIfNewer:
                 if conflict.bothDirectories {
                     merging = true
                 } else if Self.isNewer(sourceInfo.modified, than: existing.modified) {
-                    guard trash(target, named: source.lastPathComponent) else { return false }
+                    guard let gone = trash(target, named: source.lastPathComponent) else { return false }
+                    replaced = gone.url
                 } else {
                     result.skipped += 1
                     advance(size)
@@ -196,7 +199,11 @@ final class TransferJob {
         }
 
         if sourceInfo.isDirectory {
-            return transferFolder(source, to: target, into: directory, merging: merging, topLevel: topLevel, size: size)
+            let complete = transferFolder(source, to: target, into: directory, merging: merging, topLevel: topLevel, size: size)
+            if topLevel, Self.exists(target) {
+                result.pairs.append(TransferPair(source: source, target: target, replaced: replaced, undoable: complete && !merging))
+            }
+            return complete
         }
         do {
             progress.current = source.lastPathComponent
@@ -210,7 +217,10 @@ final class TransferJob {
             } else {
                 try copyWatched(source, to: target, size: size)
             }
-            if topLevel { result.done.append(target) }
+            if topLevel {
+                result.done.append(target)
+                result.pairs.append(TransferPair(source: source, target: target, replaced: replaced))
+            }
             advance(size)
             return true
         } catch {
@@ -261,13 +271,17 @@ final class TransferJob {
 
     // MARK: Helpers
 
-    private func trash(_ url: URL, named name: String) -> Bool {
+    struct Trashed { let url: URL? }
+
+    /// Moves an existing item to the Trash; the result holds where it landed (nil: the job failed).
+    private func trash(_ url: URL, named name: String) -> Trashed? {
         do {
-            try fm.trashItem(at: url, resultingItemURL: nil)
-            return true
+            var landed: NSURL?
+            try fm.trashItem(at: url, resultingItemURL: &landed)
+            return Trashed(url: landed as URL?)
         } catch {
             result.failures.append("\(name): \(error.localizedDescription)")
-            return false
+            return nil
         }
     }
 

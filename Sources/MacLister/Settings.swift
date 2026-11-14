@@ -56,6 +56,7 @@ enum Settings {
             "desktopTrigger": DesktopTrigger.doubleClick.rawValue,
             "terminalBundleID": "com.apple.Terminal",
             "relativeDates": true,
+            "dragSelectFromNames": true,
         ])
     }
 
@@ -103,6 +104,31 @@ enum Settings {
     static var relativeDates: Bool {
         get { defaults.bool(forKey: "relativeDates") }
         set { defaults.set(newValue, forKey: "relativeDates") }
+    }
+
+    /// Dragging from an unselected file name draws a selection rectangle (Directory Opus); off: it drags the file.
+    static var dragSelectFromNames: Bool {
+        get { defaults.bool(forKey: "dragSelectFromNames") }
+        set { defaults.set(newValue, forKey: "dragSelectFromNames") }
+    }
+
+    /// Look for a new version once a day. Off until the user agrees (see UpdateManager.askAboutAutomaticChecks).
+    static var autoUpdateCheck: Bool {
+        get { defaults.bool(forKey: "autoUpdateCheck") }
+        set { defaults.set(newValue, forKey: "autoUpdateCheck") }
+    }
+    static var updateQuestionAsked: Bool {
+        get { defaults.bool(forKey: "updateQuestionAsked") }
+        set { defaults.set(newValue, forKey: "updateQuestionAsked") }
+    }
+    static var lastUpdateCheck: Date? {
+        get { defaults.object(forKey: "lastUpdateCheck") as? Date }
+        set { defaults.set(newValue, forKey: "lastUpdateCheck") }
+    }
+    /// A version the user chose to ignore ("Skip This Version").
+    static var skippedUpdate: String? {
+        get { defaults.string(forKey: "skippedUpdate") }
+        set { defaults.set(newValue, forKey: "skippedUpdate") }
     }
 
     static var showStatusItem: Bool { defaults.bool(forKey: "showStatusItem") }

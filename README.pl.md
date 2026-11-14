@@ -8,8 +8,8 @@ działa jako agent w pasku menu, bez ikony w Docku.
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/pl/lister-pair-dark.jpg">
-    <img src="docs/screenshots/pl/lister-pair.jpg" alt="Dwa listery MacLister: Projekty jako źródło z trzema zaznaczonymi plikami, NAS jako cel, trwa kopiowanie" width="900">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/lister-pair-dark.jpg">
+    <img src="docs/screenshots/lister-pair.jpg" alt="Dwa listery MacLister: Projekty jako źródło z trzema zaznaczonymi plikami, NAS jako cel, trwa kopiowanie" width="900">
   </picture>
 </p>
 <p align="center"><sub>Listery źródłowy i docelowy z nazwami, kolorami i trwającym kopiowaniem. Wszystkie pliki na obrazkach są zmyślone.</sub></p>
@@ -24,6 +24,13 @@ działa jako agent w pasku menu, bez ikony w Docku.
 - Zaznaczanie wzorcem, filtr, rozmiary folderów, panel informacji, zmiana nazwy, duplikowanie, Quick Look na
   Spacji, rozpakowywanie archiwów (zip, tar.\*, 7z, rar, gz, bz2 …).
 - **Prawy przycisk na belce okna** otwiera polecenia listera (duplikuj, źródło/cel, zamknij wszystkie …).
+- **Cofnij** ostatnie kopiowanie, przeniesienie, duplikowanie lub wyrzucenie do Kosza (⌘Z) oraz **dziennik operacji**
+  z limitem przechowywania.
+- **Zaznaczanie ramką** (przytrzymaj przycisk na pustym miejscu lub na nazwie pliku i ciągnij), **Tab** między
+  listerami, **menu historii** pod prawym przyciskiem na przycisku Wstecz.
+- **Lewy, prawy i środkowy przycisk** każdego przycisku mogą robić co innego; **edytor przycisków** i **format tytułu**
+  ze zmiennymi `%`.
+- **Sprawdzanie aktualizacji** — ręczne albo automatyczne, jeśli się zgodzisz (domyślnie wyłączone).
 
 ## Wymagania
 
@@ -138,6 +145,8 @@ nie da się wyczyścić ani zamienić, dopóki nie odblokujesz.
 | ⌘⇧. | pokaż lub ukryj pliki ukryte |
 | ⌘⇧L | wynieś wszystkie listery na wierzch |
 | ⌘W | zamknij lister |
+| ⌘Z | cofnij ostatnie kopiowanie, przeniesienie, duplikowanie lub wyrzucenie do Kosza (w tej sesji) |
+| Tab / ⇧Tab | przejdź do następnego / poprzedniego listera |
 
 W wielu laptopach klawisze F wymagają **fn**.
 
@@ -161,7 +170,7 @@ W wielu laptopach klawisze F wymagają **fn**.
   \[SRC\] / \[DST\]), Bring All to Front, Close All, *Duplicate Frontmost Lister*, *Terminal App*, układy,
   *Edit Filetypes…*, *Edit Buttons…*, *Reload Buttons*, *Reset Buttons to Defaults*, stan uprawnień.
 
-<p align="center"><img src="docs/screenshots/pl/context-menu.jpg" alt="Menu pod prawym przyciskiem dla pliku: Otwórz, Otwórz w aplikacji, Przenieś do Kosza, Informacje, Kompresuj, Udostępnij, kolory tagów, Szybkie czynności, Usługi i własne polecenia MacLister" width="420"></p>
+<p align="center"><img src="docs/screenshots/context-menu.jpg" alt="Menu pod prawym przyciskiem dla pliku: Otwórz, Otwórz w aplikacji, Przenieś do Kosza, Informacje, Kompresuj, Udostępnij, kolory tagów, Szybkie czynności, Usługi i własne polecenia MacLister" width="420"></p>
 
 ### Zaznaczanie, filtr, rozmiary
 
@@ -175,7 +184,7 @@ W wielu laptopach klawisze F wymagają **fn**.
 
 ### Zmiana nazw, atrybuty, dowiązania
 
-<p align="center"><img src="docs/screenshots/pl/batch-rename.jpg" alt="Zbiorcza zmiana nazw z podglądem nowych nazw" width="560"></p>
+<p align="center"><img src="docs/screenshots/batch-rename.jpg" alt="Zbiorcza zmiana nazw z podglądem nowych nazw" width="560"></p>
 
 - **Zmiana wielu nazw** (F2 przy kilku elementach albo *Rename N Items…*): znajdź i zamień (zwykły tekst albo
   wyrażenie regularne z `$1`, `$2`, opcjonalnie z wielkością liter), szablon nazwy z `[N]` nazwa, `[C]` licznik
@@ -193,6 +202,11 @@ W wielu laptopach klawisze F wymagają **fn**.
 
 Menu **Go** zawiera *miejsca* (Home, Desktop, Documents, Downloads, Applications, Root, zamontowane woluminy),
 *zakładki* (dodaj bieżący folder, usuń) i *ostatnie* foldery. Zakładki są w pliku `bookmarks.json`.
+
+<p align="center"><img src="docs/screenshots/back-history.jpg" alt="Prawy przycisk na przycisku Wstecz pokazuje foldery, z których przyszedł lister" width="520"></p>
+
+**Prawy przycisk na przycisku Wstecz** (jak w Directory Opus) pokazuje foldery, z których przyszedł ten lister,
+od najbliższego — wybierz jeden, żeby skoczyć od razu tam.
 
 ### Filetypes: co robi dwuklik
 
@@ -221,7 +235,7 @@ defaults write com.example.MacLister restoreLayoutAtLaunch -bool true
 
 ## Serwery: FTP, FTPS i SFTP
 
-<p align="center"><img src="docs/screenshots/pl/connect-to-server.jpg" alt="Formularz Połącz z serwerem" width="480"></p>
+<p align="center"><img src="docs/screenshots/connect-to-server.jpg" alt="Formularz Połącz z serwerem" width="480"></p>
 
 Lister może pokazywać serwer jak folder. **Go → Connect to Server…** (albo ⌘K, albo ikona w pasku menu) pyta
 o protokół, adres, port, użytkownika i hasło. SFTP może używać pliku klucza (i jego hasła) albo Twojego ssh-agenta.
@@ -261,7 +275,7 @@ zmiany nie są odsyłane z powrotem.
 
 ## Skróty klawiszowe, które możesz ustawić
 
-<p align="center"><img src="docs/screenshots/pl/keyboard-shortcuts.jpg" alt="Okno skrótów klawiszowych" width="520"></p>
+<p align="center"><img src="docs/screenshots/keyboard-shortcuts.jpg" alt="Okno skrótów klawiszowych" width="520"></p>
 
 Ikona w pasku menu → **Keyboard Shortcuts…** (także w menu na belce okna). Kliknij skrót i naciśnij klawisze; Esc
 anuluje, Delete usuwa.
@@ -287,8 +301,8 @@ Przypisania są w `shortcuts.json`.
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/pl/transfer-details-dark.jpg">
-    <img src="docs/screenshots/pl/transfer-details.jpg" alt="Okno szczegółów postępu z wykresem prędkości, czasem i przyciskami Wstrzymaj i Anuluj" width="480">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/transfer-details-dark.jpg">
+    <img src="docs/screenshots/transfer-details.jpg" alt="Okno szczegółów postępu z wykresem prędkości, czasem i przyciskami Wstrzymaj i Anuluj" width="480">
   </picture>
 </p>
 
@@ -323,6 +337,77 @@ Kopiowania i przenoszenia zapisujące na ten sam dysk (lub ten sam serwer) wykon
 pokazują *Oczekiwanie w kolejce…* i obok paska postępu mały przycisk **W kolejce: N**, z którego można usunąć każdą z nich.
 Operacje na różne dyski nadal idą równolegle. Pliki, które są kopiowane lub przenoszone (albo czekają na to), nie dadzą
 się przenieść do Kosza, zmienić nazwy ani przenieść spod trwającej operacji; MacLister mówi o tym zamiast to robić.
+
+### Zaznaczanie ramką
+
+<p align="center"><img src="docs/screenshots/drag-select.jpg" alt="Prostokąt zaznaczenia narysowany przez cztery wiersze listera" width="560"></p>
+
+Naciśnij przycisk na pustym miejscu — pod wierszami, w kolumnach Rozmiar / Data zmian albo na prawo od nazwy — i
+ciągnij: prostokąt zaznacza wszystkie wiersze, których dotyka (⌘ lub ⇧ dodaje do zaznaczenia; lista przewija się, gdy
+dojdziesz do krawędzi). Domyślnie działa to także od **niezaznaczonej nazwy pliku**, jak w Directory Opus;
+*zaznaczony* plik jest zawsze przeciągany jako plik, więc nadal można wyciągać pliki z listera. Wolisz zachowanie
+Findera (naciśnięcie nazwy zawsze przeciąga plik)? Ikona w pasku menu → wyłącz **Zaznaczanie ramką od nazw plików**.
+
+### Tab między listerami
+
+**Tab** przenosi klawiaturę do następnego listera (w kolejności otwarcia), **⇧Tab** do poprzedniego. Obie rzeczy są też
+akcjami (`nextLister`, `previousLister`), którym możesz przypisać inny klawisz lub przycisk.
+
+### Cofanie i dziennik operacji
+
+<p align="center"><img src="docs/screenshots/operation-log.jpg" alt="Dziennik operacji: kopiowania, przeniesienia, wysyłanie i wyrzucenie do Kosza wraz z wynikiem" width="560"></p>
+
+**⌘Z** (albo *Cofnij…* w menu pod prawym przyciskiem i w menu paska menu) cofa ostatnie **kopiowanie,
+przeniesienie, duplikowanie lub wyrzucenie do Kosza** zrobione na Twoim dysku w tej sesji, po jednej operacji, od
+najnowszej:
+
+- kopiowanie lub duplikat: nowe elementy trafiają do Kosza;
+- przeniesienie lub wyrzucenie: elementy wracają tam, skąd przyszły (nigdy na coś, co tam teraz leży);
+- *Zastąp* przy konflikcie: zastąpiony plik wraca z Kosza;
+- scalenie folderów i wszystko na serwerze jest zapisywane w dzienniku, ale nie jest cofane.
+
+Cofanie nigdy nie usuwa niczego na stałe. **Dziennik operacji…** (menu pod prawym przyciskiem lub menu paska menu)
+wylicza każde kopiowanie, przeniesienie, wysłanie, pobranie, duplikowanie i wyrzucenie do Kosza z wynikiem, od
+najnowszego. Dziennik leży w `operations.json`; **Przechowuj dziennik przez 7 / 30 / 90 dni lub rok** (domyślnie 30)
+i najwyżej 1000 wpisów, więc nigdy nie rośnie bez końca. Samo cofanie jest dostępne tylko w bieżącej sesji.
+
+### Kliknięcia przycisków i edytor przycisków
+
+<p align="center"><img src="docs/screenshots/button-editor.jpg" alt="Edytor przycisków z zaznaczonym Copy: lewy przycisk Copy, prawy Move, środkowy Compare" width="620"></p>
+
+Jak w Directory Opus 5, każdy przycisk może robić co innego po kliknięciu **lewym, prawym i środkowym przyciskiem myszy**.
+Ikona w pasku menu → **Edytuj przyciski…**: wybierz przycisk, ustal akcję dla każdego przycisku myszy (albo polecenie
+powłoki), zmień kolejność, dodaj, usuń, zmień ikonę, kolor i podpowiedź, **Zapisz**. Przyciski z dodatkowymi
+kliknięciami mają znacznik w edytorze i wymieniają je w podpowiedzi. W `buttons.json` klucze to `rightAction` /
+`rightCommand` oraz `middleAction` / `middleCommand`. *Otwórz buttons.json* w edytorze otwiera surowy plik.
+
+### Format tytułu listera
+
+<p align="center"><img src="docs/screenshots/lister-title.jpg" alt="Okno Tytuł listera: szablony tytułu i podtytułu z podglądem na żywo i listą zmiennych" width="560"></p>
+
+Ikona w pasku menu (lub menu listera) → **Tytuł listera…** ustala, co mówi tytuł okna i linia pod nim. Pisz tekst ze
+zmiennymi; **`{ … }` pojawia się tylko wtedy, gdy wszystko w środku ma wartość**, więc `{%l — }%n` to „Praca — Raporty”
+dla nazwanego listera i samo „Raporty” dla pozostałych. Edytor ma podgląd na żywo, gotowe formaty i listę zmiennych:
+
+| | | | |
+|---|---|---|---|
+| `%n` nazwa folderu | `%p` pełna ścieżka | `%~` ścieżka z ~ | `%l` nazwa listera |
+| `%r` SRC / DST | `%R` ŹRÓDŁO / CEL | `%v` nazwa dysku | `%h` serwer |
+| `%c` „11 elementów” | `%d` foldery | `%f` pliki | `%s` liczba zaznaczonych |
+| `%S` rozmiar zaznaczenia | `%F` podsumowanie miejsca | `%b` wolne | `%B` pojemność dysku |
+| `%m` filtr | `%t` godzina | `%D` data | `%%` `%{` `%}` znaki dosłowne |
+
+Domyślnie: tytuł `{%l — }%n{ – %h}`, podtytuł `%c{ · %F}{ · %R}`.
+
+### Aktualizacje
+
+Ikona w pasku menu → **Sprawdź aktualizacje…** pyta GitHub, czy jest nowsze wydanie, i pokazuje jego opis; **Zainstaluj i
+uruchom ponownie** pobiera je, sprawdza sumę SHA-256 z plikiem `.sha256` wydania i podpis kodu, po czym podmienia
+aplikację i uruchamia ją (wymaga folderu instalacji, do którego możesz pisać; inaczej otwiera stronę wydania).
+**Sprawdzaj aktualizacje automatycznie** zagląda raz dziennie — jest **domyślnie wyłączone**, a MacLister raz po
+uruchomieniu pyta, czy tego chcesz. Nic nie jest instalowane bez Twojego kliknięcia, a zapytanie nie niesie żadnych
+informacji o Tobie. **Pomiń tę wersję** wycisza jedno wydanie. Adres jest w `Info.plist` (`MacListerUpdateFeed`);
+`defaults write com.example.MacLister updateFeedURL <url>` go nadpisuje.
 
 ## Daty
 

@@ -23,6 +23,12 @@ menu-bar agent, no Dock icon.
 - Select by pattern, filter, folder sizes, info panel, rename, duplicate, Quick Look on Space, archive extraction
   (zip, tar.\*, 7z, rar, gz, bz2 …).
 - **Right-click the title bar** for lister commands (duplicate, source/destination, close all …).
+- **Undo** for the last copy, move, duplicate or Trash (⌘Z) and an **operation log** with a retention limit.
+- **Drag-select** (press on empty space or on a file name and drag a rectangle), **Tab** between listers, a **history
+  menu** under right-click on Back.
+- **Left, right and middle click** of every button can do something different; a **button editor** and a
+  **title format** with `%` variables.
+- **Update check** — manual, or automatic if you agree (off by default).
 
 ## Requirements
 
@@ -136,6 +142,8 @@ cannot be cleared or swapped away until you unlock it.
 | ⌘⇧. | show or hide hidden files |
 | ⌘⇧L | bring all listers to the front |
 | ⌘W | close the lister |
+| ⌘Z | undo the last copy, move, duplicate or Move to Trash (this session) |
+| Tab / ⇧Tab | move to the next / previous lister |
 
 On many laptops F-keys need **fn**.
 
@@ -191,6 +199,11 @@ On many laptops F-keys need **fn**.
 
 The **Go** menu has *Places* (Home, Desktop, Documents, Downloads, Applications, Root, mounted volumes),
 *Bookmarks* (add the current folder, remove) and *Recent*. Bookmarks live in `bookmarks.json`.
+
+<p align="center"><img src="docs/screenshots/back-history.jpg" alt="Right-click on the Back button lists the folders the lister came from" width="520"></p>
+
+**Right-click the Back button** (as in Directory Opus) for the folders this lister came from, nearest first — pick
+one to jump straight there.
 
 ### Filetypes: what a double-click does
 
@@ -320,6 +333,77 @@ Copies and moves that write to the same disk (or the same server) run one after 
 for different disks still run side by side. Files that are being copied or moved — or wait to be — cannot be trashed,
 renamed or moved from under the job; MacLister says so instead.
 
+### Drag-select
+
+<p align="center"><img src="docs/screenshots/drag-select.jpg" alt="A selection rectangle drawn across four rows of a lister" width="560"></p>
+
+Press on empty space — below the rows, in the Size / Modified columns or right of a name — and drag: a rectangle
+selects every row it touches (⌘ or ⇧ adds to the selection; the list scrolls when you reach the edge). By default
+this also works from an **unselected file name**, as in Directory Opus; a *selected* file is always dragged as a
+file, so you can still drag files out. Prefer the Finder behaviour (a name press always drags the file)? Menu-bar icon →
+**Drag-Select from File Names** off.
+
+### Tab between listers
+
+**Tab** moves the keyboard to the next lister (in the order they were opened), **⇧Tab** to the previous one. Both are
+also actions (`nextLister`, `previousLister`) you can give another key or a button.
+
+### Undo and the operation log
+
+<p align="center"><img src="docs/screenshots/operation-log.jpg" alt="The operation log: copies, moves, an upload and a trashing with their outcome" width="560"></p>
+
+**⌘Z** (or *Undo…* in the context menu and the menu-bar menu) takes back the last **copy, move, duplicate or Move to
+Trash** done on your disk during this session, one operation at a time, newest first:
+
+- a copy or duplicate: the new items go to the Trash;
+- a move or trashing: the items go back where they came from (never over something that is there now);
+- *Replace* in a conflict: the file that was replaced comes back from the Trash;
+- a folder merge, and anything on a server, is logged but not undone.
+
+Nothing is ever deleted for good by Undo. **Operation Log…** (context menu or menu-bar menu) lists every copy,
+move, upload, download, duplicate and trashing with its outcome, newest first. The log is kept in
+`operations.json`; **Keep the log for 7 / 30 / 90 days or a year** (default 30) and at most 1000 entries, so it
+never grows without limit. Undo itself is available only for the current session.
+
+### Button clicks and the button editor
+
+<p align="center"><img src="docs/screenshots/button-editor.jpg" alt="The button editor with Copy selected: left click Copy, right click Move, middle click Compare" width="620"></p>
+
+As in Directory Opus 5, every button can do a different thing for the **left, right and middle mouse button**. Menu-bar
+icon → **Edit Buttons…**: pick a button, choose the action for each mouse button (or a shell command), reorder,
+add, remove, change the icon, color and tooltip, **Save**. Buttons that have extra clicks show a small marker in the
+editor and list them in their tooltip. In `buttons.json` the keys are `rightAction` / `rightCommand` and
+`middleAction` / `middleCommand`. *Open buttons.json* in the editor opens the raw file for text-editor people.
+
+### Lister title format
+
+<p align="center"><img src="docs/screenshots/lister-title.jpg" alt="The Lister Title window: a title and a subtitle template with a live preview and the list of variables" width="560"></p>
+
+Menu-bar icon (or the lister's context menu) → **Lister Title…** sets what the window title and the line under it say.
+Write text with variables; **`{ … }` is shown only when everything inside it has a value**, so `{%l — }%n` is
+“Work — Reports” for a named lister and just “Reports” for the others. The editor has a live preview, presets and
+the list of variables:
+
+| | | | |
+|---|---|---|---|
+| `%n` folder name | `%p` full path | `%~` path with ~ | `%l` lister name |
+| `%r` SRC / DST | `%R` SOURCE / DESTINATION | `%v` disk name | `%h` server |
+| `%c` “11 items” | `%d` folders | `%f` files | `%s` selected count |
+| `%S` selection size | `%F` free space summary | `%b` free | `%B` disk size |
+| `%m` filter | `%t` time | `%D` date | `%%` `%{` `%}` literals |
+
+Defaults: title `{%l — }%n{ – %h}`, subtitle `%c{ · %F}{ · %R}`.
+
+### Updates
+
+Menu-bar icon → **Check for Updates…** asks GitHub whether a newer release exists and shows its notes; **Install and
+Restart** downloads it, checks the SHA-256 against the release's `.sha256` file and the code signature, then
+replaces the app and starts it (needs a writable install folder; otherwise it opens the release page).
+**Check for Updates Automatically** looks once a day — it is **off by default**, MacLister asks you once after
+starting whether you want it. Nothing is installed without your click, and the request carries no information
+about you. **Skip This Version** silences one release. The address is in `Info.plist` (`MacListerUpdateFeed`);
+`defaults write com.example.MacLister updateFeedURL <url>` overrides it.
+
 ## Dates
 
 The *Modified* and *Created* columns can show dates the way Finder does — *Today, 10:05*, *Yesterday …*
@@ -354,7 +438,8 @@ Files in `~/Library/Application Support/MacLister/`:
 
 ### Buttons
 
-Menu-bar icon → **Edit Buttons…**, then **Reload Buttons** (all open listers update). **Reset Buttons to
+Menu-bar icon → **Edit Buttons…** opens the button editor (see *Button clicks and the button editor*); after changing
+`buttons.json` by hand use **Reload Buttons** (all open listers update). **Reset Buttons to
 Defaults** rewrites the file (use it after an update to get new default buttons; also
 `MacLister --reset-buttons`). The default set is short: New Folder, Terminal Here, Copy, Move, Extract,
 Compare, Info, Delete. Everything else (select, filter, sizes, duplicate lister, swap …) is in the menus and
@@ -369,12 +454,13 @@ shortcuts, or add it as a button.
 ]
 ```
 
+Each button can also have `rightAction`, `rightCommand`, `middleAction`, `middleCommand` (see *Button clicks*).
 `symbol` is an SF Symbols name (optional), `color` tints the icon (`blue green orange red purple teal pink yellow
 brown gray`; default neutral), `help` the tooltip, `requiresSelection` (true/false) overrides when a button is
 enabled. `{ "title": "", "action": "separator" }` draws a thin divider between groups. **Actions:** `newFolder terminalHere delete parent back refresh revealInFinder open newLister
 toggleHidden copy move setSource setDestination swapSourceDestination extract bringAllToFront duplicateLister
 duplicateFile selectPattern deselectPattern selectAll selectNone invertSelection filter clearFilter calcSizes
-compare info showInDestination destinationHere addBookmark makeAlias makeSymlink selectByAttributes toggleRoleLock batchRename attributes separator shell`.
+compare info showInDestination destinationHere addBookmark makeAlias makeSymlink selectByAttributes toggleRoleLock batchRename attributes nameLister showRecents showShared undo showLog nextLister previousLister separator shell`.
 `shell` runs `command` with `/bin/zsh` in the current folder; `$LISTER_DIR` is that folder and
 `$LISTER_SELECTION` the selected paths, one per line.
 
