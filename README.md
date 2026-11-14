@@ -54,17 +54,22 @@ run `defaults delete com.example.MacLister`, and remove MacLister from the two P
 ### Opening a lister
 
 - **Double-click an empty spot on the desktop.** Nothing happens on icons, windows, the menu bar or the Dock,
-  and clicks with ⌘/⇧/⌥/⌃ held are ignored.
+  and clicks with ⌘/⇧/⌥/⌃ held are ignored. Prefer the mouse wheel? Menu-bar icon → **Open Lister With** lets a
+  **single click of the middle button** open a lister instead of, or in addition to, the double-click.
 - Or use the menu-bar icon → **New Lister**.
 - By default the window's top-left corner sits on the click; menu-bar icon → **Center Lister on Cursor**
   centres it instead. A lister opens on your home folder (see *startDirectory* below).
 
 ### Anatomy of a lister
 
-- **Path bar:** *Back*, *Parent*, the **Go** menu (places, volumes, bookmarks, recent folders), an editable
-  path field (type a path, `~` works, press Return) and the **SRC** / **DST** badges.
+- **Path bar:** *Back*, *Parent*, the **Go** menu (places, volumes, bookmarks, recent folders), the path as a
+  clickable **breadcrumb** (click a folder to jump there; click the empty part of the bar or press **⌘L** to
+  type a path instead, `~` works) and the **SRC** / **DST** badges.
 - **File list:** icon, name, size, modified date. Click a header to sort; folders always come first.
-  Double-click or Return opens a file or enters a folder.
+  Double-click or Return opens a file or enters a folder. **Right-click the column header** to choose the
+  columns: Size, Modified, Created, Kind, Extension, Permissions, Tags, Comment.
+- **The list refreshes itself** when files are added, removed or changed on disk (FSEvents), and the window
+  subtitle shows the free space of the volume.
 - **Button bar** above the path bar, as in Ambient on MorphOS (see *Configuration*): icons only, the name is in
   the tooltip. Menu-bar icon → **Button Bar** puts it above the path, below the path or at the bottom;
   **Show Button Labels** adds text.
@@ -86,8 +91,19 @@ Then:
 | **Swap** | exchanges the roles |
 | **Open in Destination** | context menu: shows the selected folder in the destination lister |
 
-If no lister is marked SRC, the lister whose button you pressed is the source. When a name already exists you
-are asked: **Replace** (the old item goes to the Trash), **Keep Both** ("name 2.ext"), **Skip** or **Cancel**.
+If no lister is marked SRC, the lister whose button you pressed is the source.
+
+**Progress and Cancel.** Copy and Move show a progress bar in the status line (item, bytes, current file) with a
+**Cancel** button; folders are processed file by file, so cancelling takes effect between files. A move on the
+same volume is a plain rename.
+
+**Conflicts** are asked one at a time, with the old and new size and date: **Replace** (the old item goes to the
+Trash), **Replace If Newer**, **Keep Both** ("name 2.ext"), **Skip**, **Cancel**, and **Merge** when a folder
+meets a folder (its contents are then resolved item by item). Tick **Apply to all remaining conflicts** to stop
+being asked.
+
+**Lock Role** (title-bar menu) pins a lister as source or destination: no other lister can take the role, it
+cannot be cleared or swapped away until you unlock it.
 
 ### Keyboard
 
@@ -97,10 +113,12 @@ are asked: **Replace** (the old item goes to the Trash), **Keep Both** ("name 2.
 | Return, ⌘↓ | open file / enter folder |
 | Backspace, ⌘↑ | parent folder |
 | ⌘⌫ | move selection to the Trash |
-| F2 | rename |
+| F2 | rename (with several items selected: batch rename) |
 | F5 / F6 | copy / move to the destination lister |
 | ⌘E | extract archives |
 | ⌘I | info (size, dates, permissions, owner) |
+| ⌥⌘I | edit attributes (permissions, dates, hidden, tags, comment) |
+| ⌘L | type a path instead of using the breadcrumb |
 | ⌘D | duplicate the selected files (`name copy.ext`) |
 | ⌥⌘D | **duplicate this lister** (same folder, size, sort, filter) |
 | ⌘F | filter by pattern |
@@ -130,7 +148,24 @@ On many laptops F-keys need **fn**.
 - **Select by pattern** (`+`): wildcards such as `*.jpg`, `IMG_??.png`; several patterns separated by spaces;
   text without wildcards matches names containing it. `-` deselects, `*` inverts.
 - **Filter** (⌘F): shows only files matching the pattern (folders always stay). An empty pattern clears it.
+- **Select by Attributes** (context menu on empty space, or a button): conditions on name, kind (images, audio,
+  video, documents, archives, folders, files), size (larger / smaller than) and modified date (within the last N
+  days / older than N days). Every condition you set must match.
 - **Sizes**: calculates the recursive size of the selected folders (or all folders) into the Size column.
+
+### Renaming, attributes, links
+
+- **Batch rename** (F2 with several items, or *Rename N Items…*): find and replace (plain text or regular
+  expression with `$1`, `$2`, optional case matching), a name template with `[N]` name, `[C]` counter (start and
+  digits), `[D]` modified date and `[E]` extension, lowercase / UPPERCASE / Title Case, and a new extension. The
+  preview shows every old → new name and flags empty names, duplicates and clashes with existing files in red.
+  Renaming goes through temporary names, so names can be swapped.
+- **Attributes** (⌥⌘I, context menu): permissions as a read/write/execute grid (optionally for everything inside
+  folders, which stay searchable), modified and created dates, hidden flag, Finder tags and comment. Only the
+  groups you switch on are changed.
+- **Make Alias** and **Make Symbolic Link** (context menu): created next to the originals, or in the destination
+  lister's folder when there is one.
+- **Open With** (context menu on files): the applications that can open the file, the default first, or *Other…*.
 
 ### Bookmarks and history
 
@@ -162,6 +197,69 @@ filter); **Restore Layout** reopens them. To restore automatically at launch:
 defaults write com.example.MacLister restoreLayoutAtLaunch -bool true
 ```
 
+## Servers: FTP, FTPS and SFTP
+
+A lister can show a server like a folder. **Go → Connect to Server…** (or ⌘K, or the menu-bar icon) asks for the
+protocol, address, port, user and password. SFTP can use a key file (and its passphrase) or your ssh-agent.
+**Remember this server** puts it in the Go menu; **Save the password in the Keychain** keeps the password out of
+every file.
+
+| Protocol | Notes |
+|---|---|
+| **SFTP** (SSH) | uses the system's OpenSSH `sftp` with one background connection per server, so only the first operation logs in |
+| **FTPS, explicit** (`AUTH TLS`, port 21) | uses the system's `curl`; the certificate is checked |
+| **FTPS, implicit** (port 990) | same, TLS from the first byte |
+| **FTP** | no encryption: MacLister warns that the password travels in clear text |
+
+- **Host keys (SFTP):** the first time a server is seen you get its fingerprints and decide whether to trust it;
+  they are kept in MacLister's own `known_hosts`. If a trusted server's key ever changes, the connection is refused.
+- **Certificates (FTPS):** an untrusted certificate is refused unless you tick *Accept an untrusted certificate*
+  (shown with a warning).
+- **Passwords** go to `curl` through a config on stdin and to `ssh` through `SSH_ASKPASS`; they never appear on a
+  command line.
+
+What works on a server: browsing (breadcrumb, columns, sort, filter, hidden files, bookmarks, history, typing a
+path or a full URL), opening a file (it is downloaded to a cache first), Quick Look, **Copy and Move between a
+server lister and a local lister in both directions** (source/destination listers, drag and drop onto a server),
+Move inside one server, **New Folder, Rename, Delete** (servers have no Trash, so deleting asks first). Transfers have
+the same progress bar, Cancel and conflict questions (Replace, Replace If Newer, Keep Both, Skip, Merge) as local ones.
+
+**Wildcards in SFTP names:** OpenSSH's `sftp` expands `* ? [ ] { }` in file names and offers no way to switch that
+off, so a file called `star*.txt` could also match `starfish.txt`. MacLister checks the folder listing first: a
+download or listing that would be ambiguous is refused with an explanation, a delete is done through a temporary
+plain name (so nothing else is touched), and names containing `{` or `}` are refused. Uploads from local files with
+such names go through a temporary link.
+
+Not on servers yet: attributes and Info, aliases, extracting archives, calculating folder sizes, batch rename,
+dragging files *out of* a server lister, copying between two servers or inside one, resuming interrupted transfers,
+automatic refresh. FTP paths are relative to the login folder. Symbolic links on a server are shown as files;
+double-clicking one tries to enter it first. Opening a server file downloads it; changes are not uploaded back.
+
+## Keyboard shortcuts you can set
+
+Menu-bar icon → **Keyboard Shortcuts…** (also in the title-bar menu). Click a shortcut and press the keys; Esc cancels,
+Delete removes it.
+
+- **Anywhere:** *Open a lister* (at the mouse pointer, in any application) and *Bring all listers to the front*.
+- **In listers:** one shortcut for every action (Copy, Move, Extract, Compare, Connect to Server, Lock Role, Select by
+  Pattern …), on top of the built-in keys.
+
+Every shortcut is checked before it is accepted, and the editor explains what is wrong:
+
+1. it needs ⌘, ⌥ or ⌃ (function keys and arrows may stand alone in listers; global shortcuts always need a modifier);
+2. it must not be a macOS shortcut: MacLister reads the enabled shortcuts of System Settings → Keyboard → Keyboard
+   Shortcuts (Spotlight, Mission Control, screenshots, switching Spaces …) with your own changes;
+3. it must not be a key every app owns (⌘Q, ⌘W, ⌘M, ⌘H, ⌘A, ⌘C, ⌘V, ⌘X, ⌘Z, ⌘Tab) or one MacLister already uses;
+4. a global shortcut must not be registered by another application (the system is asked);
+5. a combination assigned to another action asks whether to move it.
+
+Assignments are stored in `shortcuts.json`.
+
+## Progress in the menu bar
+
+While anything copies, moves, downloads or deletes, the menu-bar icon turns into a progress ring with a percentage
+(several jobs: their average) and its tooltip says what is running.
+
 ## Configuration
 
 Files in `~/Library/Application Support/MacLister/`:
@@ -172,6 +270,9 @@ Files in `~/Library/Application Support/MacLister/`:
 | `filetypes.json` | double-click actions |
 | `bookmarks.json` | bookmarked folders |
 | `layout.json` | saved layout |
+| `shortcuts.json` | your keyboard shortcuts |
+| `servers.json` | saved servers (without passwords; those are in the Keychain) |
+| `known_hosts` | SFTP host keys you trusted |
 
 ### Buttons
 
@@ -195,7 +296,7 @@ brown gray`; default neutral), `help` the tooltip, `requiresSelection` (true/fal
 enabled. `{ "title": "", "action": "separator" }` draws a thin divider between groups. **Actions:** `newFolder terminalHere delete parent back refresh revealInFinder open newLister
 toggleHidden copy move setSource setDestination swapSourceDestination extract bringAllToFront duplicateLister
 duplicateFile selectPattern deselectPattern selectAll selectNone invertSelection filter clearFilter calcSizes
-compare info showInDestination destinationHere addBookmark separator shell`.
+compare info showInDestination destinationHere addBookmark makeAlias makeSymlink selectByAttributes toggleRoleLock batchRename attributes separator shell`.
 `shell` runs `command` with `/bin/zsh` in the current folder; `$LISTER_DIR` is that folder and
 `$LISTER_SELECTION` the selected paths, one per line.
 
@@ -210,6 +311,7 @@ Set with `defaults write com.example.MacLister <key> <value>`:
 | `startDirectory` | `~` | folder a desktop double-click opens |
 | `terminalBundleID` | `com.apple.Terminal` | terminal used by *Terminal Here* (also: menu-bar icon → *Terminal App*) |
 | `restoreLayoutAtLaunch` | false | reopen the saved layout at start |
+| `desktopTrigger` | `doubleClick` | `doubleClick`, `middleClick` or `both` (also: menu-bar icon → *Open Lister With*) |
 | `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` or `bottom` |
 | `showButtonLabels` | false | text next to the button icons |
 | `debugHitTest` | false | log every click decision to `~/Library/Logs/MacLister.log` |
@@ -250,7 +352,18 @@ open build/MacLister.app --args --selftest
 open build/MacLister.app --args --selftest-features
 ```
 
+Server tests run against small local FTP/FTPS servers (standard-library Python in `Tools/mock_ftp_server.py`):
+start it with `--port`, `--root` and optionally `--tls explicit|implicit --cert … --key …`, then
+`open build/MacLister.app --args --selftest-remote ftp=2121 ftpes=2122 ftps=2123 root=<the served folder>`.
+
+SFTP is tested two ways: `sftpdir=<folder>` runs the `sftp` commands against the system's local `sftp-server`
+(no network), and `sftp=<port> sshuser=… key=… pkey=… "pass=…" sshdir=…` against a throw-away `sshd` you start on
+`127.0.0.1` with its own keys (host key trust, key files, passphrases through `SSH_ASKPASS`, changed host keys).
+
 `MacLister --open [folder]` opens a lister at launch.
+
+The app icon is drawn in code: `swift Tools/make_icon.swift` regenerates `Support/AppIcon.icns` (two overlapping
+lister windows, source blue and destination orange, with Amiga-style gadgets on a macOS rounded square).
 
 Layout: `Sources/MacLister/` – `DesktopDoubleClickMonitor` (event tap), `DesktopHitTest` (is this empty desktop?),
 `ListerWindowController` / `ListerManager` (windows, roles, layouts), `ListerViewController` (+ `Features`)
@@ -271,5 +384,6 @@ Layout: `Sources/MacLister/` – `DesktopDoubleClickMonitor` (event tap), `Deskt
 ## Known limitations
 
 No file search, tree view or hex viewer, and archives cannot be browsed like folders (they are extracted).
+Servers support browsing, copying and the basic folder operations only (see *Servers*).
 Dragging uses Finder conventions; spring-loaded folders are not implemented. Password-protected archives report
 an error.

@@ -21,6 +21,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/MacLister"
 cp Support/Info.plist "$APP/Contents/Info.plist"
+cp Support/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 # Ad-hoc signature. The requirement pins the identifier instead of the per-build cdhash, so
 # Accessibility / Input Monitoring grants survive rebuilds.

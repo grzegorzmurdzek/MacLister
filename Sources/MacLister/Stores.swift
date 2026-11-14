@@ -26,10 +26,18 @@ final class BookmarkStore: ObservableObject {
         }
     }
 
-    func contains(_ url: URL) -> Bool { paths.contains(url.standardizedFileURL.path) }
+    /// Local folders are stored as paths, servers as URLs.
+    static func key(for url: URL) -> String { ListerModel.comparisonKey(url) }
+
+    static func url(forKey key: String) -> URL {
+        if key.contains("://"), let url = URL(string: key) { return url }
+        return URL(fileURLWithPath: key)
+    }
+
+    func contains(_ url: URL) -> Bool { paths.contains(Self.key(for: url)) }
 
     func add(_ url: URL) {
-        let path = url.standardizedFileURL.path
+        let path = Self.key(for: url)
         guard !paths.contains(path) else { return }
         paths.append(path)
         save()
@@ -57,7 +65,7 @@ final class PathHistory: ObservableObject {
     }
 
     func add(_ url: URL) {
-        let path = url.standardizedFileURL.path
+        let path = BookmarkStore.key(for: url)
         recent.removeAll { $0 == path }
         recent.insert(path, at: 0)
         if recent.count > 15 { recent.removeLast(recent.count - 15) }
@@ -133,6 +141,7 @@ struct ListerSnapshot: Codable {
     var ascending: Bool
     var showHidden: Bool
     var filter: String
+    var locked: Bool?
 }
 
 enum LayoutStore {
@@ -142,13 +151,14 @@ enum LayoutStore {
     @discardableResult
     static func save(from manager: ListerManager) -> Int {
         let snapshots: [ListerSnapshot] = manager.allControllers.compactMap { controller in
-            guard let frame = controller.window?.frame else { return nil }
+            guard let frame = controller.window?.frame, controller.model.url.isFileURL else { return nil }   // servers are not restored
             let model = controller.model
             let role: String
             switch model.role { case .source: role = "source"; case .destination: role = "destination"; case .none: role = "none" }
             return ListerSnapshot(path: model.url.path, x: frame.minX, y: frame.minY, width: frame.width, height: frame.height,
                                   role: role, sort: model.sortKey.rawValue, ascending: model.ascending,
-                                  showHidden: model.showHidden, filter: model.filter)
+                                  showHidden: model.showHidden, filter: model.filter,
+                                  locked: model.roleLocked ? true : nil)
         }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -176,6 +186,7 @@ enum LayoutStore {
             case "destination": manager.toggleRole(.destination, for: controller)
             default:            break
             }
+            if snapshot.locked == true { controller.model.roleLocked = true }
             opened += 1
         }
         return opened

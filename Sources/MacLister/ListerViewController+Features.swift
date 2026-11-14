@@ -84,6 +84,7 @@ extension ListerViewController {
 
     /// Calculates the sizes of the selected folders, or of all folders here when none is selected.
     func calculateFolderSizes() {
+        if remoteUnavailable("Folder sizes") { return }
         let selectedFolders = selectedItems.filter(\.isDirectory).map(\.url)
         let targets = selectedFolders.isEmpty ? rows.filter(\.isDirectory).map(\.url) : selectedFolders
         guard !targets.isEmpty else {
@@ -156,6 +157,7 @@ extension ListerViewController {
     // MARK: - Info and duplicate
 
     func showInfo() {
+        if remoteUnavailable("Info") { return }
         let urls = model.selectedURLs.isEmpty ? [model.url] : model.selectedURLs
         model.statusMessage = "Reading info…"
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -178,6 +180,7 @@ extension ListerViewController {
 
     /// Duplicates the selected files next to the originals ("name copy.ext").
     func duplicateSelection() {
+        if remoteUnavailable("Duplicate") { return }
         let urls = model.selectedURLs
         guard !urls.isEmpty else { NSSound.beep(); return }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -270,35 +273,84 @@ extension ListerViewController {
         return x.isEqual(y)
     }
 
-    /// Copies or moves dropped files into `folder`, asking once about name conflicts.
-    func transfer(_ kind: TransferKind, items: [URL], into folder: URL) {
-        let start: (ConflictPolicy) -> Void = { [weak self] policy in
-            guard let self else { return }
-            self.model.statusMessage = "\(kind.progressVerb) \(items.count) item\(items.count == 1 ? "" : "s")…"
-            FileTransfer.perform(kind, items: items, into: folder, policy: policy) { result in
-                self.model.statusMessage = nil
-                let folders = [folder] + items.map { $0.deletingLastPathComponent() }
-                ListerManager.shared.reloadListers(showing: folders)
-                if !result.failures.isEmpty { self.model.errorMessage = result.failures.joined(separator: "; ") }
-            }
-        }
-        let conflicts = FileTransfer.conflicts(of: items, in: folder)
-        if conflicts.isEmpty {
-            start(.keepBoth)
-        } else {
-            askConflictPolicy(kind, conflicts: conflicts, destination: folder) { policy in
-                if let policy { start(policy) }
-            }
-        }
-    }
-
     // MARK: - Transient status
 
     /// Shows a message in the status bar for a few seconds.
-    func flash(_ text: String) {
-        model.statusMessage = text
-        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak model] in
-            if model?.statusMessage == text { model?.statusMessage = nil }
+    func flash(_ text: String) { model.flash(text) }
+
+    // MARK: - Select by attributes
+
+    func promptSelectByAttributes() {
+        guard let window = view.window else { return }
+        SheetPresenter().present(on: window, size: NSSize(width: 440, height: 330)) { close in
+            SelectByAttributesView(onSelect: { [weak self] filter in self?.applyAttributeFilter(filter) }, close: close)
         }
     }
+
+    /// Adds every matching row to the selection.
+    func applyAttributeFilter(_ filter: AttributeFilter) {
+        var indexes = tableView.selectedRowIndexes
+        for (i, row) in rows.enumerated() where filter.matches(row) { indexes.insert(i) }
+        tableView.selectRowIndexes(indexes, byExtendingSelection: false)
+        flash("\(indexes.count) selected")
+    }
+
+    // MARK: - Batch rename and attributes
+
+    func promptBatchRename() {
+        if remoteUnavailable("Batch rename") { return }
+        let urls = model.selectedURLs
+        guard !urls.isEmpty, let window = view.window else { NSSound.beep(); return }
+        SheetPresenter().present(on: window, size: NSSize(width: 620, height: 560)) { close in
+            BatchRenameView(items: urls, onApply: { [weak self] plan in self?.applyRename(plan) }, close: close)
+        }
+    }
+
+    func applyRename(_ plan: [RenameEntry]) {
+        let result = BatchRename.apply(plan)
+        var selection: [ObjectIdentifier: URL] = [:]
+        if let first = result.renamed.first, let controller = view.window?.windowController { selection[ObjectIdentifier(controller)] = first }
+        ListerManager.shared.reloadListers(showing: Array(Set(plan.map { $0.url.deletingLastPathComponent() })), selecting: selection)
+        if !result.failures.isEmpty { model.errorMessage = result.failures.joined(separator: "; ") }
+        else { flash("Renamed \(result.renamed.count) item\(result.renamed.count == 1 ? "" : "s")") }
+    }
+
+    /// Permissions, dates, hidden flag, tags and comment of the selection (or of this folder).
+    func promptAttributes() {
+        if remoteUnavailable("Attributes") { return }
+        let urls = model.selectedURLs.isEmpty ? [model.url] : model.selectedURLs
+        guard let window = view.window else { return }
+        let title = urls.count == 1 ? "Attributes of “\(urls[0].lastPathComponent)”" : "Attributes of \(urls.count) Items"
+        let initial = AttributeFormState.initial(for: urls)
+        SheetPresenter().present(on: window, size: NSSize(width: 480, height: 560)) { close in
+            AttributesView(title: title, initial: initial, onApply: { [weak self] change in self?.applyAttributes(change, to: urls) }, close: close)
+        }
+    }
+
+    func applyAttributes(_ change: AttributeChange, to urls: [URL]) {
+        let failures = AttributeEditor.apply(change, to: urls)
+        model.reload()
+        if !failures.isEmpty { model.errorMessage = failures.joined(separator: "; ") } else { flash("Attributes changed") }
+    }
+
+    // MARK: - Alias and symbolic link
+
+    /// Creates aliases or symbolic links to the selected items in the destination lister's folder, or
+    /// next to the originals when there is no destination.
+    func makeLinks(symbolic: Bool) {
+        if remoteUnavailable("Aliases and links") { return }
+        let urls = model.selectedURLs
+        guard !urls.isEmpty else { NSSound.beep(); return }
+        let manager = ListerManager.shared
+        let folder = manager.destinationController.flatMap { $0.model !== model ? $0.model.url : nil }
+        let result = LinkMaker.make(symbolic: symbolic ? true : false, items: urls, in: folder)
+        let shown = [model.url] + (folder.map { [$0] } ?? [])
+        manager.reloadListers(showing: shown)
+        if !result.failures.isEmpty { model.errorMessage = result.failures.joined(separator: "; ") }
+    }
+}
+
+extension ListerViewController {
+    /// Test helper: selects the rows showing these URLs.
+    func setSelectionForSheetTest(_ urls: [URL]) { select(urls: Set(urls)) }
 }

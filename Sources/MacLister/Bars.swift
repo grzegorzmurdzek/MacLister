@@ -59,9 +59,12 @@ extension ListerButton {
 struct PathBarView: View {
     @ObservedObject var model: ListerModel
     var onToggleRole: (ListerRole) -> Void
+    var onConnect: (ServerProfile?) -> Void
+    @ObservedObject private var servers = ServerStore.shared
     @ObservedObject private var bookmarks = BookmarkStore.shared
     @ObservedObject private var history = PathHistory.shared
     @State private var text = ""
+    @FocusState private var fieldFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -78,12 +81,7 @@ struct PathBarView: View {
 
                 goMenu
 
-                TextField("Path", text: $text)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(size: 13, design: .monospaced))
-                    .onSubmit {
-                        if !model.navigate(toPath: text) { text = model.url.path }
-                    }
+                pathField
 
                 roleButton(.source, title: "SRC", tint: .blue, help: "Make this lister the source of Copy / Move")
                 roleButton(.destination, title: "DST", tint: .orange, help: "Make this lister the destination of Copy / Move")
@@ -95,11 +93,33 @@ struct PathBarView: View {
             Divider()
         }
         .background(.bar)
-        .onReceive(model.$url) { text = $0.path }
+        .onReceive(model.$url) { text = ListerModel.displayPath($0) }
     }
 }
 
 extension PathBarView {
+    /// Clickable breadcrumb; clicking the empty part (or ⌘L) switches to an editable text field.
+    @ViewBuilder
+    fileprivate var pathField: some View {
+        if model.editingPath {
+            TextField("Path", text: $text)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(size: 13, design: .monospaced))
+                .focused($fieldFocused)
+                .onSubmit {
+                    if model.navigate(toPath: text) { model.editingPath = false } else { text = ListerModel.displayPath(model.url) }
+                }
+                .onExitCommand { model.editingPath = false }
+                .onAppear {
+                    text = ListerModel.displayPath(model.url)
+                    DispatchQueue.main.async { fieldFocused = true }
+                }
+                .onChange(of: fieldFocused) { focused in if !focused { model.editingPath = false } }
+        } else {
+            BreadcrumbView(url: model.url, onSelect: { model.navigate(to: $0) }, onEdit: { model.editingPath = true })
+        }
+    }
+
     /// Magellan's hotlist and path history in one menu.
     fileprivate var goMenu: some View {
         Menu {
@@ -111,9 +131,28 @@ extension PathBarView {
                     Button { model.navigate(to: volume) } label: { Label(volume.lastPathComponent, systemImage: "externaldrive") }
                 }
             }
+            Section("Servers") {
+                ForEach(servers.servers) { server in
+                    Button { onConnect(server) } label: {
+                        Label(server.displayName, systemImage: server.scheme.isEncrypted ? "lock" : "network")
+                    }
+                }
+                Button { onConnect(nil) } label: { Label("Connect to Server…", systemImage: "server.rack") }
+                if !servers.servers.isEmpty {
+                    Menu("Remove Server") {
+                        ForEach(servers.servers) { server in Button(server.displayName) { servers.remove(server) } }
+                    }
+                }
+                if model.isRemote {
+                    Button {
+                        RemoteSessions.shared.disconnect(model.url)
+                        model.navigate(to: FileManager.default.homeDirectoryForCurrentUser)
+                    } label: { Label("Disconnect from \(RemoteURL.serverLabel(of: model.url))", systemImage: "eject") }
+                }
+            }
             Section("Bookmarks") {
                 ForEach(bookmarks.paths, id: \.self) { path in
-                    Button { model.navigate(to: URL(fileURLWithPath: path)) } label: { Text(Self.short(path)) }
+                    Button { model.navigate(to: BookmarkStore.url(forKey: path)) } label: { Text(Self.short(path)) }
                 }
                 Button { bookmarks.add(model.url) } label: { Label("Add This Folder", systemImage: "star") }
                     .disabled(bookmarks.contains(model.url))
@@ -128,7 +167,7 @@ extension PathBarView {
             if !history.recent.isEmpty {
                 Section("Recent") {
                     ForEach(history.recent, id: \.self) { path in
-                        Button { model.navigate(to: URL(fileURLWithPath: path)) } label: { Text(Self.short(path)) }
+                        Button { model.navigate(to: BookmarkStore.url(forKey: path)) } label: { Text(Self.short(path)) }
                     }
                 }
             }
@@ -162,7 +201,10 @@ extension PathBarView {
     fileprivate func roleButton(_ role: ListerRole, title: String, tint: Color, help: String) -> some View {
         let active = model.role == role
         Button { onToggleRole(role) } label: {
-            Text(title)
+            HStack(spacing: 3) {
+                Text(title)
+                if active && model.roleLocked { Image(systemName: "lock.fill").imageScale(.small) }
+            }
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(active ? Color.white : tint)
                 .padding(.horizontal, 9)
@@ -227,7 +269,21 @@ struct StatusBarView: View {
     var body: some View {
         VStack(spacing: 0) {
             Divider()
-            HStack { status; Spacer(minLength: 0) }
+            HStack(spacing: 10) {
+                if let progress = model.progress {
+                    if let fraction = progress.fraction {
+                        ProgressView(value: fraction).frame(width: 150)
+                    } else {
+                        ProgressView().controlSize(.small)
+                    }
+                    Text(progress.text).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                    Button { progress.cancel() } label: { Image(systemName: "xmark.circle.fill") }
+                        .buttonStyle(.plain).foregroundStyle(.secondary).help("Cancel")
+                } else {
+                    status
+                }
+                Spacer(minLength: 0)
+            }
                 .padding(.horizontal, 14)
                 .frame(maxHeight: .infinity)
         }
@@ -257,6 +313,68 @@ struct StatusBarView: View {
                 .foregroundStyle(.secondary)
                 .font(.caption)
                 .lineLimit(1)
+        }
+    }
+}
+
+/// Path as clickable segments (Ambient style). Long paths scroll to keep the current folder visible.
+struct BreadcrumbView: View {
+    let url: URL
+    var onSelect: (URL) -> Void
+    var onEdit: () -> Void
+
+    var body: some View {
+        let segments = PathSegments.make(for: url)
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 0) {
+                    ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
+                        if index > 0 {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(.tertiary)
+                                .padding(.horizontal, 2)
+                        }
+                        SegmentButton(title: segment.title, isCurrent: index == segments.count - 1) { onSelect(segment.url) }
+                            .id(index)
+                    }
+                }
+                .padding(.horizontal, 4)
+                .frame(maxHeight: .infinity)
+            }
+            .onAppear { proxy.scrollTo(segments.count - 1, anchor: .trailing) }
+            .onChange(of: url) { _ in
+                DispatchQueue.main.async { proxy.scrollTo(PathSegments.make(for: url).count - 1, anchor: .trailing) }
+            }
+        }
+        .frame(height: 28)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color(nsColor: .textBackgroundColor))
+                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(Color.primary.opacity(0.14)))
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onEdit)
+        )
+        .help("Click a folder to go there; click the empty part (or press ⌘L) to type a path")
+    }
+
+    private struct SegmentButton: View {
+        let title: String
+        let isCurrent: Bool
+        let action: () -> Void
+        @State private var hovering = false
+
+        var body: some View {
+            Button(action: action) {
+                Text(title)
+                    .font(.system(size: 12.5, weight: isCurrent ? .semibold : .regular))
+                    .lineLimit(1)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 3)
+                    .background(RoundedRectangle(cornerRadius: 5).fill(Color.primary.opacity(hovering ? 0.10 : 0)))
+            }
+            .buttonStyle(.plain)
+            .onHover { hovering = $0 }
         }
     }
 }

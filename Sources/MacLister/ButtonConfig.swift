@@ -1,7 +1,7 @@
 import Foundation
 
 /// What a bottom-bar button does.
-enum ListerAction: String, Codable {
+enum ListerAction: String, Codable, CaseIterable, Identifiable {
     case newFolder, terminalHere, delete, parent, back, refresh
     case revealInFinder, open, newLister, toggleHidden
     /// Source → destination lister (see the SRC / DST toggles in the path bar).
@@ -16,11 +16,14 @@ enum ListerAction: String, Codable {
     case selectPattern, deselectPattern, selectAll, selectNone, invertSelection
     case filter, clearFilter, calcSizes, compare, info
     case showInDestination, destinationHere, addBookmark
+    case makeAlias, makeSymlink, selectByAttributes, toggleRoleLock, batchRename, attributes, connectToServer
     /// A thin divider between groups of buttons (no action).
     case separator
     /// Runs `command` with /bin/zsh in the current folder.
     /// Environment: LISTER_DIR (current folder), LISTER_SELECTION (selected paths, newline separated).
     case shell
+
+    var id: String { rawValue }
 
     var needsSelection: Bool {
         switch self {

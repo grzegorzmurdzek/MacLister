@@ -12,6 +12,29 @@ enum ButtonBarPosition: String, CaseIterable {
     }
 }
 
+/// What on the empty desktop opens a lister.
+enum DesktopTrigger: String, CaseIterable {
+    case doubleClick, middleClick, both
+
+    var menuTitle: String {
+        switch self {
+        case .doubleClick: return "Double-click (left button)"
+        case .middleClick: return "Click the middle button"
+        case .both:        return "Both"
+        }
+    }
+
+    /// `button`: 0 left, 2 middle. A middle click counts only as a first click, so a quick double middle
+    /// click does not open two listers.
+    func accepts(button: Int, clickCount: Int) -> Bool {
+        switch button {
+        case 0: return self != .middleClick && clickCount == 2
+        case 2: return self != .doubleClick && clickCount == 1
+        default: return false
+        }
+    }
+}
+
 /// Small preferences layer on top of UserDefaults.
 ///
 /// Hidden switches (set with `defaults write com.example.MacLister <key> ...`):
@@ -30,6 +53,7 @@ enum Settings {
             "restoreLayoutAtLaunch": false,
             "showButtonLabels": false,
             "buttonBarPosition": ButtonBarPosition.abovePath.rawValue,
+            "desktopTrigger": DesktopTrigger.doubleClick.rawValue,
             "terminalBundleID": "com.apple.Terminal",
         ])
     }
@@ -46,6 +70,12 @@ enum Settings {
     static var showButtonLabels: Bool {
         get { defaults.bool(forKey: "showButtonLabels") }
         set { defaults.set(newValue, forKey: "showButtonLabels") }
+    }
+
+    /// Which mouse gesture on the empty desktop opens a lister.
+    static var desktopTrigger: DesktopTrigger {
+        get { DesktopTrigger(rawValue: defaults.string(forKey: "desktopTrigger") ?? "") ?? .doubleClick }
+        set { defaults.set(newValue.rawValue, forKey: "desktopTrigger") }
     }
 
     /// Where the button bar sits. Default: above the path bar, as in Ambient on MorphOS.

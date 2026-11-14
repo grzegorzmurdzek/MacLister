@@ -31,6 +31,7 @@ final class ListerViewController: NSViewController {
     private var layouts: [ButtonBarPosition: [NSLayoutConstraint]] = [:]
     private var currentPosition: ButtonBarPosition?
     private var didFitColumns = false
+    private let columnMenu = NSMenu(title: "Columns")
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -43,6 +44,21 @@ final class ListerViewController: NSViewController {
         f.countStyle = .file
         return f
     }()
+
+    /// Text shown in a column for an item.
+    static func text(for column: ListerColumn, of item: FileItem) -> String {
+        switch column {
+        case .name: return item.name
+        case .size: return item.size.map { sizeFormatter.string(fromByteCount: $0) } ?? "--"
+        case .date: return item.modified.map(dateFormatter.string(from:)) ?? "--"
+        case .created: return item.created.map(dateFormatter.string(from:)) ?? "--"
+        case .kind: return item.kind ?? (item.isDirectory ? "Folder" : "--")
+        case .ext: return item.isDirectory && !item.isPackage ? "" : item.url.pathExtension.lowercased()
+        case .permissions: return item.permissions.map(InfoText.permissionString) ?? "--"
+        case .tags: return item.tags.joined(separator: ", ")
+        case .comment: return item.comment ?? ""
+        }
+    }
 
     init(model: ListerModel) {
         self.model = model
@@ -57,7 +73,9 @@ final class ListerViewController: NSViewController {
     override func loadView() {
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 680, height: 440))
 
-        let pathBar = NSHostingView(rootView: PathBarView(model: model) { [weak self] in self?.toggleRole($0) })
+        let pathBar = NSHostingView(rootView: PathBarView(model: model,
+                                                          onToggleRole: { [weak self] in self?.toggleRole($0) },
+                                                          onConnect: { [weak self] in self?.connectChoice($0) }))
         let buttonBar = NSHostingView(rootView: ButtonBarView(model: model, store: .shared) { [weak self] in
             self?.perform($0)
         })
@@ -120,6 +138,12 @@ final class ListerViewController: NSViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        NotificationCenter.default.publisher(for: .columnsChanged)
+            .sink { [weak self] _ in
+                self?.rebuildColumns()
+                self?.model.reload()
+            }
+            .store(in: &cancellables)
         NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
             .sink { [weak self] _ in self?.applyButtonBarPosition() }
             .store(in: &cancellables)
@@ -146,20 +170,25 @@ final class ListerViewController: NSViewController {
         view.window?.makeFirstResponder(tableView)
     }
 
-    private func configureTable() {
-        func column(_ id: String, _ title: String, width: CGFloat, min: CGFloat, key: String) -> NSTableColumn {
-            let c = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
-            c.title = title
-            c.width = width
-            c.minWidth = min
-            c.sortDescriptorPrototype = NSSortDescriptor(key: key, ascending: true)
-            return c
+    /// (Re)creates the table columns from the visible-columns setting.
+    private func rebuildColumns() {
+        for column in tableView.tableColumns { tableView.removeTableColumn(column) }
+        for column in ColumnSettings.visible {
+            let tableColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(column.rawValue))
+            tableColumn.title = column.title
+            tableColumn.width = column.defaultWidth
+            tableColumn.minWidth = column.minWidth
+            tableColumn.sortDescriptorPrototype = NSSortDescriptor(key: column.rawValue, ascending: true)
+            if column.rightAligned { tableColumn.headerCell.alignment = .right }
+            tableView.addTableColumn(tableColumn)
         }
-        let name = column("name", "Name", width: 260, min: 110, key: "name")
-        let size = column("size", "Size", width: 76, min: 60, key: "size")
-        let date = column("date", "Modified", width: 176, min: 150, key: "date")
-        size.headerCell.alignment = .right
-        for c in [name, size, date] { tableView.addTableColumn(c) }
+        tableView.sortDescriptors = [NSSortDescriptor(key: model.sortKey.rawValue, ascending: model.ascending)]
+        didFitColumns = false
+        if isViewLoaded { view.needsLayout = true }   // (`view` itself must not be touched inside loadView)
+    }
+
+    private func configureTable() {
+        rebuildColumns()
 
         tableView.columnAutoresizingStyle = .firstColumnOnlyAutoresizingStyle
         tableView.allowsMultipleSelection = true
@@ -171,7 +200,10 @@ final class ListerViewController: NSViewController {
         tableView.target = self
         tableView.doubleAction = #selector(rowDoubleClicked)
         tableView.keyHandler = { [weak self] in self?.handleKey($0) ?? false }
-        tableView.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
+
+        // Right-click on the header chooses the columns.
+        columnMenu.delegate = self
+        tableView.headerView?.menu = columnMenu
 
         // Drag and drop: files can be dragged out of this table and dropped onto it (or onto a folder row).
         tableView.registerForDraggedTypes([.fileURL])
@@ -218,7 +250,7 @@ final class ListerViewController: NSViewController {
         model.selectedURLs = selectedItems.map(\.url)
         if QLPreviewPanel.sharedPreviewPanelExists(), let panel = QLPreviewPanel.shared(),
            panel.isVisible, panel.dataSource === self {
-            panel.reloadData()
+            if isRemote { refreshRemoteQuickLook() } else { panel.reloadData() }
         }
     }
 
@@ -231,6 +263,7 @@ final class ListerViewController: NSViewController {
     }
 
     private func open(_ item: FileItem) {
+        if isRemote { openRemote(item); return }
         if item.isNavigable {
             model.navigate(to: item.url)
         } else if let rule = FiletypeStore.shared.rule(for: item.url), runFiletype(rule, on: item) {
@@ -255,6 +288,11 @@ final class ListerViewController: NSViewController {
     // MARK: - Keyboard
 
     private func handleKey(_ event: NSEvent) -> Bool {
+        // shortcuts the user assigned (Keyboard Shortcuts…) win over everything below
+        if let action = ShortcutStore.shared.action(for: event) {
+            perform(ListerButton(title: action.title, symbol: nil, action: action))
+            return true
+        }
         // Arrow and function keys always carry .function / .numericPad; they are not real modifiers.
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.function, .numericPad])
         let plain = mods.isEmpty
@@ -285,8 +323,14 @@ final class ListerViewController: NSViewController {
             perform(ListerButton(title: "Delete", symbol: nil, action: .delete))
         case 37 where mods == [.command, .shift]: // ⌘⇧L → all listers to the front
             ListerManager.shared.bringAllToFront()
+        case 40 where command:                    // ⌘K → connect to a server
+            connectToServer()
+        case 37 where command:                    // ⌘L → type a path
+            model.editingPath = true
         case 34 where command:                    // ⌘I → info
             showInfo()
+        case 34 where mods == [.command, .option]: // ⌥⌘I → attributes
+            promptAttributes()
         case 2 where command:                     // ⌘D → duplicate the selected files
             duplicateSelection()
         case 2 where mods == [.command, .option]: // ⌥⌘D → duplicate this lister
@@ -296,7 +340,7 @@ final class ListerViewController: NSViewController {
         case 11 where command:                    // ⌘B → bookmark this folder
             addBookmark()
         case 120 where plain:                     // F2 → rename
-            if selectedItems.count == 1 { promptRename(selectedItems[0]) } else { NSSound.beep() }
+            if selectedItems.count == 1 { promptRename(selectedItems[0]) } else { promptBatchRename() }
         case 14 where command:                    // ⌘E → extract archives
             extractSelection()
         case 96 where plain:                      // F5 → copy to destination
@@ -314,6 +358,7 @@ final class ListerViewController: NSViewController {
     // MARK: - Quick Look
 
     func toggleQuickLook() {
+        if isRemote { remoteQuickLook(); return }
         guard !selectedItems.isEmpty, let panel = QLPreviewPanel.shared() else {
             NSSound.beep()
             return
@@ -354,13 +399,12 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
             cell.textField?.stringValue = item.name
             cell.textField?.textColor = item.isHidden ? .secondaryLabelColor : .labelColor
             return cell
-        case "size":
-            let cell = reusableCell("SizeCell", in: tableView) { self.makeTextCell($0, alignment: .right) }
-            cell.textField?.stringValue = item.size.map { Self.sizeFormatter.string(fromByteCount: $0) } ?? "--"
-            return cell
         default:
-            let cell = reusableCell("DateCell", in: tableView) { self.makeTextCell($0, alignment: .left) }
-            cell.textField?.stringValue = item.modified.map { Self.dateFormatter.string(from: $0) } ?? "--"
+            guard let kind = ListerColumn(rawValue: column.identifier.rawValue) else { return nil }
+            let cell = reusableCell("Cell-\(kind.rawValue)", in: tableView) {
+                self.makeTextCell($0, alignment: kind.rightAligned ? .right : .left)
+            }
+            cell.textField?.stringValue = Self.text(for: kind, of: item)
             return cell
         }
     }
@@ -377,7 +421,8 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
 
     /// Lets files be dragged out of the lister (Finder, Mail, other listers…).
     func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
-        rows.indices.contains(row) ? rows[row].url as NSURL : nil
+        // files on a server cannot be dragged out yet (they would have to be downloaded first)
+        rows.indices.contains(row) && !isRemote ? rows[row].url as NSURL : nil
     }
 
     // MARK: Drop target
@@ -398,6 +443,7 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
         } else {
             tableView.setDropRow(row, dropOperation: .on)       // highlight the folder row
         }
+        if RemoteURL.isRemote(folder) { return Self.remoteDragOperation(for: urls, modifiers: NSEvent.modifierFlags) }
         return Self.dragOperation(for: urls, into: folder, modifiers: NSEvent.modifierFlags,
                                   sourceMask: info.draggingSourceOperationMask)
     }
@@ -406,8 +452,10 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
                    row: Int, dropOperation: NSTableView.DropOperation) -> Bool {
         let urls = Self.droppedURLs(from: info.draggingPasteboard)
         let folder = dropFolder(forRow: row, operation: dropOperation)
-        let operation = Self.dragOperation(for: urls, into: folder, modifiers: NSEvent.modifierFlags,
-                                           sourceMask: info.draggingSourceOperationMask)
+        let operation = RemoteURL.isRemote(folder)
+            ? Self.remoteDragOperation(for: urls, modifiers: NSEvent.modifierFlags)
+            : Self.dragOperation(for: urls, into: folder, modifiers: NSEvent.modifierFlags,
+                                 sourceMask: info.draggingSourceOperationMask)
         guard !urls.isEmpty, operation != [] else { return false }
         transfer(operation == .move ? .move : .copy, items: urls, into: folder)
         return true
@@ -468,11 +516,11 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
 // MARK: - Quick Look data
 
 extension ListerViewController: QLPreviewPanelDataSource, QLPreviewPanelDelegate {
-    func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { selectedItems.count }
+    func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { quickLookURLs.count }
 
     func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> QLPreviewItem! {
-        let items = selectedItems
-        return items.indices.contains(index) ? items[index].url as NSURL : nil
+        let urls = quickLookURLs
+        return urls.indices.contains(index) ? urls[index] as NSURL : nil
     }
 
     func previewPanel(_ panel: QLPreviewPanel!, handle event: NSEvent!) -> Bool {
@@ -522,6 +570,13 @@ extension ListerViewController {
         case .swapSourceDestination: ListerManager.shared.swapRoles()
         case .extract:        extractSelection()
         case .separator:      break
+        case .batchRename:    promptBatchRename()
+        case .attributes:     promptAttributes()
+        case .connectToServer: connectToServer()
+        case .makeAlias:      makeLinks(symbolic: false)
+        case .makeSymlink:    makeLinks(symbolic: true)
+        case .selectByAttributes: promptSelectByAttributes()
+        case .toggleRoleLock: if let c = view.window?.windowController as? ListerWindowController { ListerManager.shared.toggleRoleLock(for: c) }
         case .bringAllToFront: ListerManager.shared.bringAllToFront()
         case .duplicateLister: duplicateLister()
         case .duplicateFile:  duplicateSelection()
@@ -568,26 +623,24 @@ extension ListerViewController {
             model.errorMessage = "Nothing selected in the source lister"
             return
         }
-        guard sourceModel.url.standardizedFileURL != destinationModel.url.standardizedFileURL else {
+        guard ListerModel.comparisonKey(sourceModel.url) != ListerModel.comparisonKey(destinationModel.url) else {
             model.errorMessage = "Source and destination show the same folder"
             return
         }
         model.errorMessage = nil
 
-        let conflicts = FileTransfer.conflicts(of: items, in: destinationModel.url)
-        guard !conflicts.isEmpty else {
-            runTransfer(kind, items: items, from: sourceModel, to: destinationModel, policy: .keepBoth)
+        if sourceModel.isRemote || destinationModel.isRemote {
+            let sizes = Dictionary(sourceModel.items.compactMap { item in item.size.map { (item.url, $0) } }, uniquingKeysWith: { first, _ in first })
+            beginRemoteTransfer(kind, items: items, into: destinationModel.url, showingIn: [sourceModel, destinationModel], knownSizes: sizes)
             return
         }
-        askConflictPolicy(kind, conflicts: conflicts, destination: destinationModel.url) { [weak self] policy in
-            guard let self, let policy else { return }
-            self.runTransfer(kind, items: items, from: sourceModel, to: destinationModel, policy: policy)
-        }
+        beginTransfer(kind, items: items, into: destinationModel.url, showingIn: [sourceModel, destinationModel])
     }
 
     /// Extract: archives selected in the source lister → new sub-folders in the destination
     /// lister's folder (or beside the archives when no destination is set).
     func extractSelection() {
+        if remoteUnavailable("Extract") { return }
         let manager = ListerManager.shared
         let sourceModel = manager.sourceController?.model ?? model
         let archives = sourceModel.selectedURLs.filter(ArchiveExtractor.isArchive)
@@ -624,58 +677,8 @@ extension ListerViewController {
         }
     }
 
-    func askConflictPolicy(_ kind: TransferKind, conflicts: [URL], destination: URL,
-                                   completion: @escaping (ConflictPolicy?) -> Void) {
-        guard let window = view.window else { completion(nil); return }
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = conflicts.count == 1
-            ? "“\(conflicts[0].lastPathComponent)” already exists in “\(destination.lastPathComponent)”"
-            : "\(conflicts.count) items already exist in “\(destination.lastPathComponent)”"
-        alert.informativeText = "Replace moves the existing items to the Trash. Keep Both adds a number to the new names."
-        alert.addButton(withTitle: "Replace")
-        alert.addButton(withTitle: "Keep Both")
-        alert.addButton(withTitle: "Skip")
-        alert.addButton(withTitle: "Cancel")
-        alert.beginSheetModal(for: window) { response in
-            switch response {
-            case .alertFirstButtonReturn:  completion(.replace)
-            case .alertSecondButtonReturn: completion(.keepBoth)
-            case .alertThirdButtonReturn:  completion(.skip)
-            default:                       completion(nil)
-            }
-        }
-    }
-
-    private func runTransfer(_ kind: TransferKind, items: [URL], from source: ListerModel,
-                             to destination: ListerModel, policy: ConflictPolicy) {
-        let message = "\(kind.progressVerb) \(items.count) item\(items.count == 1 ? "" : "s")…"
-        source.statusMessage = message
-        destination.statusMessage = message
-        let destinationFolder = destination.url
-        let sourceFolder = source.url
-
-        FileTransfer.perform(kind, items: items, into: destinationFolder, policy: policy) { [weak self] result in
-            source.statusMessage = nil
-            destination.statusMessage = nil
-
-            var selection: [ObjectIdentifier: URL] = [:]
-            if let first = result.done.first {
-                for controller in [ListerManager.shared.destinationController].compactMap({ $0 }) {
-                    selection[ObjectIdentifier(controller)] = first
-                }
-            }
-            ListerManager.shared.reloadListers(showing: [sourceFolder, destinationFolder], selecting: selection)
-
-            if !result.failures.isEmpty {
-                self?.model.errorMessage = result.failures.joined(separator: "; ")
-            } else if result.done.isEmpty, result.skipped > 0 {
-                self?.model.statusMessage = "Nothing \(kind == .copy ? "copied" : "moved"): \(result.skipped) skipped"
-            }
-        }
-    }
-
     private func openTerminal() {
+        if remoteUnavailable("Terminal Here") { return }
         let configuration = NSWorkspace.OpenConfiguration()
         guard let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Settings.terminalBundleID) else {
             model.errorMessage = "Terminal app not found (\(Settings.terminalBundleID)): choose another under the menu-bar icon → Terminal App"
@@ -688,6 +691,7 @@ extension ListerViewController {
     }
 
     private func revealInFinder() {
+        if remoteUnavailable("Reveal in Finder") { return }
         let urls = model.selectedURLs
         if urls.isEmpty {
             NSWorkspace.shared.open(model.url)
@@ -716,6 +720,7 @@ extension ListerViewController {
                 self.model.errorMessage = "Invalid folder name"
                 return
             }
+            if self.isRemote { self.remoteMakeDirectory(name); return }
             let target = self.model.url.appendingPathComponent(name, isDirectory: true)
             do {
                 try FileManager.default.createDirectory(at: target, withIntermediateDirectories: false)
@@ -739,6 +744,7 @@ extension ListerViewController {
     }
 
     private func confirmTrash() {
+        if isRemote { confirmRemoteDelete(); return }
         let urls = model.selectedURLs
         guard !urls.isEmpty, let window = view.window else { NSSound.beep(); return }
 
@@ -765,6 +771,7 @@ extension ListerViewController {
     }
 
     func runShell(_ command: String?) {
+        if remoteUnavailable("Shell commands") { return }
         guard let command, !command.isEmpty else {
             model.errorMessage = "Button has no \"command\""
             return
@@ -815,6 +822,7 @@ private final class MenuAction: NSObject {
 
 extension ListerViewController: NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
+        if menu === columnMenu { populateColumnMenu(menu); return }
         let row = tableView.clickedRow
         if rows.indices.contains(row) {
             // Like Finder: right-clicking an unselected row selects just that row.
@@ -842,7 +850,7 @@ extension ListerViewController: NSMenuDelegate {
         if !items.isEmpty {
             add(items.count == 1 ? "Open" : "Open \(items.count) Items") { [weak self] in self?.openSelection() }
             add("Quick Look") { [weak self] in self?.toggleQuickLook() }
-            if items.contains(where: { ArchiveExtractor.isArchive($0.url) }) {
+            if !isRemote, items.contains(where: { ArchiveExtractor.isArchive($0.url) }) {
                 add("Extract") { [weak self] in self?.extractSelection() }
             }
             menu.addItem(.separator())
@@ -855,25 +863,34 @@ extension ListerViewController: NSMenuDelegate {
             }
             if items.count == 1 {
                 add("Rename…") { [weak self] in self?.promptRename(items[0]) }
+            } else if !isRemote {
+                add("Rename \(items.count) Items…") { [weak self] in self?.promptBatchRename() }
             }
-            add("Info") { [weak self] in self?.showInfo() }
-            add("Duplicate") { [weak self] in self?.duplicateSelection() }
+            if !isRemote {
+                add("Attributes…") { [weak self] in self?.promptAttributes() }
+                addOpenWith(to: menu, items: items)
+                add("Make Alias") { [weak self] in self?.makeLinks(symbolic: false) }
+                add("Make Symbolic Link") { [weak self] in self?.makeLinks(symbolic: true) }
+                add("Info") { [weak self] in self?.showInfo() }
+                add("Duplicate") { [weak self] in self?.duplicateSelection() }
+            }
             if items.count == 1, items[0].isNavigable, let dst = ListerManager.shared.destinationController, dst.model !== model {
                 add("Open in Destination") { [weak self] in self?.showInDestination() }
             }
-            add("Reveal in Finder") { [weak self] in self?.revealInFinder() }
+            if !isRemote { add("Reveal in Finder") { [weak self] in self?.revealInFinder() } }
             add("Copy Path") { [weak self] in self?.copyPaths(items.map(\.url)) }
-            add("Move to Trash") { [weak self] in self?.confirmTrash() }
+            add(isRemote ? "Delete from Server…" : "Move to Trash") { [weak self] in self?.confirmTrash() }
             menu.addItem(.separator())
         }
 
         if items.isEmpty {
             add("Select by Pattern…") { [weak self] in self?.promptPattern(select: true) }
+            add("Select by Attributes…") { [weak self] in self?.promptSelectByAttributes() }
             add("Select All") { [weak self] in self?.selectAllRows() }
             add("Invert Selection") { [weak self] in self?.invertSelection() }
             add("Filter…") { [weak self] in self?.promptFilter() }
             if !model.filter.isEmpty { add("Clear Filter (\(model.filter))") { [weak self] in self?.model.setFilter("") } }
-            add("Calculate Folder Sizes") { [weak self] in self?.calculateFolderSizes() }
+            if !isRemote { add("Calculate Folder Sizes") { [weak self] in self?.calculateFolderSizes() } }
             if ListerManager.shared.destinationController != nil {
                 add("Compare with Destination") { [weak self] in self?.compareWithDestination() }
             }
@@ -883,7 +900,7 @@ extension ListerViewController: NSMenuDelegate {
         add("Add Bookmark") { [weak self] in self?.addBookmark() }
         menu.addItem(.separator())
         add("New Folder…") { [weak self] in self?.promptNewFolder() }
-        add("Terminal Here") { [weak self] in self?.openTerminal() }
+        if !isRemote { add("Terminal Here") { [weak self] in self?.openTerminal() } }
         if items.isEmpty {
             add("Copy Folder Path") { [weak self] in self.map { $0.copyPaths([$0.model.url]) } }
         }
@@ -901,12 +918,13 @@ extension ListerViewController: NSMenuDelegate {
 
     private func copyPaths(_ urls: [URL]) {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(urls.map(\.path).joined(separator: "\n"), forType: .string)
+        NSPasteboard.general.setString(urls.map(ListerModel.displayPath).joined(separator: "\n"), forType: .string)
     }
 
     // MARK: Rename
 
     func promptRename(_ item: FileItem) {
+        if isRemote { promptRemoteRename(item); return }
         guard let window = view.window else { return }
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
         field.stringValue = item.name
@@ -995,10 +1013,16 @@ extension ListerViewController {
         add("New Lister") {
             manager.openLister(directory: Settings.startDirectory, anchor: .cascade(from: controller?.window))
         }
+        add("Connect to Server…", key: "k") { [weak self] in self?.connectToServer() }
+        add("Keyboard Shortcuts…") { ShortcutsWindowController.shared.show() }
+        if isRemote { add("Disconnect from \(RemoteURL.serverLabel(of: model.url))") { [weak self] in self?.disconnectCurrent() } }
         menu.addItem(.separator())
 
         add("Set as Source", checked: model.role == .source) { [weak self] in self?.toggleRole(.source) }
         add("Set as Destination", checked: model.role == .destination) { [weak self] in self?.toggleRole(.destination) }
+        add(model.roleLocked ? "Unlock Role" : "Lock Role", enabled: model.role != .none) {
+            if let controller { manager.toggleRoleLock(for: controller) }
+        }
         add("Swap Source and Destination", enabled: manager.sourceController != nil || manager.destinationController != nil) {
             manager.swapRoles()
         }
@@ -1029,7 +1053,7 @@ extension ListerViewController {
                 addItem(PathText.short(path), true) { [weak self] in self?.model.navigate(to: URL(fileURLWithPath: path)) }
             }
         }
-        add("Terminal Here") { [weak self] in self?.openTerminal() }
+        add("Terminal Here", enabled: !isRemote) { [weak self] in self?.openTerminal() }
         menu.addItem(.separator())
 
         add("Bring All Listers to Front", enabled: manager.openCount > 1) { manager.bringAllToFront() }
@@ -1041,4 +1065,84 @@ extension ListerViewController {
         add("Restore Layout") { LayoutStore.restore(into: manager) }
         return menu
     }
+}
+
+// MARK: - Open With
+
+extension ListerViewController {
+    /// "Open With" submenu: the applications that can open the first selected file, default first.
+    fileprivate func addOpenWith(to menu: NSMenu, items: [FileItem]) {
+        guard let first = items.first, !first.isNavigable else { return }
+        let urls = items.filter { !$0.isNavigable }.map(\.url)
+        let sub = NSMenu(title: "Open With")
+        sub.autoenablesItems = false
+
+        func appItem(_ title: String, _ appURL: URL?, _ run: @escaping () -> Void) {
+            let item = NSMenuItem(title: title, action: #selector(contextMenuItemChosen(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = MenuAction(run)
+            if let appURL, let icon = NSWorkspace.shared.icon(forFile: appURL.path).copy() as? NSImage {
+                icon.size = NSSize(width: 16, height: 16)
+                item.image = icon
+            }
+            sub.addItem(item)
+        }
+
+        let defaultApp = NSWorkspace.shared.urlForApplication(toOpen: first.url)
+        var apps = NSWorkspace.shared.urlsForApplications(toOpen: first.url)
+        if let defaultApp { apps.removeAll { $0 == defaultApp }; apps.insert(defaultApp, at: 0) }
+        for app in apps.prefix(15) {
+            let name = FileManager.default.displayName(atPath: app.path).replacingOccurrences(of: ".app", with: "")
+            appItem(app == defaultApp ? "\(name) (default)" : name, app) { [weak self] in self?.open(urls, with: app) }
+        }
+        if !apps.isEmpty { sub.addItem(.separator()) }
+        appItem("Other…", nil) { [weak self] in self?.chooseApplication(for: urls) }
+
+        let parent = NSMenuItem(title: "Open With", action: nil, keyEquivalent: "")
+        parent.submenu = sub
+        menu.addItem(parent)
+    }
+
+    func open(_ urls: [URL], with app: URL) {
+        NSWorkspace.shared.open(urls, withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
+    }
+
+    private func chooseApplication(for urls: [URL]) {
+        let panel = NSOpenPanel()
+        panel.title = "Choose an Application"
+        panel.allowedContentTypes = [.application]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.canChooseDirectories = false
+        guard let window = view.window else { return }
+        panel.beginSheetModal(for: window) { [weak self] response in
+            if response == .OK, let app = panel.url { self?.open(urls, with: app) }
+        }
+    }
+}
+
+// MARK: - Column chooser (header menu)
+
+extension ListerViewController {
+    fileprivate func populateColumnMenu(_ menu: NSMenu) {
+        menu.removeAllItems()
+        let visible = ColumnSettings.visible
+        for column in ListerColumn.allCases where column != .name {
+            let item = NSMenuItem(title: column.title, action: #selector(toggleColumn(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = column.rawValue
+            item.state = visible.contains(column) ? .on : .off
+            menu.addItem(item)
+        }
+        menu.addItem(.separator())
+        let reset = NSMenuItem(title: "Reset Columns", action: #selector(resetColumns), keyEquivalent: "")
+        reset.target = self
+        menu.addItem(reset)
+    }
+
+    @objc fileprivate func toggleColumn(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let column = ListerColumn(rawValue: raw) else { return }
+        ColumnSettings.set(column, visible: sender.state != .on)
+    }
+
+    @objc fileprivate func resetColumns() { ColumnSettings.reset() }
 }

@@ -10,15 +10,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var centerItem: NSMenuItem!
     private var labelsItem: NSMenuItem!
     private let buttonBarMenu = NSMenu(title: "Button Bar")
+    private let triggerMenu = NSMenu(title: "Open Lister With")
     private let terminalMenu = NSMenu(title: "Terminal App")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        DispatchQueue.global(qos: .utility).async { RemoteCache.purge() }     // old downloaded copies
+        NotificationCenter.default.addObserver(forName: .shortcutsChanged, object: nil, queue: .main) { _ in GlobalShortcutActions.apply() }
+        GlobalShortcutActions.apply()
         LegacyMigration.run()          // before anything touches buttons.json or the defaults
         Settings.registerDefaults()
         ButtonStore.shared.ensureConfigFileExists()
         installMainMenu()
         if Settings.showStatusItem { installStatusItem() }
 
+        ListerManager.shared.onProgressChange = { [weak self] in self?.updateProgressIndicator() }
         monitor.onDesktopDoubleClick = { point in
             ListerManager.shared.openLister(
                 directory: Settings.startDirectory,
@@ -32,6 +37,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if CommandLine.arguments.contains("--reset-buttons") {
             ButtonStore.shared.resetToDefaults()
             NSApp.terminate(nil)
+            return
+        }
+        if let flag = CommandLine.arguments.firstIndex(of: "--selftest-remote") {
+            let rest = Array(CommandLine.arguments.dropFirst(flag + 1))
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestRemote.run(arguments: rest) }
             return
         }
         if CommandLine.arguments.contains("--selftest-features") {
@@ -74,9 +84,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Menu bar item
 
     private func installStatusItem() {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "rectangle.stack", accessibilityDescription: "MacLister")
-        item.button?.image?.isTemplate = true
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        item.button?.image = MenuBarIcon.make()
 
         let menu = NSMenu()
         menu.delegate = self
@@ -95,6 +104,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         centerItem.target = self
         labelsItem = menu.addItem(withTitle: "Show Button Labels", action: #selector(toggleButtonLabels), keyEquivalent: "")
         labelsItem.target = self
+        let triggerItem = menu.addItem(withTitle: "Open Lister With", action: nil, keyEquivalent: "")
+        triggerItem.submenu = triggerMenu
+        for trigger in DesktopTrigger.allCases {
+            let item = triggerMenu.addItem(withTitle: trigger.menuTitle, action: #selector(chooseTrigger(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = trigger.rawValue
+        }
         let buttonBarItem = menu.addItem(withTitle: "Button Bar", action: nil, keyEquivalent: "")
         buttonBarItem.submenu = buttonBarMenu
         for position in ButtonBarPosition.allCases {
@@ -104,6 +120,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         let terminalItem = menu.addItem(withTitle: "Terminal App", action: nil, keyEquivalent: "")
         terminalItem.submenu = terminalMenu
+        let shortcuts = menu.addItem(withTitle: "Keyboard Shortcuts…", action: #selector(showShortcuts), keyEquivalent: "")
+        shortcuts.target = self
+        let connect = menu.addItem(withTitle: "Connect to Server…", action: #selector(connectFromMenu), keyEquivalent: "k")
+        connect.target = self
         let duplicate = menu.addItem(withTitle: "Duplicate Frontmost Lister", action: #selector(duplicateFrontmost), keyEquivalent: "")
         duplicate.target = self
         let save = menu.addItem(withTitle: "Save Layout", action: #selector(saveLayout), keyEquivalent: "")
@@ -231,6 +251,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func toggleButtonLabels() { Settings.showButtonLabels.toggle() }
 
+    @objc private func chooseTrigger(_ sender: NSMenuItem) {
+        if let raw = sender.representedObject as? String, let trigger = DesktopTrigger(rawValue: raw) {
+            Settings.desktopTrigger = trigger
+        }
+    }
+
     @objc private func chooseButtonBarPosition(_ sender: NSMenuItem) {
         if let raw = sender.representedObject as? String, let position = ButtonBarPosition(rawValue: raw) {
             Settings.buttonBarPosition = position
@@ -239,6 +265,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         labelsItem?.state = Settings.showButtonLabels ? .on : .off
+        for item in triggerMenu.items {
+            item.state = (item.representedObject as? String) == Settings.desktopTrigger.rawValue ? .on : .off
+        }
         for item in buttonBarMenu.items {
             item.state = (item.representedObject as? String) == Settings.buttonBarPosition.rawValue ? .on : .off
         }
@@ -261,6 +290,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openAccessibilitySettings() { Accessibility.openSystemSettings() }
 
     @objc private func toggleCenter() { Settings.centerOnCursor.toggle() }
+
+    /// While anything copies, moves, downloads or deletes, the menu-bar icon becomes a progress ring with a
+    /// percentage; its tooltip says what is going on.
+    private func updateProgressIndicator() {
+        guard let button = statusItem?.button else { return }
+        if let summary = ProgressSummary.make(from: ListerManager.shared.activeProgress) {
+            button.image = MenuBarIcon.progress(fraction: summary.fraction)
+            button.title = summary.fraction.map { " \(Int(($0 * 100).rounded()))%" } ?? ""
+            button.imagePosition = .imageLeading
+            button.toolTip = summary.text
+        } else {
+            button.image = MenuBarIcon.make()
+            button.title = ""
+            button.toolTip = nil
+        }
+    }
+
+    /// Test hook.
+    var statusItemTitle: String { statusItem?.button?.title ?? "" }
+    var statusItemToolTip: String? { statusItem?.button?.toolTip }
+
+    @objc private func showShortcuts() { ShortcutsWindowController.shared.show() }
+
+    @objc private func connectFromMenu() {
+        let manager = ListerManager.shared
+        if let controller = manager.frontmost {
+            manager.bringToFront(controller)
+            controller.listerViewController?.connectToServer()
+        } else {
+            let controller = manager.openLister(directory: Settings.startDirectory, anchor: .cursor(NSEvent.mouseLocation, centered: true))
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { controller.listerViewController?.connectToServer() }
+        }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        RemoteSessions.shared.closeAll()
+    }
 
     @objc private func duplicateFrontmost() {
         if let controller = ListerManager.shared.frontmost { ListerManager.shared.duplicate(controller) }

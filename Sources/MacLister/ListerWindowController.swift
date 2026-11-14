@@ -48,16 +48,25 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
 
         model.$url
             .sink { [weak window] url in
-                window?.title = FileManager.default.displayName(atPath: url.path)
-                window?.representedURL = url          // proxy icon; ⌘-click the title for the path menu
+                if url.isFileURL {
+                    window?.title = FileManager.default.displayName(atPath: url.path)
+                    window?.representedURL = url          // proxy icon; ⌘-click the title for the path menu
+                } else {
+                    let path = RemoteURL.path(of: url)
+                    let server = RemoteURL.serverLabel(of: url)
+                    window?.title = path == "/" ? server : "\((path as NSString).lastPathComponent) – \(server)"
+                    window?.representedURL = nil
+                }
             }
             .store(in: &cancellables)
-        Publishers.CombineLatest(model.$items, model.$role)
-            .sink { [weak window] items, role in
+        let model = model
+        Publishers.CombineLatest3(model.$items, model.$role, model.$roleLocked)
+            .sink { [weak window, weak model] items, role, locked in
                 var text = "\(items.count) items"
+                if let model, let space = VolumeInfo.summary(for: model.url) { text += " · " + space }
                 switch role {
-                case .source:      text += " · SOURCE"
-                case .destination: text += " · DESTINATION"
+                case .source:      text += " · SOURCE" + (locked ? " (locked)" : "")
+                case .destination: text += " · DESTINATION" + (locked ? " (locked)" : "")
                 case .none:        break
                 }
                 window?.subtitle = text
@@ -112,6 +121,11 @@ final class ListerManager {
     private var controllers: [ListerWindowController] = []
     /// The lister that was key most recently (the "frontmost" one even while another app is active).
     private weak var lastActive: ListerWindowController?
+    private var progressSubscriptions: [ObjectIdentifier: AnyCancellable] = [:]
+    /// Called (main queue) whenever any lister starts, advances or ends a job; drives the menu-bar icon.
+    var onProgressChange: (() -> Void)?
+
+    var activeProgress: [TransferStatus] { controllers.compactMap { $0.model.progress } }
 
     private init() {
         NotificationCenter.default.addObserver(forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main) { [weak self] note in
@@ -169,6 +183,10 @@ final class ListerManager {
                     configure: ((ListerWindowController) -> Void)? = nil) -> ListerWindowController {
         let controller = ListerWindowController(directory: directory)
         controllers.append(controller)
+        // $progress publishes before the value changes, so look at it on the next turn of the run loop
+        progressSubscriptions[ObjectIdentifier(controller)] = controller.model.$progress.sink { [weak self] _ in
+            DispatchQueue.main.async { self?.onProgressChange?() }
+        }
         configure?(controller)
 
         if let window = controller.window {
@@ -196,24 +214,45 @@ final class ListerManager {
 
     /// One source and one destination at most; pressing the active role again clears it.
     func toggleRole(_ role: ListerRole, for controller: ListerWindowController) {
+        guard !controller.model.roleLocked else {
+            controller.model.flash("This lister's role is locked: unlock it first")
+            return
+        }
         if controller.model.role == role {
             controller.model.role = .none
+            return
+        }
+        if let holder = controllers.first(where: { $0.model.role == role }), holder.model.roleLocked {
+            controller.model.flash("The \(role == .source ? "source" : "destination") lister is locked")
             return
         }
         for other in controllers where other.model.role == role { other.model.role = .none }
         controller.model.role = role
     }
 
+    /// Locks or unlocks the role of a lister (only meaningful while it has one).
+    func toggleRoleLock(for controller: ListerWindowController) {
+        guard controller.model.role != .none else {
+            controller.model.flash("Set this lister as source or destination first")
+            return
+        }
+        controller.model.roleLocked.toggle()
+    }
+
     func swapRoles() {
         let source = sourceController, destination = destinationController
+        if source?.model.roleLocked == true || destination?.model.roleLocked == true {
+            (source ?? destination)?.model.flash("A locked lister cannot swap roles")
+            return
+        }
         source?.model.role = .destination
         destination?.model.role = .source
     }
 
     /// Re-reads every lister that shows one of the given folders.
     func reloadListers(showing urls: [URL], selecting: [ObjectIdentifier: URL] = [:]) {
-        let paths = Set(urls.map { $0.standardizedFileURL.path })
-        for controller in controllers where paths.contains(controller.model.url.standardizedFileURL.path) {
+        let paths = Set(urls.map(ListerModel.comparisonKey))
+        for controller in controllers where paths.contains(ListerModel.comparisonKey(controller.model.url)) {
             controller.model.reload(selecting: selecting[ObjectIdentifier(controller)])
         }
     }
@@ -231,6 +270,8 @@ final class ListerManager {
 
     fileprivate func remove(_ controller: ListerWindowController) {
         controllers.removeAll { $0 === controller }
+        progressSubscriptions[ObjectIdentifier(controller)] = nil
+        DispatchQueue.main.async { [weak self] in self?.onProgressChange?() }
     }
 
     private func origin(for size: NSSize, anchor: Anchor) -> NSPoint {

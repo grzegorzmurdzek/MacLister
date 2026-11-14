@@ -56,17 +56,22 @@ wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list 
 ### Otwieranie listera
 
 - **Dwuklik w puste miejsce pulpitu.** Na ikonach, oknach, pasku menu i Docku nic się nie dzieje, a kliknięcia
-  z wciśniętym ⌘/⇧/⌥/⌃ są ignorowane.
+  z wciśniętym ⌘/⇧/⌥/⌃ są ignorowane. Wolisz rolkę myszy? Ikona w pasku menu → **Open Lister With** pozwala
+  otwierać lister **pojedynczym kliknięciem środkowego przycisku** zamiast dwukliku albo oprócz niego.
 - Albo ikona w pasku menu → **New Lister**.
 - Domyślnie lewy górny róg okna leży w punkcie kliknięcia; ikona w pasku menu → **Center Lister on Cursor**
   wyśrodkowuje okno. Lister otwiera się w folderze domowym (zob. *startDirectory* niżej).
 
 ### Budowa listera
 
-- **Pasek ścieżki:** *Back*, *Parent*, menu **Go** (miejsca, woluminy, zakładki, ostatnie foldery), edytowalne
-  pole ścieżki (wpisz ścieżkę, `~` działa, Return) oraz znaczki **SRC** / **DST**.
+- **Pasek ścieżki:** *Back*, *Parent*, menu **Go** (miejsca, woluminy, zakładki, ostatnie foldery), ścieżka jako
+  klikalny **breadcrumb** (kliknij folder, żeby tam przejść; kliknij puste miejsce paska albo naciśnij **⌘L**, żeby
+  wpisać ścieżkę, `~` działa) oraz znaczki **SRC** / **DST**.
 - **Lista plików:** ikona, nazwa, rozmiar, data modyfikacji. Kliknięcie nagłówka sortuje; foldery zawsze są
-  na początku. Dwuklik lub Return otwiera plik albo wchodzi do folderu.
+  na początku. Dwuklik lub Return otwiera plik albo wchodzi do folderu. **Prawy przycisk na nagłówku kolumn**
+  wybiera kolumny: Size, Modified, Created, Kind, Extension, Permissions, Tags, Comment.
+- **Lista odświeża się sama**, gdy pliki są dodawane, usuwane lub zmieniane na dysku (FSEvents), a podtytuł okna
+  pokazuje wolne miejsce na woluminie.
 - **Pasek przycisków** nad paskiem ścieżki, jak w Ambiencie na MorphOS (zob. *Konfiguracja*): same ikony, nazwa
   w podpowiedzi. Ikona w pasku menu → **Button Bar** ustawia go nad ścieżką, pod ścieżką albo na dole;
   **Show Button Labels** dodaje napisy.
@@ -88,9 +93,19 @@ Potem:
 | **Swap** | zamienia role miejscami |
 | **Open in Destination** | menu kontekstowe: pokazuje zaznaczony folder w liście docelowym |
 
-Gdy żaden lister nie jest oznaczony jako SRC, źródłem jest ten, w którym wciśnięto przycisk. Przy konflikcie nazw
-pojawia się pytanie: **Replace** (stary element trafia do Kosza), **Keep Both** („nazwa 2.ext”), **Skip** albo
-**Cancel**.
+Gdy żaden lister nie jest oznaczony jako SRC, źródłem jest ten, w którym wciśnięto przycisk.
+
+**Postęp i Cancel.** Copy i Move pokazują w linii stanu pasek postępu (element, bajty, bieżący plik) z przyciskiem
+**Cancel**; foldery są przetwarzane plik po pliku, więc anulowanie działa między plikami. Przeniesienie w obrębie
+tego samego woluminu to zwykła zmiana nazwy.
+
+**Konflikty** są rozstrzygane pojedynczo, z rozmiarem i datą starego i nowego elementu: **Replace** (stary trafia
+do Kosza), **Replace If Newer**, **Keep Both** („nazwa 2.ext”), **Skip**, **Cancel**, a przy folderze na folder
+także **Merge** (zawartość jest wtedy rozstrzygana element po elemencie). Zaznacz **Apply to all remaining
+conflicts**, żeby nie być pytanym dalej.
+
+**Lock Role** (menu na belce okna) przypina lister jako źródło albo cel: inny lister nie może przejąć roli, a jej
+nie da się wyczyścić ani zamienić, dopóki nie odblokujesz.
 
 ### Klawiatura
 
@@ -100,10 +115,12 @@ pojawia się pytanie: **Replace** (stary element trafia do Kosza), **Keep Both**
 | Return, ⌘↓ | otwórz plik / wejdź do folderu |
 | Backspace, ⌘↑ | folder nadrzędny |
 | ⌘⌫ | przenieś zaznaczenie do Kosza |
-| F2 | zmień nazwę |
+| F2 | zmień nazwę (przy kilku zaznaczonych: zmiana wielu nazw) |
 | F5 / F6 | kopiuj / przenieś do listera docelowego |
 | ⌘E | rozpakuj archiwa |
 | ⌘I | informacje (rozmiar, daty, uprawnienia, właściciel) |
+| ⌥⌘I | edycja atrybutów (uprawnienia, daty, ukryty, tagi, komentarz) |
+| ⌘L | wpisz ścieżkę zamiast klikać breadcrumb |
 | ⌘D | duplikuj zaznaczone pliki (`nazwa copy.ext`) |
 | ⌥⌘D | **duplikuj ten lister** (ten sam folder, rozmiar, sortowanie, filtr) |
 | ⌘F | filtr wzorcem |
@@ -133,7 +150,24 @@ W wielu laptopach klawisze F wymagają **fn**.
 - **Zaznaczanie wzorcem** (`+`): wildcardy jak `*.jpg`, `IMG_??.png`; kilka wzorców oddzielonych spacjami;
   tekst bez wildcardów pasuje do nazw, które go zawierają. `-` odznacza, `*` odwraca.
 - **Filter** (⌘F): pokazuje tylko pliki pasujące do wzorca (foldery zawsze zostają). Pusty wzorzec czyści filtr.
+- **Select by Attributes** (menu kontekstowe na pustym miejscu albo przycisk): warunki na nazwę, rodzaj (obrazy,
+  dźwięk, wideo, dokumenty, archiwa, foldery, pliki), rozmiar (większy / mniejszy niż) i datę modyfikacji (w ciągu
+  ostatnich N dni / starsze niż N dni). Każdy ustawiony warunek musi być spełniony.
 - **Sizes**: liczy rekurencyjny rozmiar zaznaczonych folderów (albo wszystkich) do kolumny Size.
+
+### Zmiana nazw, atrybuty, dowiązania
+
+- **Zmiana wielu nazw** (F2 przy kilku elementach albo *Rename N Items…*): znajdź i zamień (zwykły tekst albo
+  wyrażenie regularne z `$1`, `$2`, opcjonalnie z wielkością liter), szablon nazwy z `[N]` nazwa, `[C]` licznik
+  (start i liczba cyfr), `[D]` data modyfikacji i `[E]` rozszerzenie, małe / DUŻE litery / Wielkie Początki i nowe
+  rozszerzenie. Podgląd pokazuje każdą parę stara → nowa nazwa, a puste nazwy, duplikaty i kolizje z istniejącymi
+  plikami zaznacza na czerwono. Zmiana idzie przez nazwy tymczasowe, więc można zamieniać nazwy miejscami.
+- **Atrybuty** (⌥⌘I, menu kontekstowe): uprawnienia jako siatka odczyt/zapis/wykonanie (opcjonalnie dla całej
+  zawartości folderów, które zostają przeszukiwalne), daty modyfikacji i utworzenia, flaga ukrycia, tagi Findera
+  i komentarz. Zmieniane są tylko włączone grupy.
+- **Make Alias** i **Make Symbolic Link** (menu kontekstowe): tworzone obok oryginałów albo w folderze listera
+  docelowego, jeśli jest.
+- **Open With** (menu kontekstowe na plikach): aplikacje, które mogą otworzyć plik, domyślna pierwsza, albo *Other…*.
 
 ### Zakładki i historia
 
@@ -165,6 +199,71 @@ sortowanie, pliki ukryte, filtr); **Restore Layout** otwiera je z powrotem. Auto
 defaults write com.example.MacLister restoreLayoutAtLaunch -bool true
 ```
 
+## Serwery: FTP, FTPS i SFTP
+
+Lister może pokazywać serwer jak folder. **Go → Connect to Server…** (albo ⌘K, albo ikona w pasku menu) pyta
+o protokół, adres, port, użytkownika i hasło. SFTP może używać pliku klucza (i jego hasła) albo Twojego ssh-agenta.
+**Remember this server** wstawia serwer do menu Go, a **Save the password in the Keychain** trzyma hasło w Pęku kluczy,
+a nie w żadnym pliku.
+
+| Protokół | Uwagi |
+|---|---|
+| **SFTP** (SSH) | systemowy `sftp` z OpenSSH i jedno połączenie w tle na serwer, więc logowanie dotyczy tylko pierwszej operacji |
+| **FTPS explicit** (`AUTH TLS`, port 21) | systemowy `curl`; certyfikat jest sprawdzany |
+| **FTPS implicit** (port 990) | to samo, TLS od pierwszego bajtu |
+| **FTP** | bez szyfrowania: MacLister ostrzega, że hasło idzie jawnym tekstem |
+
+- **Klucze serwera (SFTP):** przy pierwszym połączeniu dostajesz odciski i decydujesz, czy zaufać; są trzymane
+  we własnym `known_hosts` MacLister. Jeśli klucz zaufanego serwera się zmieni, połączenie jest odrzucane.
+- **Certyfikaty (FTPS):** niezaufany certyfikat jest odrzucany, chyba że zaznaczysz *Accept an untrusted certificate*
+  (z ostrzeżeniem).
+- **Hasła** trafiają do `curl` przez konfigurację na stdin, a do `ssh` przez `SSH_ASKPASS`; nigdy do linii poleceń.
+
+Co działa na serwerze: przeglądanie (breadcrumb, kolumny, sortowanie, filtr, pliki ukryte, zakładki, historia,
+wpisanie ścieżki albo pełnego URL), otwieranie pliku (najpierw pobiera się do cache), Quick Look, **Copy i Move między
+listerem serwera a lokalnym w obu kierunkach** (listery źródłowy i docelowy, przeciąganie na serwer), Move wewnątrz
+jednego serwera, **New Folder, Rename, Delete** (serwery nie mają Kosza, więc usuwanie pyta najpierw). Transfery mają
+ten sam pasek postępu, Cancel i pytania o konflikty (Replace, Replace If Newer, Keep Both, Skip, Merge) co lokalne.
+
+**Znaki wieloznaczne w nazwach SFTP:** `sftp` z OpenSSH rozwija `* ? [ ] { }` w nazwach plików i nie ma jak tego
+wyłączyć, więc plik `star*.txt` mógłby dopasować też `starfish.txt`. MacLister najpierw sprawdza listę folderu:
+pobranie albo listowanie, które byłoby niejednoznaczne, jest odrzucane z wyjaśnieniem, usuwanie idzie przez tymczasową
+zwykłą nazwę (żeby nic innego nie ucierpiało), a nazwy z `{` lub `}` są odrzucane. Wysyłanie plików lokalnych
+z takimi nazwami idzie przez tymczasowe dowiązanie.
+
+Jeszcze nie na serwerach: atrybuty i Info, aliasy, rozpakowywanie archiwów, liczenie rozmiarów folderów, zmiana wielu
+nazw, przeciąganie plików *z* listera serwera, kopiowanie między dwoma serwerami albo wewnątrz jednego, wznawianie
+przerwanych transferów, automatyczne odświeżanie. Ścieżki FTP są względne do folderu logowania. Dowiązania symboliczne
+na serwerze są pokazywane jako pliki; dwuklik najpierw próbuje do nich wejść. Otwarcie pliku z serwera pobiera go,
+zmiany nie są odsyłane z powrotem.
+
+## Skróty klawiszowe, które możesz ustawić
+
+Ikona w pasku menu → **Keyboard Shortcuts…** (także w menu na belce okna). Kliknij skrót i naciśnij klawisze; Esc
+anuluje, Delete usuwa.
+
+- **W każdej aplikacji:** *Open a lister* (przy wskaźniku myszy) i *Bring all listers to the front*.
+- **W listerach:** osobny skrót dla każdej akcji (Copy, Move, Extract, Compare, Connect to Server, Lock Role, Select by
+  Pattern …), oprócz wbudowanych klawiszy.
+
+Każdy skrót jest sprawdzany przed przyjęciem, a okno tłumaczy, co jest nie tak:
+
+1. wymaga ⌘, ⌥ lub ⌃ (klawisze funkcyjne i strzałki mogą stać samotnie w listerach; skróty globalne zawsze wymagają
+   modyfikatora);
+2. nie może być skrótem macOS: MacLister czyta włączone skróty z Ustawienia systemowe → Klawiatura → Skróty (Spotlight,
+   Mission Control, zrzuty ekranu, przełączanie pulpitów …) razem z Twoimi zmianami;
+3. nie może być klawiszem, który należy do każdej aplikacji (⌘Q, ⌘W, ⌘M, ⌘H, ⌘A, ⌘C, ⌘V, ⌘X, ⌘Z, ⌘Tab) ani takim,
+   którego MacLister już używa;
+4. skrót globalny nie może być zajęty przez inną aplikację (pytany jest system);
+5. kombinacja przypisana do innej akcji pyta, czy ją przenieść.
+
+Przypisania są w `shortcuts.json`.
+
+## Postęp w pasku menu
+
+Gdy cokolwiek się kopiuje, przenosi, pobiera lub usuwa, ikona w pasku menu zamienia się w pierścień postępu z procentem
+(kilka zadań: ich średnia), a podpowiedź mówi, co trwa.
+
 ## Konfiguracja
 
 Pliki w `~/Library/Application Support/MacLister/`:
@@ -175,6 +274,9 @@ Pliki w `~/Library/Application Support/MacLister/`:
 | `filetypes.json` | akcje dwukliku |
 | `bookmarks.json` | zakładki |
 | `layout.json` | zapisany układ |
+| `shortcuts.json` | Twoje skróty klawiszowe |
+| `servers.json` | zapisane serwery (bez haseł; te są w Pęku kluczy) |
+| `known_hosts` | zaufane klucze serwerów SFTP |
 
 ### Przyciski
 
@@ -198,7 +300,7 @@ brown gray`; domyślnie neutralna), `help` to podpowiedź, `requiresSelection` (
 przycisk jest aktywny. `{ "title": "", "action": "separator" }` rysuje cienką kreskę między grupami. **Akcje:** `newFolder terminalHere delete parent back refresh revealInFinder open
 newLister toggleHidden copy move setSource setDestination swapSourceDestination extract bringAllToFront
 duplicateLister duplicateFile selectPattern deselectPattern selectAll selectNone invertSelection filter
-clearFilter calcSizes compare info showInDestination destinationHere addBookmark separator shell`.
+clearFilter calcSizes compare info showInDestination destinationHere addBookmark makeAlias makeSymlink selectByAttributes toggleRoleLock batchRename attributes separator shell`.
 `shell` uruchamia `command` w `/bin/zsh` w bieżącym folderze; `$LISTER_DIR` to ten folder, a `$LISTER_SELECTION`
 to zaznaczone ścieżki, po jednej w wierszu.
 
@@ -213,6 +315,7 @@ Ustawiane przez `defaults write com.example.MacLister <klucz> <wartość>`:
 | `startDirectory` | `~` | folder otwierany dwuklikiem na pulpicie |
 | `terminalBundleID` | `com.apple.Terminal` | terminal dla *Terminal Here* (także: ikona w pasku menu → *Terminal App*) |
 | `restoreLayoutAtLaunch` | false | otwórz zapisany układ przy starcie |
+| `desktopTrigger` | `doubleClick` | `doubleClick`, `middleClick` albo `both` (także: ikona w pasku menu → *Open Lister With*) |
 | `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` albo `bottom` |
 | `showButtonLabels` | false | napisy obok ikon przycisków |
 | `debugHitTest` | false | zapisuj decyzję dla każdego kliknięcia do `~/Library/Logs/MacLister.log` |
@@ -254,7 +357,18 @@ open build/MacLister.app --args --selftest
 open build/MacLister.app --args --selftest-features
 ```
 
+Testy serwerów działają na małych lokalnych serwerach FTP/FTPS (Python ze standardowej biblioteki,
+`Tools/mock_ftp_server.py`): uruchom go z `--port`, `--root` i opcjonalnie `--tls explicit|implicit --cert … --key …`,
+a potem `open build/MacLister.app --args --selftest-remote ftp=2121 ftpes=2122 ftps=2123 root=<serwowany folder>`.
+
+SFTP jest testowany na dwa sposoby: `sftpdir=<folder>` uruchamia polecenia `sftp` na systemowym lokalnym `sftp-server`
+(bez sieci), a `sftp=<port> sshuser=… key=… pkey=… "pass=…" sshdir=…` na tymczasowym `sshd` uruchomionym na `127.0.0.1`
+z własnymi kluczami (zaufanie do klucza serwera, pliki kluczy, hasła kluczy przez `SSH_ASKPASS`, zmienione klucze serwera).
+
 `MacLister --open [folder]` otwiera lister przy starcie.
+
+Ikona aplikacji jest rysowana kodem: `swift Tools/make_icon.swift` odtwarza `Support/AppIcon.icns` (dwa nakładające
+się okna listerów, źródło niebieskie i cel pomarańczowy, z bramkami w stylu Amigi na zaokrąglonym kwadracie macOS).
 
 Układ kodu: `Sources/MacLister/` – `DesktopDoubleClickMonitor` (nasłuch zdarzeń), `DesktopHitTest` (czy to puste
 miejsce pulpitu?), `ListerWindowController` / `ListerManager` (okna, role), `ListerViewController` (+ `Features`)
@@ -275,6 +389,7 @@ miejsce pulpitu?), `ListerWindowController` / `ListerManager` (okna, role), `Lis
 
 ## Znane ograniczenia
 
+Serwery obsługują tylko przeglądanie, kopiowanie i podstawowe operacje na folderach (zob. *Serwery*).
 Brak wyszukiwania plików, widoku drzewa i podglądu hex; archiwów nie da się przeglądać jak folderów (są
 rozpakowywane). Przeciąganie stosuje reguły Findera, a otwieranie folderów po najechaniu nie jest zaimplementowane.
 Archiwa z hasłem kończą się komunikatem o błędzie.

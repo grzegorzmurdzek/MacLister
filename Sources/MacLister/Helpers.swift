@@ -100,3 +100,52 @@ enum InfoText {
         return (0..<9).map { bit in mode & (1 << (8 - bit)) != 0 ? symbols[bit % 3] : "-" }.joined()
     }
 }
+
+/// One clickable part of the breadcrumb path.
+struct PathSegment: Equatable {
+    let title: String
+    let url: URL
+}
+
+enum PathSegments {
+    /// "/Users/me/Docs" → [Macintosh HD, Users, me, Docs], each with the URL it leads to.
+    static func make(for url: URL) -> [PathSegment] {
+        if RemoteURL.isRemote(url) {
+            // server first ("me@host"), then every folder of the path
+            let root = RemoteURL.with(path: "/", on: url)
+            var segments = [PathSegment(title: RemoteURL.serverLabel(of: url), url: root)]
+            var path = ""
+            for component in RemoteURL.path(of: url).split(separator: "/") {
+                path += "/" + component
+                segments.append(PathSegment(title: String(component), url: RemoteURL.with(path: path, on: url)))
+            }
+            return segments
+        }
+        let fm = FileManager.default
+        let root = URL(fileURLWithPath: "/")
+        var segments = [PathSegment(title: fm.displayName(atPath: "/"), url: root)]
+        var current = root
+        for component in url.standardizedFileURL.path.split(separator: "/") {
+            current.appendPathComponent(String(component), isDirectory: true)
+            segments.append(PathSegment(title: fm.displayName(atPath: current.path), url: current))
+        }
+        return segments
+    }
+}
+
+/// All running jobs in one line for the menu-bar icon.
+struct ProgressSummary: Equatable {
+    var fraction: Double?
+    var text: String
+
+    /// Listers that share a job show the same status, so statuses with equal text count once.
+    static func make(from statuses: [TransferStatus]) -> ProgressSummary? {
+        guard !statuses.isEmpty else { return nil }
+        var seen = Set<String>()
+        let unique = statuses.filter { seen.insert($0.text).inserted }
+        let fractions = unique.compactMap(\.fraction)
+        let fraction = fractions.isEmpty ? nil : fractions.reduce(0, +) / Double(fractions.count)
+        let text = unique.count == 1 ? unique[0].text : "\(unique.count) operations running · \(unique[0].text)"
+        return ProgressSummary(fraction: fraction, text: text)
+    }
+}

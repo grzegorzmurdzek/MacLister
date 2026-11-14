@@ -46,7 +46,7 @@ final class DesktopDoubleClickMonitor {
     // MARK: - CGEventTap
 
     private func installEventTap() -> Bool {
-        let mask: CGEventMask = 1 << CGEventType.leftMouseDown.rawValue
+        let mask: CGEventMask = (1 << CGEventType.leftMouseDown.rawValue) | (1 << CGEventType.otherMouseDown.rawValue)
 
         // C callback: cannot capture, so `self` travels through refcon.
         let callback: CGEventTapCallBack = { _, type, event, refcon in
@@ -80,11 +80,19 @@ final class DesktopDoubleClickMonitor {
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
         case .leftMouseDown:
             if Settings.debugHitTest { DebugLog.write("mouse down, clickState=\(event.getIntegerValueField(.mouseEventClickState))") }
-            guard event.getIntegerValueField(.mouseEventClickState) == 2,
+            guard Settings.desktopTrigger.accepts(button: 0, clickCount: Int(event.getIntegerValueField(.mouseEventClickState))),
                   event.flags.intersection(Self.ignoredModifiers).isEmpty else { return }
             let location = event.location
             if Settings.debugHitTest { DebugLog.write("double-click seen via tap at \(location)") }
             // Return from the tap immediately; the hit test (window list + AX) runs afterwards.
+            DispatchQueue.main.async { [weak self] in self?.evaluate(cgPoint: location) }
+        case .otherMouseDown:
+            let button = Int(event.getIntegerValueField(.mouseEventButtonNumber))
+            if Settings.debugHitTest { DebugLog.write("other button down, button=\(button) clickState=\(event.getIntegerValueField(.mouseEventClickState))") }
+            guard Settings.desktopTrigger.accepts(button: button, clickCount: Int(event.getIntegerValueField(.mouseEventClickState))),
+                  event.flags.intersection(Self.ignoredModifiers).isEmpty else { return }
+            let location = event.location
+            if Settings.debugHitTest { DebugLog.write("middle click seen via tap at \(location)") }
             DispatchQueue.main.async { [weak self] in self?.evaluate(cgPoint: location) }
         default:
             break
@@ -94,8 +102,8 @@ final class DesktopDoubleClickMonitor {
     // MARK: - NSEvent fallback
 
     private func installGlobalMonitor() {
-        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
-            guard event.clickCount == 2,
+        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .otherMouseDown]) { [weak self] event in
+            guard Settings.desktopTrigger.accepts(button: event.type == .leftMouseDown ? 0 : event.buttonNumber, clickCount: event.clickCount),
                   event.modifierFlags.intersection([.command, .shift, .option, .control]).isEmpty else { return }
             let cocoa = NSEvent.mouseLocation
             if Settings.debugHitTest { DebugLog.write("double-click seen via global monitor") }
