@@ -313,9 +313,12 @@ final class ListerViewController: NSViewController {
     }
 
     /// Shows or hides the directory tree (and remembers it for new listers).
-    func toggleTree() {
-        treeVisible.toggle()
-        Settings.showFolderTree = treeVisible
+    func toggleTree() { setTree(visible: !treeVisible, remember: true) }
+
+    /// Shows or hides the tree; `remember`: new listers start the same way.
+    func setTree(visible: Bool, remember: Bool) {
+        treeVisible = visible
+        if remember { Settings.showFolderTree = treeVisible }
         treeController.scrollView.isHidden = !treeVisible
         splitView?.adjustSubviews()
         if treeVisible {

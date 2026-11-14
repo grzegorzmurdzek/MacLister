@@ -88,6 +88,8 @@ enum DuplicateFinder {
 
 struct DuplicatesView: View {
     var initial: DuplicateFinder.Options
+    /// Start searching as soon as the window is shown (the screenshots use it).
+    var autoSearch = false
     /// Moves the files to the Trash (the lister logs it for Undo) and reports which ones went.
     var onTrash: ([URL], @escaping ([URL]) -> Void) -> Void
     var close: () -> Void
@@ -105,8 +107,9 @@ struct DuplicatesView: View {
 
     private static let minimums: [(title: String, bytes: Int64)] = [("Any size", 1), ("1 KB or more", 1_000), ("100 KB or more", 100_000), ("1 MB or more", 1_000_000), ("10 MB or more", 10_000_000)]
 
-    init(initial: DuplicateFinder.Options, onTrash: @escaping ([URL], @escaping ([URL]) -> Void) -> Void, close: @escaping () -> Void) {
+    init(initial: DuplicateFinder.Options, autoSearch: Bool = false, onTrash: @escaping ([URL], @escaping ([URL]) -> Void) -> Void, close: @escaping () -> Void) {
         self.initial = initial
+        self.autoSearch = autoSearch
         self.onTrash = onTrash
         self.close = close
         _scope = State(initialValue: initial.scope.path)
@@ -238,6 +241,7 @@ struct DuplicatesView: View {
         }
         .padding(20)
         .frame(width: 720, height: 600)
+        .onAppear { if autoSearch { search() } }
     }
 
     private func chooseFolder() {

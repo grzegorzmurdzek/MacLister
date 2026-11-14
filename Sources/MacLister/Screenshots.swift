@@ -34,6 +34,11 @@ enum Screenshots {
         queue("transfer-details\(suffix)") { transferDetails(named: "transfer-details\(suffix)") }
         if !dark {
             queue("title-bar-menu") { titleBarMenu(named: "title-bar-menu") }
+            queue("folder-tree") { folderTree(named: "folder-tree") }
+            queue("find") { findWindow(named: "find") }
+            queue("find-duplicates") { duplicatesWindow(named: "find-duplicates") }
+            queue("checksums") { checksumsWindow(named: "checksums") }
+            queue("synchronize") { synchronizeWindow(named: "synchronize") }
             queue("batch-rename") { batchRename(named: "batch-rename") }
             queue("name-lister") { nameLister(named: "name-lister") }
             queue("connect-to-server") { connectSheet(named: "connect-to-server") }
@@ -174,6 +179,52 @@ enum Screenshots {
         let window = show(BatchRenameView(items: files, initial: options, onApply: { _ in }, close: { }), title: tr("Rename"))
         window.setFrameOrigin(NSPoint(x: screen().minX + 200, y: screen().maxY - 700))
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { capture(to: name); finishScene() }
+    }
+
+    /// A lister with the folder tree beside the list; the tree starts at the demo folder, not at the real home folder.
+    private static func folderTree(named name: String) {
+        let area = screen()
+        let controller = ListerManager.shared.openLister(directory: demo.projects, anchor: .origin(NSPoint(x: area.minX + 100, y: area.maxY - 500)))
+        controller.window?.setContentSize(NSSize(width: 760, height: 440))
+        controller.window?.setFrameOrigin(NSPoint(x: area.minX + 100, y: area.maxY - 500))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            guard let vc = controller.listerViewController else { finishScene(); return }
+            vc.treeController.setRoots([demo.base])
+            vc.setTree(visible: true, remember: false)
+            NSApp.activate(ignoringOtherApps: true)
+            controller.window?.makeKeyAndOrderFront(nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { capture(to: name); finishScene() }
+        }
+    }
+
+    private static func findWindow(named name: String) {
+        var query = FindQuery(scope: demo.projects)
+        query.name = "*.pdf *.key"
+        query.withinDays = 30
+        let window = show(FindView(initial: query, onFind: { _ in }, close: { }), title: tr("Find"), size: NSSize(width: 500, height: 440))
+        window.setFrameOrigin(NSPoint(x: screen().minX + 300, y: screen().maxY - 700))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { capture(to: name); finishScene() }
+    }
+
+    private static func duplicatesWindow(named name: String) {
+        let window = show(DuplicatesView(initial: DuplicateFinder.Options(scope: demo.base), autoSearch: true, onTrash: { _, _ in }, close: { }),
+                          title: tr("Find Duplicates"), size: NSSize(width: 720, height: 600))
+        window.setFrameOrigin(NSPoint(x: screen().minX + 200, y: screen().maxY - 760))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) { capture(to: name); finishScene() }
+    }
+
+    private static func checksumsWindow(named name: String) {
+        let window = show(ChecksumsView(urls: [demo.project("report"), demo.project("notes")], close: { }),
+                          title: tr("Checksums"), size: NSSize(width: 640, height: 460))
+        window.setFrameOrigin(NSPoint(x: screen().minX + 200, y: screen().maxY - 700))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { capture(to: name); finishScene() }
+    }
+
+    private static func synchronizeWindow(named name: String) {
+        let window = show(SynchronizeView(source: demo.projects, destination: demo.backup, onRun: { _ in }, close: { }),
+                          title: tr("Synchronize"), size: NSSize(width: 640, height: 560))
+        window.setFrameOrigin(NSPoint(x: screen().minX + 200, y: screen().maxY - 700))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) { capture(to: name); finishScene() }
     }
 
     private static func nameLister(named name: String) {
@@ -511,6 +562,8 @@ struct DemoFiles {
             folder(title, in: backup, date: when(daysAgo: days, hour: 12, minute: 0))
         }
         file("b_index", in: backup, bytes: 18_000, date: when(daysAgo: 0, hour: 7, minute: 0))
+        file("logo", in: backup, bytes: 312_000, date: when(daysAgo: 8, hour: 12, minute: 5))        // copies of files above:
+        file("budget", in: backup, bytes: 86_000, date: when(daysAgo: 8, hour: 12, minute: 6))       // what Find Duplicates finds
         file("b_invoices", in: backup, bytes: 54_000_000, date: when(daysAgo: 7, hour: 18, minute: 25))
         file("b_brand", in: backup, bytes: 310_000_000, date: when(daysAgo: 12, hour: 10, minute: 40))
         FinderTags.toggle(label: 6, on: [project("report")])

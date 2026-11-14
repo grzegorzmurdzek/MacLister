@@ -89,6 +89,12 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
 
     // MARK: Roots
 
+    /// Shows only these folders as the top of the tree (the screenshots use it, so they show no real folders).
+    func setRoots(_ urls: [URL]) {
+        roots = urls.map { TreeNode(url: $0) }
+        outline.reloadData()
+    }
+
     /// Home first, then every mounted volume.
     func buildRoots() {
         var list: [TreeNode] = []
