@@ -379,8 +379,8 @@ renamed or moved from under the job; MacLister says so instead.
 
 Press on a row — on its empty part in the Size / Modified columns or right of a name, or below the last row — and
 drag: every row between the press and the pointer is selected, as in Directory Opus (⌘ or ⇧ adds to the selection;
-the list scrolls when you reach the edge). By default this also works from an **unselected file name**; a *selected*
-file is always dragged as a file, so you can still drag files out. Prefer the Finder behaviour (a name press always
+the list scrolls when you reach the edge). By default this also works from an **unselected file name**; a press
+anywhere on a *selected* row (name or blank part) drags the selected files, so you can still drag files out. Prefer the Finder behaviour (a name press always
 drags the file)? **Settings → Listers → Select by dragging from file names** off.
 
 ### Tab between listers

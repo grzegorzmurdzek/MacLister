@@ -313,6 +313,7 @@ enum SelfTestOperations {
             check(table.startsLasso(at: namePoint), "a press on an unselected name starts one when drag-select from names is on")
             table.selectRowIndexes([1], byExtendingSelection: false)
             check(!table.startsLasso(at: namePoint), "but a selected file is dragged as a file")
+            check(!table.startsLasso(at: sizePoint) && !table.startsLasso(at: farRightOfName), "and so is a press anywhere else on a selected row")
             table.lassoFromNames = { false }
             table.deselectAll(nil)
             check(!table.startsLasso(at: namePoint) && table.startsLasso(at: sizePoint), "with the option off a name press drags the file")

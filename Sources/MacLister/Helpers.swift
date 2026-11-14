@@ -31,23 +31,42 @@ enum PathText {
 
 /// Recursive size of files and folders.
 enum FolderSize {
+    /// Logical size (what a file's "Size" says) and the space it takes on disk (whole allocation blocks).
+    struct Measure: Equatable {
+        var logical: Int64 = 0
+        var onDisk: Int64 = 0
+    }
+
     /// Bytes of all regular files below `url`; for a plain file its own size.
     static func total(of url: URL) -> Int64 {
+        measure(url)?.logical ?? 0
+    }
+
+    /// Walks `url` and sums both sizes. Returns nil when `cancel` fired before the walk finished.
+    static func measure(_ url: URL, cancel: CancelToken? = nil) -> Measure? {
         let fm = FileManager.default
         var isDirectory: ObjCBool = false
-        guard fm.fileExists(atPath: url.path, isDirectory: &isDirectory) else { return 0 }
-        let keys: [URLResourceKey] = [.fileSizeKey, .isRegularFileKey]
-        if !isDirectory.boolValue {
-            return Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        guard fm.fileExists(atPath: url.path, isDirectory: &isDirectory) else { return Measure() }
+        let keys: [URLResourceKey] = [.fileSizeKey, .totalFileAllocatedSizeKey, .isRegularFileKey]
+        func read(_ item: URL) -> Measure {
+            guard let values = try? item.resourceValues(forKeys: Set(keys)) else { return Measure() }
+            let logical = Int64(values.fileSize ?? 0)
+            return Measure(logical: logical, onDisk: Int64(values.totalFileAllocatedSize ?? Int(logical)))
         }
+        if !isDirectory.boolValue { return read(url) }
         guard let walker = fm.enumerator(at: url, includingPropertiesForKeys: keys, options: [],
-                                         errorHandler: { _, _ in true }) else { return 0 }
-        var sum: Int64 = 0
+                                         errorHandler: { _, _ in true }) else { return Measure() }
+        var sum = Measure()
+        var visited = 0
         for case let item as URL in walker {
-            let values = try? item.resourceValues(forKeys: Set(keys))
-            if values?.isRegularFile == true { sum += Int64(values?.fileSize ?? 0) }
+            visited += 1
+            if visited % 256 == 0, cancel?.isCancelled == true { return nil }
+            guard (try? item.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else { continue }
+            let one = read(item)
+            sum.logical += one.logical
+            sum.onDisk += one.onDisk
         }
-        return sum
+        return cancel?.isCancelled == true ? nil : sum
     }
 }
 

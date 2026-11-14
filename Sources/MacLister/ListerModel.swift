@@ -63,6 +63,8 @@ final class ListerModel: ObservableObject {
     @Published private(set) var filter = ""
     /// Remembered between "select by pattern" prompts.
     var lastPattern = "*"
+    private var sizeGeneration = 0
+    typealias Measure = FolderSize.Measure
     private var sizeCache: [URL: Int64] = [:]     // folder sizes calculated on request
 
     /// Item the view should select after the next load (e.g. the folder we just left via Parent).
@@ -370,21 +372,49 @@ final class ListerModel: ObservableObject {
         lastPattern = other.lastPattern
     }
 
-    /// Recursive folder sizes in the background; the Size column fills in when ready.
+    /// Recursive folder sizes in the background. Each folder's size shows in the Size column as soon as it is
+    /// known; the status line shows progress with a Cancel button and, at the end, the total of all folders
+    /// (and what they take on disk).
     func calculateSizes(of urls: [URL]) {
         guard !urls.isEmpty, url.isFileURL else { return }
         let folder = url
-        statusMessage = tr("Calculating sizes…")
+        let token = CancelToken()
+        sizeGeneration += 1
+        let generation = sizeGeneration
+        let count = urls.count
+        progress = TransferStatus(text: tr("Calculating sizes…"), fraction: 0, cancel: { token.cancel() })
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            var results: [URL: Int64] = [:]
-            for item in urls { results[item] = FolderSize.total(of: item) }
+            var total = Measure()
+            var done = 0
+            for item in urls {
+                if token.isCancelled { break }
+                DispatchQueue.main.async {
+                    guard let self, self.sizeGeneration == generation else { return }
+                    self.progress = TransferStatus(text: tr("Calculating sizes…") + " · \(item.lastPathComponent)",
+                                                   fraction: Double(done) / Double(count), cancel: { token.cancel() })
+                }
+                guard let measured = FolderSize.measure(item, cancel: token) else { break }
+                done += 1
+                total.logical += measured.logical
+                total.onDisk += measured.onDisk
+                DispatchQueue.main.async {
+                    guard let self, self.url == folder else { return }
+                    self.sizeCache[item] = measured.logical
+                    self.items = Self.sorted(self.items.map { $0.url == item ? $0.withSize(measured.logical) : $0 },
+                                             by: self.sortKey, ascending: self.ascending)
+                }
+            }
+            let cancelled = token.isCancelled
             DispatchQueue.main.async {
-                guard let self else { return }
-                self.statusMessage = nil
+                guard let self, self.sizeGeneration == generation else { return }
+                self.progress = nil
                 guard self.url == folder else { return }
-                for (key, value) in results { self.sizeCache[key] = value }
-                let updated = self.items.map { results[$0.url].map($0.withSize) ?? $0 }
-                self.items = Self.sorted(updated, by: self.sortKey, ascending: self.ascending)
+                let bytes = { (n: Int64) in ByteCountFormatter.string(fromByteCount: n, countStyle: .file) }
+                if cancelled {
+                    self.flash(tr("Cancelled after %d of %d items", done, count))
+                } else {
+                    self.flash(trCount("%d folders", done) + " · " + bytes(total.logical) + " · " + tr("on disk: %@", bytes(total.onDisk)), seconds: 15)
+                }
             }
         }
     }

@@ -385,8 +385,8 @@ się przenieść do Kosza, zmienić nazwy ani przenieść spod trwającej operac
 Naciśnij wiersz — na jego pustej części w kolumnach Rozmiar / Data zmian albo na prawo od nazwy, albo pod ostatnim
 wierszem — i ciągnij: zaznaczają się wszystkie wiersze między miejscem naciśnięcia a kursorem, jak w Directory Opus
 (⌘ lub ⇧ dodaje do zaznaczenia; lista przewija się, gdy dojdziesz do krawędzi). Domyślnie działa to także od
-**niezaznaczonej nazwy pliku**; *zaznaczony* plik jest zawsze przeciągany jako plik, więc nadal można wyciągać pliki
-z listera. Wolisz zachowanie
+**niezaznaczonej nazwy pliku**; naciśnięcie w dowolnym miejscu *zaznaczonego* wiersza (na nazwie albo na pustej części)
+przeciąga zaznaczone pliki, więc nadal można wyciągać pliki z listera. Wolisz zachowanie
 Findera (naciśnięcie nazwy zawsze przeciąga plik)? **Ustawienia → Listery → Zaznaczaj przeciąganiem od nazw plików** — wyłącz.
 
 ### Tab między listerami

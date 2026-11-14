@@ -65,8 +65,10 @@
 "Button Bar" = "Pasek przycisków";
 "Button has no \"command\"" = "Przycisk nie ma pola „command”";
 "Calc sizes" = "Oblicz rozmiary";
+"Calculate Folder Size" = "Oblicz rozmiar folderu";
 "Calculate Folder Sizes" = "Oblicz rozmiary folderów";
 "Calculating sizes…" = "Obliczanie rozmiarów…";
+"on disk: %@" = "na dysku: %@";
 "Cancel" = "Anuluj";
 "Cancelled" = "Anulowano";
 "Cancelled after %d of %d items" = "Anulowano po %d z %d elementów";

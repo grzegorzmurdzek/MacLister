@@ -57,6 +57,11 @@ enum SelfTestFeatures {
         let sizeLine = folderInfo.split(separator: "\n").first { $0.hasPrefix("Size:") }.map(String.init) ?? ""
         check(sizeLine.filter(\.isNumber).hasSuffix("1500"), "info text sums a folder (\(sizeLine))")   // digits only: the thousands separator is locale-dependent
         check(FolderSize.total(of: dirA.appendingPathComponent("big")) == 1500, "folder size is recursive")
+        let measured = FolderSize.measure(dirA.appendingPathComponent("big"))
+        check(measured?.logical == 1500 && (measured?.onDisk ?? 0) >= 1500, "folder measure gives logical and on-disk size (\(String(describing: measured)))")
+        let stopped = CancelToken(); stopped.cancel()
+        let bigTree = dirA.appendingPathComponent("big")
+        check(FolderSize.measure(bigTree, cancel: stopped) == nil, "a cancelled folder measure returns nil")
 
         let dup1 = FileTransfer.duplicate([dirA.appendingPathComponent("a.txt")])
         let dup2 = FileTransfer.duplicate([dirA.appendingPathComponent("a.txt")])
@@ -106,6 +111,8 @@ enum SelfTestFeatures {
         }
         later(1.0) {
             check(one.model.items.first(where: { $0.name == "big" })?.size == 1500, "calculated folder size shows in the item: \(String(describing: one.model.items.first(where: { $0.name == "big" })?.size))")
+            check(one.model.progress == nil, "folder size progress is gone when finished")
+            check((one.model.statusMessage ?? "").contains("1 folder"), "folder size summary in the status line: \(one.model.statusMessage ?? "nil")")
             one.model.reload()
             check(one.model.items.first(where: { $0.name == "big" })?.size == 1500, "size survives a reload")
         }
@@ -147,6 +154,10 @@ enum SelfTestFeatures {
             let a = rowURL("c.png")
             let both: NSDragOperation = [.copy, .move]
             typealias VC = ListerViewController
+            let root = vc.view
+            check(root is ListerDropView && root.registeredDraggedTypes.contains(.fileURL), "the whole lister window accepts dropped files")
+            let blockers = root.subviews.filter { !($0 is NSScrollView) }.filter { $0.registeredDraggedTypes.contains(.fileURL) }
+            check(blockers.isEmpty, "path, button and status bars do not swallow drops meant for the lister: \(blockers.count)")
             check(VC.dragOperation(for: [a], into: dirA, modifiers: [], sourceMask: both) == [], "drop into the item's own folder is refused")
             check(VC.dragOperation(for: [rowURL("big")], into: sub.appendingPathComponent("x"), modifiers: [], sourceMask: both) == [], "drop of a folder into itself is refused")
             check(VC.dragOperation(for: [a], into: dirB, modifiers: [], sourceMask: both) == .move, "same volume → move")

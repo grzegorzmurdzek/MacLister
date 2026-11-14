@@ -3,6 +3,26 @@ import SwiftUI
 import Combine
 import QuickLookUI
 
+/// Root view of a lister: files dropped on any part of it that is not a folder row (path bar, button bar, status
+/// line, the gap around the list) go into the lister's own folder, just like a drop on the empty part of the list.
+final class ListerDropView: NSView {
+    var dropOperation: (NSDraggingInfo) -> NSDragOperation = { _ in [] }
+    var performDrop: (NSDraggingInfo) -> Bool = { _ in false }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        registerForDraggedTypes([.fileURL])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { dropOperation(sender) }
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { dropOperation(sender) }
+    override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool { dropOperation(sender) != [] }
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool { performDrop(sender) }
+}
+
 /// NSTableView that routes key presses (Space, Return, Backspace, ⌘↑ …) to a handler first.
 final class ListerTableView: NSTableView, NSServicesMenuRequestor {
     var keyHandler: ((NSEvent) -> Bool)?
@@ -27,7 +47,7 @@ final class ListerTableView: NSTableView, NSServicesMenuRequestor {
 
     /// Press on empty space of a row, or below the rows, and drag: every row between the press and the pointer is
     /// selected (only the vertical span counts, so nothing is drawn over the list).
-    /// A press on a file name drags the file itself, unless "Drag-select from file names" is on and the file
+    /// A press anywhere on a selected row drags the selected files. A press on a file name drags the file itself, unless "Drag-select from file names" is on and the file
     /// is not selected yet (a selected file is always dragged as a file).
     var lassoFromNames: () -> Bool = { Settings.dragSelectFromNames }
 
@@ -35,6 +55,7 @@ final class ListerTableView: NSTableView, NSServicesMenuRequestor {
     func startsLasso(at point: NSPoint) -> Bool {
         let row = self.row(at: point)
         guard row >= 0 else { return true }
+        if selectedRowIndexes.contains(row) { return false }     // a selected row is dragged as files from anywhere in it
         guard let nameColumn = tableColumns.firstIndex(where: { $0.identifier.rawValue == "name" }),
               let cell = view(atColumn: nameColumn, row: row, makeIfNecessary: false) as? NSTableCellView,
               let icon = cell.imageView, let text = cell.textField else { return true }
@@ -154,7 +175,9 @@ final class ListerViewController: NSViewController {
     // MARK: - View
 
     override func loadView() {
-        let root = NSView(frame: NSRect(x: 0, y: 0, width: 680, height: 440))
+        let root = ListerDropView(frame: NSRect(x: 0, y: 0, width: 680, height: 440))
+        root.dropOperation = { [weak self] in self?.dropOperation(for: $0, row: -1, operation: .above) ?? [] }
+        root.performDrop = { [weak self] in self?.performDrop($0, row: -1, operation: .above) ?? false }
 
         let pathBar = NSHostingView(rootView: PathBarView(model: model,
                                                           onToggleRole: { [weak self] in self?.toggleRole($0) },
@@ -537,33 +560,39 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
         return model.url
     }
 
-    func tableView(_ tableView: NSTableView, validateDrop info: NSDraggingInfo,
-                   proposedRow row: Int, proposedDropOperation dropOperation: NSTableView.DropOperation) -> NSDragOperation {
+    /// What a drop would do (and nothing when it cannot go here). `row` -1: not on a row.
+    private func dropOperation(for info: NSDraggingInfo, row: Int, operation: NSTableView.DropOperation) -> NSDragOperation {
         let urls = Self.droppedURLs(from: info.draggingPasteboard)
         guard !urls.isEmpty, !model.isVirtual else { return [] }
-        let folder = dropFolder(forRow: row, operation: dropOperation)
-        if folder == model.url {
-            tableView.setDropRow(-1, dropOperation: .on)        // highlight the whole table
-        } else {
-            tableView.setDropRow(row, dropOperation: .on)       // highlight the folder row
-        }
+        let folder = dropFolder(forRow: row, operation: operation)
         if RemoteURL.isRemote(folder) { return Self.remoteDragOperation(for: urls, modifiers: NSEvent.modifierFlags) }
         return Self.dragOperation(for: urls, into: folder, modifiers: NSEvent.modifierFlags,
                                   sourceMask: info.draggingSourceOperationMask)
     }
 
-    func tableView(_ tableView: NSTableView, acceptDrop info: NSDraggingInfo,
-                   row: Int, dropOperation: NSTableView.DropOperation) -> Bool {
+    private func performDrop(_ info: NSDraggingInfo, row: Int, operation: NSTableView.DropOperation) -> Bool {
         let urls = Self.droppedURLs(from: info.draggingPasteboard)
         guard !model.isVirtual else { return false }
-        let folder = dropFolder(forRow: row, operation: dropOperation)
-        let operation = RemoteURL.isRemote(folder)
-            ? Self.remoteDragOperation(for: urls, modifiers: NSEvent.modifierFlags)
-            : Self.dragOperation(for: urls, into: folder, modifiers: NSEvent.modifierFlags,
-                                 sourceMask: info.draggingSourceOperationMask)
-        guard !urls.isEmpty, operation != [] else { return false }
-        transfer(operation == .move ? .move : .copy, items: urls, into: folder)
+        let kind = dropOperation(for: info, row: row, operation: operation)
+        guard !urls.isEmpty, kind != [] else { return false }
+        transfer(kind == .move ? .move : .copy, items: urls, into: dropFolder(forRow: row, operation: operation))
         return true
+    }
+
+    func tableView(_ tableView: NSTableView, validateDrop info: NSDraggingInfo,
+                   proposedRow row: Int, proposedDropOperation dropOperation: NSTableView.DropOperation) -> NSDragOperation {
+        guard !Self.droppedURLs(from: info.draggingPasteboard).isEmpty, !model.isVirtual else { return [] }
+        if self.dropFolder(forRow: row, operation: dropOperation) == model.url {
+            tableView.setDropRow(-1, dropOperation: .on)        // highlight the whole table
+        } else {
+            tableView.setDropRow(row, dropOperation: .on)       // highlight the folder row
+        }
+        return self.dropOperation(for: info, row: row, operation: dropOperation)
+    }
+
+    func tableView(_ tableView: NSTableView, acceptDrop info: NSDraggingInfo,
+                   row: Int, dropOperation: NSTableView.DropOperation) -> Bool {
+        performDrop(info, row: row, operation: dropOperation)
     }
 
     // Cell construction
@@ -1015,6 +1044,9 @@ extension ListerViewController: NSMenuDelegate {
 
             // Info, Rename, Compress, Duplicate, Make Alias, Quick Look, Copy
             if local { add(tr("Info")) { [weak self] in self?.showInfo() } }
+            if local, items.contains(where: \.isDirectory) {
+                add(items.count == 1 ? tr("Calculate Folder Size") : tr("Calculate Folder Sizes")) { [weak self] in self?.calculateFolderSizes() }
+            }
             if items.count == 1 {
                 add(tr("Rename…")) { [weak self] in self?.promptRename(items[0]) }
             } else if local {
