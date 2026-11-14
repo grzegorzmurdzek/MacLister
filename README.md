@@ -68,10 +68,10 @@ run `defaults delete com.example.MacLister`, and remove MacLister from the two P
 ### Opening a lister
 
 - **Double-click an empty spot on the desktop.** Nothing happens on icons, windows, the menu bar or the Dock,
-  and clicks with ⌘/⇧/⌥/⌃ held are ignored. Prefer the mouse wheel? Menu-bar icon → **Open Lister With** lets a
+  and clicks with ⌘/⇧/⌥/⌃ held are ignored. Prefer the mouse wheel? **Settings → General → Open a lister with** lets a
   **single click of the middle button** open a lister instead of, or in addition to, the double-click.
 - Or use the menu-bar icon → **New Lister**.
-- By default the window's top-left corner sits on the click; menu-bar icon → **Center Lister on Cursor**
+- By default the window's top-left corner sits on the click; **Settings → General → Center the lister on the pointer**
   centres it instead. A lister opens on your home folder (see *startDirectory* below).
 
 ### Anatomy of a lister
@@ -85,7 +85,7 @@ run `defaults delete com.example.MacLister`, and remove MacLister from the two P
 - **The list refreshes itself** when files are added, removed or changed on disk (FSEvents), and the window
   subtitle shows the free space of the volume.
 - **Button bar** above the path bar, as in Ambient on MorphOS (see *Configuration*): icons only, the name is in
-  the tooltip. Menu-bar icon → **Button Bar** puts it above the path, below the path or at the bottom;
+  the tooltip. **Settings → Listers → Button bar** puts it above the path, below the path or at the bottom;
   **Show Button Labels** adds text.
 - A thin **status line** at the bottom: item count, selection size, filter, progress and errors.
 - New listers open at 560 × 400 and remember the size you last gave a lister by dragging its edge.
@@ -164,10 +164,26 @@ On many laptops F-keys need **fn**.
   Source / Destination, Swap, Parent, Back, Refresh, Hidden files, Filter, Bookmarks, Recent Folders,
   Terminal Here, Bring All to Front, Close, Close All, Save/Restore Layout.
 - **Menu-bar icon** – list of all open listers (click to bring one to the front; roles are shown as
-  \[SRC\] / \[DST\]), Bring All to Front, Close All, *Duplicate Frontmost Lister*, *Terminal App*, layouts,
-  *Edit Filetypes…*, *Edit Buttons…*, *Reload Buttons*, *Reset Buttons to Defaults*, permission status.
+  \[SRC\] / \[DST\]), Bring All to Front, Close All, *Duplicate Frontmost Lister*, layouts, *Undo*, *Operation Log…*,
+  *Check for Updates…*, **Settings…** (⌘,), permission status.
 
 <p align="center"><img src="docs/screenshots/context-menu.jpg" alt="The context menu of a file: Open, Open With, Move to Trash, Info, Rename, Compress, Duplicate, Make Alias, Share, tag colours, Quick Actions, Services and MacLister's own commands" width="420"></p>
+
+### Settings
+
+<p align="center">
+  <img src="docs/screenshots/settings-general.jpg" alt="The General tab of the Settings window" width="330">
+  <img src="docs/screenshots/settings-listers.jpg" alt="The Listers tab of the Settings window" width="330">
+</p>
+
+**Menu-bar icon → Settings…** (⌘,) opens a regular Mac settings window with four tabs:
+
+- **General** — what opens a lister (double-click, middle button or both), centre it on the pointer, the folder it
+  opens, reopen the saved layout at launch, the terminal app for *Terminal Here*, the interface language.
+- **Listers** — button bar position and labels, **Edit Buttons…** / *Reload* / *Reset…*, relative dates,
+  drag-select from file names, **Lister Title…**, **Keyboard Shortcuts…**, **Edit Filetypes…**.
+- **Operations** — how long the operation log is kept, **Open Operation Log…**.
+- **Updates** — version, last check, automatic checks (off by default), *Check for Updates…*.
 
 ### Selecting, filtering, sizes
 
@@ -207,7 +223,7 @@ one to jump straight there.
 
 ### Filetypes: what a double-click does
 
-`filetypes.json` (menu-bar icon → **Edit Filetypes…**) maps extensions to actions: `open` (system default),
+`filetypes.json` (**Settings → Listers → Edit Filetypes…**) maps extensions to actions: `open` (system default),
 `extract`, `quicklook`, `app` (bundle identifier or path of an application) and `shell` (the file is in
 `$LISTER_SELECTION`). By default archives are **extracted** instead of opened. Example:
 
@@ -274,7 +290,7 @@ double-clicking one tries to enter it first. Opening a server file downloads it;
 
 <p align="center"><img src="docs/screenshots/keyboard-shortcuts.jpg" alt="The Keyboard Shortcuts window" width="520"></p>
 
-Menu-bar icon → **Keyboard Shortcuts…** (also in the title-bar menu). Click a shortcut and press the keys; Esc cancels,
+**Settings → Listers → Keyboard Shortcuts…** (also in the title-bar menu). Click a shortcut and press the keys; Esc cancels,
 Delete removes it.
 
 - **Anywhere:** *Open a lister* (at the mouse pointer, in any application) and *Bring all listers to the front*.
@@ -340,8 +356,7 @@ renamed or moved from under the job; MacLister says so instead.
 Press on empty space — below the rows, in the Size / Modified columns or right of a name — and drag: a rectangle
 selects every row it touches (⌘ or ⇧ adds to the selection; the list scrolls when you reach the edge). By default
 this also works from an **unselected file name**, as in Directory Opus; a *selected* file is always dragged as a
-file, so you can still drag files out. Prefer the Finder behaviour (a name press always drags the file)? Menu-bar icon →
-**Drag-Select from File Names** off.
+file, so you can still drag files out. Prefer the Finder behaviour (a name press always drags the file)? **Settings → Listers → Drag a selection rectangle from file names** off.
 
 ### Tab between listers
 
@@ -379,7 +394,7 @@ editor and list them in their tooltip. In `buttons.json` the keys are `rightActi
 
 <p align="center"><img src="docs/screenshots/lister-title.jpg" alt="The Lister Title window: a title and a subtitle template with a live preview and the list of variables" width="560"></p>
 
-Menu-bar icon (or the lister's context menu) → **Lister Title…** sets what the window title and the line under it say.
+**Settings → Listers → Lister Title…** (or the lister's context menu) sets what the window title and the line under it say.
 Write text with variables; **`{ … }` is shown only when everything inside it has a value**, so `{%l — }%n` is
 “Work — Reports” for a named lister and just “Reports” for the others. The editor has a live preview, presets and
 the list of variables:
@@ -396,10 +411,10 @@ Defaults: title `{%l — }%n{ – %h}`, subtitle `%c{ · %F}{ · %R}`.
 
 ### Updates
 
-Menu-bar icon → **Check for Updates…** asks GitHub whether a newer release exists and shows its notes; **Install and
+Menu-bar icon → **Check for Updates…** (or **Settings → Updates**) asks GitHub whether a newer release exists and shows its notes; **Install and
 Restart** downloads it, checks the SHA-256 against the release's `.sha256` file and the code signature, then
 replaces the app and starts it (needs a writable install folder; otherwise it opens the release page).
-**Check for Updates Automatically** looks once a day — it is **off by default**, MacLister asks you once after
+**Settings → Updates → Check for updates automatically** looks once a day — it is **off by default**, MacLister asks you once after
 starting whether you want it. Nothing is installed without your click, and the request carries no information
 about you. **Skip This Version** silences one release. The address is in `Info.plist` (`MacListerUpdateFeed`);
 `defaults write com.example.MacLister updateFeedURL <url>` overrides it.
@@ -412,8 +427,8 @@ The *Modified* and *Created* columns can show dates the way Finder does — *Tod
 
 ## Language
 
-MacLister follows the macOS language: Polish on a Polish system, English otherwise. To choose, use the menu-bar icon
-→ **Language** → *System Default / English / Polski*; the app offers to restart. Counted texts use proper Polish plurals
+MacLister follows the macOS language: Polish on a Polish system, English otherwise. To choose, use **Settings → General → Interface
+language** (*System Default / English / Polski*); the app offers to restart. Counted texts use proper Polish plurals
 (1 element, 2 elementy, 5 elementów). `python3 Tools/check_localization.py` verifies that every text in the sources has a
 Polish translation (`Support/pl.lproj`).
 
@@ -438,9 +453,8 @@ Files in `~/Library/Application Support/MacLister/`:
 
 ### Buttons
 
-Menu-bar icon → **Edit Buttons…** opens the button editor (see *Button clicks and the button editor*); after changing
-`buttons.json` by hand use **Reload Buttons** (all open listers update). **Reset Buttons to
-Defaults** rewrites the file (use it after an update to get new default buttons; also
+**Settings → Listers → Edit Buttons…** opens the button editor (see *Button clicks and the button editor*); after changing
+`buttons.json` by hand use **Reload** next to it (all open listers update). **Reset…** rewrites the file (use it after an update to get new default buttons; also
 `MacLister --reset-buttons`). The default set is short: New Folder, Terminal Here, Copy, Move, Extract,
 Compare, Info, Delete. Everything else (select, filter, sizes, duplicate lister, swap …) is in the menus and
 shortcuts, or add it as a button.
@@ -473,10 +487,10 @@ Set with `defaults write com.example.MacLister <key> <value>`:
 | `centerOnCursor` | false | centre new listers on the click instead of anchoring the corner |
 | `showStatusItem` | true | show the menu-bar icon (if you hide it, quit via Activity Monitor) |
 | `startDirectory` | `~` | folder a desktop double-click opens |
-| `terminalBundleID` | `com.apple.Terminal` | terminal used by *Terminal Here* (also: menu-bar icon → *Terminal App*) |
+| `terminalBundleID` | `com.apple.Terminal` | terminal used by *Terminal Here* (also: Settings → General) |
 | `restoreLayoutAtLaunch` | false | reopen the saved layout at start |
-| `desktopTrigger` | `doubleClick` | `doubleClick`, `middleClick` or `both` (also: menu-bar icon → *Open Lister With*) |
-| `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` or `bottom` |
+| `desktopTrigger` | `doubleClick` | `doubleClick`, `middleClick` or `both` (also: Settings → General) |
+| `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` or `bottom` (also: Settings → Listers) |
 | `showButtonLabels` | false | text next to the button icons |
 | `relativeDates` | true | *Today / Yesterday* in the date columns (also: column header menu) |
 | `debugHitTest` | false | log every click decision to `~/Library/Logs/MacLister.log` |
@@ -495,8 +509,8 @@ Set with `defaults write com.example.MacLister <key> <value>`:
   `~/Library/Logs/MacLister.log` – each double-click logs what was under the cursor.
 - **Windows slide away and the lister is half off-screen.** Disable *Click wallpaper to reveal desktop*
   (install step 6).
-- **"Terminal Here" opens the wrong app.** Menu-bar icon → *Terminal App*.
-- **New buttons are missing after an update.** Menu-bar icon → *Reset Buttons to Defaults*.
+- **"Terminal Here" opens the wrong app.** Settings → General → *Terminal app*.
+- **New buttons are missing after an update.** Settings → Listers → Buttons → *Reset…*.
 - **Gatekeeper says the app is damaged or cannot be opened.** Install step 3 (`xattr -dr com.apple.quarantine`).
 
 ## Build from source

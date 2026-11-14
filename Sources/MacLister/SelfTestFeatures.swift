@@ -218,8 +218,7 @@ enum SelfTestFeatures {
                     window.sendEvent(event)
                 }
             }
-            rightClick(at: NSPoint(x: 100, y: 120))                       // inside the content
-            check(asked == 0, "right-click in the content does not open the title-bar menu")
+            check(!window.isInTitleBar(NSPoint(x: 100, y: 120)) && asked == 0, "the content is not the title bar, so a right-click there keeps its own menu")
             rightClick(at: NSPoint(x: 100, y: window.frame.height - 8))   // on the title bar
             check(asked == 1 && shown != nil, "right-click on the title bar opens the lister menu (asked \(asked)x)")
             window.titleBarMenuProvider = original
@@ -432,7 +431,7 @@ enum SelfTestFeatures {
             appDelegate.chooseTerminal(id: original)
             check(Settings.terminalBundleID == original, "terminal choice restored")
             let titles = appDelegate.statusMenuTitles()
-            check(titles.contains("Terminal App"), "status menu has the Terminal App submenu")
+            check(titles.contains("Settings…") && !titles.contains("Terminal App") && !titles.contains("Language"), "the status menu opens Settings instead of listing settings")
         }
         // bookmarks, history, filetypes
         later {

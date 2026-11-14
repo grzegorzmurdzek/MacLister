@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 /// `MacLister --selftest-ops`: undo, the operation log, the Back history, drag-select, Tab between listers
 /// and the update check. Results go to ~/Library/Logs/MacLister.log.
@@ -140,6 +141,45 @@ enum SelfTestOperations {
         check(model.url.lastPathComponent == "d1", "a step count beyond the history is ignored")
         check(PathBarView.historyTitle(dirB).hasPrefix("B — "), "menu titles name the folder and its path: \(PathBarView.historyTitle(dirB))")
 
+        // --- settings window
+        let tabs = SettingsWindow.tabViews()
+        check(tabs.map(\.title) == ["General", "Listers", "Operations", "Updates"] || tabs.count == 4, "the settings window has four tabs: \(tabs.map(\.title))")
+        for tab in tabs {
+            let host = NSHostingView(rootView: tab.view)
+            check(host.fittingSize.width >= 400 && host.fittingSize.height > 100, "the \(tab.title) tab lays out: \(host.fittingSize)")
+        }
+        SettingsWindow.show(tab: 1)
+        check(NSApp.windows.contains { $0.isVisible && ($0.contentViewController is NSTabViewController) }, "Settings… opens a window with tabs")
+        if let window = NSApp.windows.first(where: { $0.contentViewController is NSTabViewController }),
+           let controller = window.contentViewController as? NSTabViewController {
+            check(controller.tabStyle == .toolbar && controller.selectedTabViewItemIndex == 1, "toolbar style, second tab selected")
+            check(window.title == tabs[1].title, "the title names the tab: \(window.title)")
+            window.close()
+        }
+        check(Settings.dragSelectFromNames == UserDefaults.standard.bool(forKey: "dragSelectFromNames"), "settings read the same defaults the views write")
+        let before = Settings.buttonBarPosition
+        UserDefaults.standard.set(ButtonBarPosition.bottom.rawValue, forKey: "buttonBarPosition")
+        check(Settings.buttonBarPosition == .bottom, "the position picker's key is the one the app reads")
+        UserDefaults.standard.set(before.rawValue, forKey: "buttonBarPosition")
+
+        // --- the menu shows the shortcut the user assigned, not a fixed one
+        if let delegate = NSApp.delegate as? AppDelegate {
+            let item = NSMenuItem(title: "New Lister", action: nil, keyEquivalent: "n")
+            ShortcutStore.shared.set(nil, for: GlobalShortcutActions.openLister)
+            delegate.showAssignedShortcut(on: item, for: GlobalShortcutActions.openLister)
+            check(item.keyEquivalent.isEmpty, "with no shortcut assigned the menu item shows none")
+            let combo = KeyCombo(keyCode: 37, modifiers: [.control, .option, .shift, .command], label: "L")
+            ShortcutStore.shared.set(combo, for: GlobalShortcutActions.openLister)
+            delegate.showAssignedShortcut(on: item, for: GlobalShortcutActions.openLister)
+            check(item.keyEquivalent == "l" && item.keyEquivalentModifierMask == [.control, .option, .shift, .command], "the menu item shows the assigned shortcut: \(item.keyEquivalent)")
+            ShortcutStore.shared.set(KeyCombo(keyCode: 96, modifiers: [.control, .option, .shift, .command], label: "F5"), for: GlobalShortcutActions.openLister)
+            delegate.showAssignedShortcut(on: item, for: GlobalShortcutActions.openLister)
+            check(item.keyEquivalent.isEmpty, "a key a menu cannot show (F5) is left out")
+            ShortcutStore.shared.set(nil, for: GlobalShortcutActions.openLister)
+        } else {
+            check(false, "app delegate reachable")
+        }
+
         // --- title format
         var ctx = TitleFormat.Context()
         ctx.name = "Reports"; ctx.items = "11 items"; ctx.diskSummary = "340 GB free"; ctx.folders = "3"; ctx.files = "8"; ctx.selected = "2"
@@ -249,7 +289,7 @@ enum SelfTestOperations {
             // ⌘Z reaches undo
             check(table.keyHandler?(key(6, .command, "z")!) == true, "⌘Z is handled by the lister")
 
-            buttonClickChecks(one) {
+            buttonClickChecks(one, realMouse: CommandLine.arguments.contains("--real-mouse")) {
                 manager.closeAll()
                 updateChecks(root, log)
             }
@@ -257,8 +297,14 @@ enum SelfTestOperations {
     }
 
     /// Right and middle clicks on a real button, sent as system mouse events to the lister's window.
-    private static func buttonClickChecks(_ controller: ListerWindowController, done: @escaping () -> Void) {
+    /// By default the click is delivered straight to the button's mouse catcher, so the test never touches the real
+    /// mouse. `--selftest-ops --real-mouse` also sends system mouse events (it moves the pointer and must not be
+    /// disturbed; a click that misses can open a menu).
+    private static func buttonClickChecks(_ controller: ListerWindowController, realMouse: Bool, done: @escaping () -> Void) {
         guard let window = controller.window, let table = controller.listerViewController?.tableView else { check(false, "window for click test"); done(); return }
+        check(MouseButtonCatcher.CatcherView.accepts(.rightMouseDown) && MouseButtonCatcher.CatcherView.accepts(.otherMouseUp)
+              && !MouseButtonCatcher.CatcherView.accepts(.leftMouseDown) && !MouseButtonCatcher.CatcherView.accepts(.mouseMoved),
+              "the catcher answers only right and middle mouse events")
         ButtonStore.shared.save([ListerButton(title: "Probe", symbol: "star", action: .selectNone, rightAction: .selectAll, middleAction: .invertSelection)])
         window.makeKeyAndOrderFront(nil)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
@@ -269,6 +315,16 @@ enum SelfTestOperations {
             }
             guard let catcher = window.contentView.flatMap(find) else { check(false, "a button with extra clicks gets a mouse catcher"); done(); return }
             check(true, "a button with extra clicks gets a mouse catcher")
+            if !realMouse {
+                guard let view = catcher as? MouseButtonCatcher.CatcherView else { done(); return }
+                table.deselectAll(nil)
+                view.onClick(.right)
+                check(table.selectedRowIndexes.count == table.numberOfRows && table.numberOfRows > 0, "the right-click action runs (Select All): \(table.selectedRowIndexes.count) of \(table.numberOfRows)")
+                view.onClick(.middle)
+                check(table.selectedRowIndexes.isEmpty, "the middle-click action runs (Invert Selection)")
+                done()
+                return
+            }
             let inWindow = catcher.convert(NSPoint(x: catcher.bounds.midX, y: catcher.bounds.midY), to: nil)
             let onScreen = window.convertPoint(toScreen: inWindow)
             let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
@@ -296,6 +352,38 @@ enum SelfTestOperations {
     }
 
     // MARK: Updates
+
+    /// `--selftest-update <feed>`: checks the feed, downloads the release and replaces this very app with it
+    /// (the real install path, without the questions), then quits so the helper can start the new copy.
+    static func updateInstall(feed: URL) {
+        UpdateChecker.check(feed: feed) { result in
+            switch result {
+            case .failure(let error):
+                DebugLog.write("update-install FAIL check: \(error.localizedDescription)")
+                NSApp.terminate(nil)
+            case .success(nil):
+                DebugLog.write("update-install FAIL nothing newer in the feed")
+                NSApp.terminate(nil)
+            case .success(let release?):
+                DebugLog.write("update-install found \(release.version), replaceable: \(UpdateChecker.canReplaceRunningApp)")
+                DispatchQueue.global().async {
+                    do {
+                        let app = try UpdateChecker.download(release)
+                        DispatchQueue.main.async {
+                            do {
+                                try UpdateChecker.installAfterQuit(app)
+                                DebugLog.write("update-install quitting for the swap")
+                            } catch { DebugLog.write("update-install FAIL install: \(error)") }
+                            NSApp.terminate(nil)
+                        }
+                    } catch {
+                        DebugLog.write("update-install FAIL download: \(error)")
+                        DispatchQueue.main.async { NSApp.terminate(nil) }
+                    }
+                }
+            }
+        }
+    }
 
     private static func updateChecks(_ root: URL, _ log: OperationLog) {
         let fm = FileManager.default

@@ -99,6 +99,10 @@ enum SelfTestLanguage {
             LocalizationAudit.touch(ButtonBarView(model: one.model, store: .shared, onAction: { _ in }), size: NSSize(width: 700, height: 60))
             one.model.progress = TransferStatus(text: "x", fraction: 0.3, cancel: { }, details: busy)
             LocalizationAudit.touch(StatusBarView(model: one.model), size: NSSize(width: 700, height: 40))
+            for tab in SettingsWindow.tabViews() { LocalizationAudit.touch(tab.view, size: NSSize(width: 520, height: 520)) }
+            LocalizationAudit.touch(OperationLogView(), size: NSSize(width: 640, height: 420))
+            LocalizationAudit.touch(ButtonEditorView(initial: ListerButton.defaults, selection: 3, close: { }), size: NSSize(width: 700, height: 480))
+            LocalizationAudit.touch(TitleFormatEditor(close: { }), size: NSSize(width: 520, height: 600))
             one.model.progress = nil
             let known: Set<String> = ["OK", "Regex", "Folder", "Mission Control", "Spotlight", "Audio", "Video", "port", "ext", "Server", "Servers", "Terminal", "FTP", "SFTP"]
             let untranslated = LocalizationAudit.misses.subtracting(known).sorted()

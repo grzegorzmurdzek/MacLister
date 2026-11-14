@@ -6,13 +6,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var permissionTimer: Timer?
 
     private var statusLine: NSMenuItem!
+    private var newListerItem: NSMenuItem!
     private var settingsItem: NSMenuItem!
-    private var centerItem: NSMenuItem!
-    private var labelsItem: NSMenuItem!
-    private let buttonBarMenu = NSMenu(title: "Button Bar")
-    private let triggerMenu = NSMenu(title: "Open Lister With")
-    private let terminalMenu = NSMenu(title: "Terminal App")
-    private let languageMenu = NSMenu(title: "Language")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         DispatchQueue.global(qos: .utility).async { RemoteCache.purge() }     // old downloaded copies
@@ -43,6 +38,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let flag = CommandLine.arguments.firstIndex(of: "--selftest-remote") {
             let rest = Array(CommandLine.arguments.dropFirst(flag + 1))
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestRemote.run(arguments: rest) }
+            return
+        }
+        if let flag = CommandLine.arguments.firstIndex(of: "--selftest-update"), CommandLine.arguments.indices.contains(flag + 1),
+           let feed = URL(string: CommandLine.arguments[flag + 1]) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestOperations.updateInstall(feed: feed) }
             return
         }
         if CommandLine.arguments.contains("--selftest-ops") {
@@ -132,8 +132,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
 
-        let newLister = menu.addItem(withTitle: tr("New Lister"), action: #selector(newLister), keyEquivalent: "n")
+        let newLister = menu.addItem(withTitle: tr("New Lister"), action: #selector(newLister), keyEquivalent: "")
         newLister.target = self
+        newListerItem = newLister
         menu.addItem(.separator())
 
         statusLine = menu.addItem(withTitle: "", action: nil, keyEquivalent: "")
@@ -142,35 +143,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settingsItem.target = self
         menu.addItem(.separator())
 
-        centerItem = menu.addItem(withTitle: tr("Center Lister on Cursor"), action: #selector(toggleCenter), keyEquivalent: "")
-        centerItem.target = self
-        labelsItem = menu.addItem(withTitle: tr("Show Button Labels"), action: #selector(toggleButtonLabels), keyEquivalent: "")
-        labelsItem.target = self
-        let triggerItem = menu.addItem(withTitle: tr("Open Lister With"), action: nil, keyEquivalent: "")
-        triggerItem.submenu = triggerMenu
-        for trigger in DesktopTrigger.allCases {
-            let item = triggerMenu.addItem(withTitle: trigger.menuTitle, action: #selector(chooseTrigger(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = trigger.rawValue
-        }
-        let buttonBarItem = menu.addItem(withTitle: tr("Button Bar"), action: nil, keyEquivalent: "")
-        buttonBarItem.submenu = buttonBarMenu
-        for position in ButtonBarPosition.allCases {
-            let item = buttonBarMenu.addItem(withTitle: position.menuTitle, action: #selector(chooseButtonBarPosition(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = position.rawValue
-        }
-        let terminalItem = menu.addItem(withTitle: tr("Terminal App"), action: nil, keyEquivalent: "")
-        terminalItem.submenu = terminalMenu
-        let languageItem = menu.addItem(withTitle: tr("Language"), action: nil, keyEquivalent: "")
-        languageItem.submenu = languageMenu
-        for language in AppLanguage.allCases {
-            let item = languageMenu.addItem(withTitle: language.menuTitle, action: #selector(chooseLanguage(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = language.rawValue
-        }
-        let shortcuts = menu.addItem(withTitle: tr("Keyboard Shortcuts…"), action: #selector(showShortcuts), keyEquivalent: "")
-        shortcuts.target = self
         let connect = menu.addItem(withTitle: tr("Connect to Server…"), action: #selector(connectFromMenu), keyEquivalent: "k")
         connect.target = self
         let duplicate = menu.addItem(withTitle: tr("Duplicate Frontmost Lister"), action: #selector(duplicateFrontmost), keyEquivalent: "")
@@ -180,28 +152,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let restore = menu.addItem(withTitle: tr("Restore Layout"), action: #selector(restoreLayout), keyEquivalent: "")
         restore.target = self
         menu.addItem(.separator())
-        let filetypes = menu.addItem(withTitle: tr("Edit Filetypes…"), action: #selector(editFiletypes), keyEquivalent: "")
-        filetypes.target = self
-        let edit = menu.addItem(withTitle: tr("Edit Buttons…"), action: #selector(editButtons), keyEquivalent: "")
-        edit.target = self
-        let titleItem = menu.addItem(withTitle: tr("Lister Title…"), action: #selector(editTitleFormat), keyEquivalent: "")
-        titleItem.target = self
-        let reload = menu.addItem(withTitle: tr("Reload Buttons"), action: #selector(reloadButtons), keyEquivalent: "")
-        reload.target = self
-        let reset = menu.addItem(withTitle: tr("Reset Buttons to Defaults"), action: #selector(resetButtons), keyEquivalent: "")
-        reset.target = self
         menu.addItem(.separator())
         undoItem = menu.addItem(withTitle: tr("Undo"), action: #selector(undoFromMenu), keyEquivalent: "")
         undoItem.target = self
         let log = menu.addItem(withTitle: tr("Operation Log…"), action: #selector(showOperationLog), keyEquivalent: "")
         log.target = self
-        dragSelectItem = menu.addItem(withTitle: tr("Drag-Select from File Names"), action: #selector(toggleDragSelect), keyEquivalent: "")
-        dragSelectItem.target = self
         menu.addItem(.separator())
         let update = menu.addItem(withTitle: tr("Check for Updates…"), action: #selector(checkForUpdates), keyEquivalent: "")
         update.target = self
-        autoUpdateItem = menu.addItem(withTitle: tr("Check for Updates Automatically"), action: #selector(toggleAutoUpdate), keyEquivalent: "")
-        autoUpdateItem.target = self
+        let preferences = menu.addItem(withTitle: tr("Settings…"), action: #selector(showSettings), keyEquivalent: ",")
+        preferences.target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: tr("Quit MacLister"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
@@ -287,43 +247,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     ]
 
     /// Terminal apps that are installed (checked live, so a newly installed one shows up).
-    func terminalChoices() -> [(name: String, id: String)] {
-        Self.knownTerminals.filter { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0.id) != nil }
+    static func terminalChoices() -> [(name: String, id: String)] {
+        knownTerminals.filter { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0.id) != nil }
     }
+
+    func terminalChoices() -> [(name: String, id: String)] { Self.terminalChoices() }
 
     func chooseTerminal(id: String) { Settings.terminalBundleID = id }
 
-    @objc private func terminalChosen(_ sender: NSMenuItem) {
-        if let id = sender.representedObject as? String { chooseTerminal(id: id) }
-    }
-
-    private func rebuildTerminalMenu() {
-        terminalMenu.removeAllItems()
-        let current = Settings.terminalBundleID
-        var choices = terminalChoices()
-        // A custom bundle id set with `defaults write` stays visible and checked.
-        if !choices.contains(where: { $0.id == current }) { choices.append((current, current)) }
-        for choice in choices {
-            let item = NSMenuItem(title: choice.name, action: #selector(terminalChosen(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = choice.id
-            item.state = choice.id == current ? .on : .off
-            terminalMenu.addItem(item)
-        }
-    }
-
-    @objc private func toggleButtonLabels() { Settings.showButtonLabels.toggle() }
-
-    @objc private func chooseTrigger(_ sender: NSMenuItem) {
-        if let raw = sender.representedObject as? String, let trigger = DesktopTrigger(rawValue: raw) {
-            Settings.desktopTrigger = trigger
-        }
-    }
-
     /// The language is read when the app starts, so a change asks for a restart.
-    @objc private func chooseLanguage(_ sender: NSMenuItem) {
-        guard let raw = sender.representedObject as? String, let language = AppLanguage(rawValue: raw),
-              language != AppLanguage.current else { return }
+    static func switchLanguage(_ language: AppLanguage) {
+        guard language != AppLanguage.current else { return }
         language.apply()
         let alert = NSAlert()
         alert.messageText = tr("Restart MacLister to change the language")
@@ -331,7 +265,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         alert.addButton(withTitle: tr("Restart Now"))
         alert.addButton(withTitle: tr("Later"))
         NSApp.bringToFront()
-        if alert.runModal() == .alertFirstButtonReturn { Self.relaunch() }
+        if alert.runModal() == .alertFirstButtonReturn { relaunch() }
     }
 
     /// Starts a fresh copy of the app a moment after this one has quit.
@@ -344,24 +278,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.terminate(nil)
     }
 
-    @objc private func chooseButtonBarPosition(_ sender: NSMenuItem) {
-        if let raw = sender.representedObject as? String, let position = ButtonBarPosition(rawValue: raw) {
-            Settings.buttonBarPosition = position
-        }
-    }
-
     func menuWillOpen(_ menu: NSMenu) {
-        labelsItem?.state = Settings.showButtonLabels ? .on : .off
-        for item in triggerMenu.items {
-            item.state = (item.representedObject as? String) == Settings.desktopTrigger.rawValue ? .on : .off
-        }
-        for item in buttonBarMenu.items {
-            item.state = (item.representedObject as? String) == Settings.buttonBarPosition.rawValue ? .on : .off
-        }
-        for item in languageMenu.items {
-            item.state = (item.representedObject as? String) == AppLanguage.current.rawValue ? .on : .off
-        }
-        rebuildTerminalMenu()
         rebuildListerItems(in: menu)
         switch monitor.mode {
         case .eventTap:      statusLine.title = tr("Desktop double-click: active")
@@ -369,11 +286,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .stopped:       statusLine.title = tr("Waiting for Accessibility permission…")
         }
         settingsItem.isHidden = monitor.mode != .stopped
-        centerItem.state = Settings.centerOnCursor ? .on : .off
+        showAssignedShortcut(on: newListerItem, for: GlobalShortcutActions.openLister)
         undoItem?.title = OperationLog.shared.undoMenuTitle
         undoItem?.isEnabled = OperationLog.shared.lastUndoable != nil
-        dragSelectItem?.state = Settings.dragSelectFromNames ? .on : .off
-        autoUpdateItem?.state = Settings.autoUpdateCheck ? .on : .off
     }
 
     @objc private func newLister() {
@@ -383,11 +298,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func openAccessibilitySettings() { Accessibility.openSystemSettings() }
 
-    @objc private func toggleCenter() { Settings.centerOnCursor.toggle() }
+    /// Shows the shortcut the user assigned to an action next to its menu item (none assigned: none shown).
+    /// Only keys that are a single character can be shown by a menu item.
+    func showAssignedShortcut(on item: NSMenuItem?, for id: String) {
+        guard let item else { return }
+        if let combo = ShortcutStore.shared.combo(for: id), combo.label.count == 1 {
+            item.keyEquivalent = combo.label.lowercased()
+            item.keyEquivalentModifierMask = combo.flags
+        } else {
+            item.keyEquivalent = ""
+        }
+    }
+
+    @objc private func showSettings() { SettingsWindow.show() }
 
     private var undoItem: NSMenuItem!
-    private var dragSelectItem: NSMenuItem!
-    private var autoUpdateItem: NSMenuItem!
 
     @objc private func undoFromMenu() {
         OperationLog.shared.undoLast { outcome in
@@ -397,9 +322,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
     @objc private func showOperationLog() { OperationLogWindow.show() }
-    @objc private func toggleDragSelect() { Settings.dragSelectFromNames.toggle() }
     @objc private func checkForUpdates() { UpdateManager.shared.check(userInitiated: true) }
-    @objc private func toggleAutoUpdate() { Settings.autoUpdateCheck.toggle(); Settings.updateQuestionAsked = true }
 
     /// While anything copies, moves, downloads or deletes, the menu-bar icon becomes a progress ring with a
     /// percentage; its tooltip says what is going on.
@@ -420,8 +343,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Test hook.
     var statusItemTitle: String { statusItem?.button?.title ?? "" }
     var statusItemToolTip: String? { statusItem?.button?.toolTip }
-
-    @objc private func showShortcuts() { ShortcutsWindowController.shared.show() }
 
     @objc private func connectFromMenu() {
         let manager = ListerManager.shared
@@ -446,24 +367,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func restoreLayout() { LayoutStore.restore(into: ListerManager.shared) }
 
-    @objc private func editFiletypes() {
-        FiletypeStore.shared.ensureConfigFileExists()
-        let file = FiletypeStore.shared.configURL
-        if let editor = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.TextEdit") {
-            NSWorkspace.shared.open([file], withApplicationAt: editor, configuration: NSWorkspace.OpenConfiguration())
-        } else {
-            NSWorkspace.shared.activateFileViewerSelecting([file])
-        }
-    }
-
-    @objc private func reloadButtons() { ButtonStore.shared.reload() }
-
-    @objc private func resetButtons() { ButtonStore.shared.resetToDefaults() }
-
-    @objc private func editButtons() { ButtonEditorWindow.show() }
-
-    @objc private func editTitleFormat() { TitleFormatWindow.show() }
-
     // MARK: - Main menu (an agent app shows no menu bar, but key equivalents still need one)
 
     private func installMainMenu() {
@@ -472,6 +375,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let appMenuItem = NSMenuItem()
         main.addItem(appMenuItem)
         let appMenu = NSMenu()
+        let prefs = appMenu.addItem(withTitle: tr("Settings…"), action: #selector(showSettings), keyEquivalent: ",")
+        prefs.target = self
+        appMenu.addItem(.separator())
         appMenu.addItem(withTitle: tr("Quit MacLister"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appMenuItem.submenu = appMenu
 

@@ -468,11 +468,16 @@ struct MouseButtonCatcher: NSViewRepresentable {
     final class CatcherView: NSView {
         var onClick: (ListerButton.Click) -> Void = { _ in }
 
-        override func hitTest(_ point: NSPoint) -> NSView? {
-            switch NSApp.currentEvent?.type {
-            case .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp: return super.hitTest(point)
-            default: return nil
+        /// Only right and middle button events are ours; everything else falls through to the button.
+        static func accepts(_ type: NSEvent.EventType?) -> Bool {
+            switch type {
+            case .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp: return true
+            default: return false
             }
+        }
+
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            Self.accepts(NSApp.currentEvent?.type) ? super.hitTest(point) : nil
         }
 
         override func rightMouseDown(with event: NSEvent) { onClick(.right) }

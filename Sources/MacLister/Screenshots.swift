@@ -43,6 +43,9 @@ enum Screenshots {
             queue("operation-log") { operationLog(named: "operation-log") }
             queue("button-editor") { buttonEditor(named: "button-editor") }
             queue("lister-title") { listerTitle(named: "lister-title") }
+            for (index, name) in ["general", "listers", "operations", "updates"].enumerated() {
+                queue("settings-\(name)") { settings(tab: index, named: "settings-\(name)") }
+            }
         }
         next()
     }
@@ -311,6 +314,14 @@ enum Screenshots {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { capture(to: name); finishScene() }
             }
         }
+    }
+
+    /// One tab of the Settings window.
+    private static func settings(tab: Int, named name: String) {
+        SettingsWindow.show(tab: tab)
+        guard let window = NSApp.windows.first(where: { $0.contentViewController is NSTabViewController }) else { finishScene(); return }
+        window.setFrameOrigin(NSPoint(x: screen().minX + 260, y: screen().maxY - window.frame.height - 160))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { capture(to: name); finishScene() }
     }
 
     // MARK: Helpers

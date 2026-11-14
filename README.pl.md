@@ -71,10 +71,10 @@ wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list 
 ### Otwieranie listera
 
 - **Dwuklik w puste miejsce pulpitu.** Na ikonach, oknach, pasku menu i Docku nic się nie dzieje, a kliknięcia
-  z wciśniętym ⌘/⇧/⌥/⌃ są ignorowane. Wolisz rolkę myszy? Ikona w pasku menu → **Open Lister With** pozwala
+  z wciśniętym ⌘/⇧/⌥/⌃ są ignorowane. Wolisz rolkę myszy? **Ustawienia → Ogólne → Otwieraj lister przez** pozwala
   otwierać lister **pojedynczym kliknięciem środkowego przycisku** zamiast dwukliku albo oprócz niego.
 - Albo ikona w pasku menu → **New Lister**.
-- Domyślnie lewy górny róg okna leży w punkcie kliknięcia; ikona w pasku menu → **Center Lister on Cursor**
+- Domyślnie lewy górny róg okna leży w punkcie kliknięcia; **Ustawienia → Ogólne → Wyśrodkuj lister na kursorze**
   wyśrodkowuje okno. Lister otwiera się w folderze domowym (zob. *startDirectory* niżej).
 
 ### Budowa listera
@@ -88,7 +88,7 @@ wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list 
 - **Lista odświeża się sama**, gdy pliki są dodawane, usuwane lub zmieniane na dysku (FSEvents), a podtytuł okna
   pokazuje wolne miejsce na woluminie.
 - **Pasek przycisków** nad paskiem ścieżki, jak w Ambiencie na MorphOS (zob. *Konfiguracja*): same ikony, nazwa
-  w podpowiedzi. Ikona w pasku menu → **Button Bar** ustawia go nad ścieżką, pod ścieżką albo na dole;
+  w podpowiedzi. **Ustawienia → Listery → Pasek przycisków** ustawia go nad ścieżką, pod ścieżką albo na dole;
   **Show Button Labels** dodaje napisy.
 - Cienka **linia stanu** na dole: liczba elementów, rozmiar zaznaczenia, filtr, postęp i błędy.
 - Nowe listery mają 560 × 400 i pamiętają rozmiar, który ostatnio nadałeś listerowi przeciągając krawędź.
@@ -167,10 +167,26 @@ W wielu laptopach klawisze F wymagają **fn**.
   Set as Source / Destination, Swap, Parent, Back, Refresh, pliki ukryte, Filter, Bookmarks, Recent Folders,
   Terminal Here, Bring All to Front, Close, Close All, Save/Restore Layout.
 - **Ikona w pasku menu** – lista wszystkich otwartych listerów (kliknięcie wynosi lister na wierzch; role widać jako
-  \[SRC\] / \[DST\]), Bring All to Front, Close All, *Duplicate Frontmost Lister*, *Terminal App*, układy,
-  *Edit Filetypes…*, *Edit Buttons…*, *Reload Buttons*, *Reset Buttons to Defaults*, stan uprawnień.
+  \[SRC\] / \[DST\]), Bring All to Front, Close All, *Duplicate Frontmost Lister*, układy, *Cofnij*, *Dziennik operacji…*,
+  *Sprawdź aktualizacje…*, **Ustawienia…** (⌘,), stan uprawnień.
 
 <p align="center"><img src="docs/screenshots/context-menu.jpg" alt="Menu pod prawym przyciskiem dla pliku: Otwórz, Otwórz w aplikacji, Przenieś do Kosza, Informacje, Kompresuj, Udostępnij, kolory tagów, Szybkie czynności, Usługi i własne polecenia MacLister" width="420"></p>
+
+### Ustawienia
+
+<p align="center">
+  <img src="docs/screenshots/settings-general.jpg" alt="Zakładka Ogólne okna Ustawienia" width="330">
+  <img src="docs/screenshots/settings-listers.jpg" alt="Zakładka Listery okna Ustawienia" width="330">
+</p>
+
+**Ikona w pasku menu → Ustawienia…** (⌘,) otwiera zwykłe macowe okno ustawień z czterema zakładkami:
+
+- **Ogólne** — co otwiera lister (dwuklik, środkowy przycisk albo oba), wyśrodkowanie na kursorze, folder, który się
+  otwiera, otwieranie zapisanego układu przy starcie, aplikacja terminala dla *Terminal Here*, język interfejsu.
+- **Listery** — położenie paska przycisków i etykiety, **Edit Buttons…** / *Wczytaj ponownie* / *Przywróć…*, daty
+  względne, zaznaczanie ramką od nazw plików, **Tytuł listera…**, **Keyboard Shortcuts…**, **Edit Filetypes…**.
+- **Operacje** — jak długo przechowywany jest dziennik operacji, **Otwórz dziennik operacji…**.
+- **Aktualizacje** — wersja, ostatnie sprawdzenie, automatyczne sprawdzanie (domyślnie wyłączone), *Sprawdź aktualizacje…*.
 
 ### Zaznaczanie, filtr, rozmiary
 
@@ -210,7 +226,7 @@ od najbliższego — wybierz jeden, żeby skoczyć od razu tam.
 
 ### Filetypes: co robi dwuklik
 
-`filetypes.json` (ikona w pasku menu → **Edit Filetypes…**) przypisuje akcje do rozszerzeń: `open` (domyślne
+`filetypes.json` (**Ustawienia → Listery → Edit Filetypes…**) przypisuje akcje do rozszerzeń: `open` (domyślne
 zachowanie systemu), `extract`, `quicklook`, `app` (identyfikator lub ścieżka aplikacji) i `shell` (plik jest
 w `$LISTER_SELECTION`). Domyślnie archiwa są **rozpakowywane**, a nie otwierane. Przykład:
 
@@ -277,7 +293,7 @@ zmiany nie są odsyłane z powrotem.
 
 <p align="center"><img src="docs/screenshots/keyboard-shortcuts.jpg" alt="Okno skrótów klawiszowych" width="520"></p>
 
-Ikona w pasku menu → **Keyboard Shortcuts…** (także w menu na belce okna). Kliknij skrót i naciśnij klawisze; Esc
+**Ustawienia → Listery → Keyboard Shortcuts…** (także w menu na belce okna). Kliknij skrót i naciśnij klawisze; Esc
 anuluje, Delete usuwa.
 
 - **W każdej aplikacji:** *Open a lister* (przy wskaźniku myszy) i *Bring all listers to the front*.
@@ -346,7 +362,7 @@ Naciśnij przycisk na pustym miejscu — pod wierszami, w kolumnach Rozmiar / Da
 ciągnij: prostokąt zaznacza wszystkie wiersze, których dotyka (⌘ lub ⇧ dodaje do zaznaczenia; lista przewija się, gdy
 dojdziesz do krawędzi). Domyślnie działa to także od **niezaznaczonej nazwy pliku**, jak w Directory Opus;
 *zaznaczony* plik jest zawsze przeciągany jako plik, więc nadal można wyciągać pliki z listera. Wolisz zachowanie
-Findera (naciśnięcie nazwy zawsze przeciąga plik)? Ikona w pasku menu → wyłącz **Zaznaczanie ramką od nazw plików**.
+Findera (naciśnięcie nazwy zawsze przeciąga plik)? **Ustawienia → Listery → Zaznaczaj ramką, ciągnąc od nazw plików** — wyłącz.
 
 ### Tab między listerami
 
@@ -385,7 +401,7 @@ kliknięciami mają znacznik w edytorze i wymieniają je w podpowiedzi. W `butto
 
 <p align="center"><img src="docs/screenshots/lister-title.jpg" alt="Okno Tytuł listera: szablony tytułu i podtytułu z podglądem na żywo i listą zmiennych" width="560"></p>
 
-Ikona w pasku menu (lub menu listera) → **Tytuł listera…** ustala, co mówi tytuł okna i linia pod nim. Pisz tekst ze
+**Ustawienia → Listery → Tytuł listera…** (lub menu listera) ustala, co mówi tytuł okna i linia pod nim. Pisz tekst ze
 zmiennymi; **`{ … }` pojawia się tylko wtedy, gdy wszystko w środku ma wartość**, więc `{%l — }%n` to „Praca — Raporty”
 dla nazwanego listera i samo „Raporty” dla pozostałych. Edytor ma podgląd na żywo, gotowe formaty i listę zmiennych:
 
@@ -401,10 +417,10 @@ Domyślnie: tytuł `{%l — }%n{ – %h}`, podtytuł `%c{ · %F}{ · %R}`.
 
 ### Aktualizacje
 
-Ikona w pasku menu → **Sprawdź aktualizacje…** pyta GitHub, czy jest nowsze wydanie, i pokazuje jego opis; **Zainstaluj i
+Ikona w pasku menu → **Sprawdź aktualizacje…** (albo **Ustawienia → Aktualizacje**) pyta GitHub, czy jest nowsze wydanie, i pokazuje jego opis; **Zainstaluj i
 uruchom ponownie** pobiera je, sprawdza sumę SHA-256 z plikiem `.sha256` wydania i podpis kodu, po czym podmienia
 aplikację i uruchamia ją (wymaga folderu instalacji, do którego możesz pisać; inaczej otwiera stronę wydania).
-**Sprawdzaj aktualizacje automatycznie** zagląda raz dziennie — jest **domyślnie wyłączone**, a MacLister raz po
+**Ustawienia → Aktualizacje → Sprawdzaj aktualizacje automatycznie** zagląda raz dziennie — jest **domyślnie wyłączone**, a MacLister raz po
 uruchomieniu pyta, czy tego chcesz. Nic nie jest instalowane bez Twojego kliknięcia, a zapytanie nie niesie żadnych
 informacji o Tobie. **Pomiń tę wersję** wycisza jedno wydanie. Adres jest w `Info.plist` (`MacListerUpdateFeed`);
 `defaults write com.example.MacLister updateFeedURL <url>` go nadpisuje.
@@ -418,7 +434,7 @@ postać surowa jest o jedno kliknięcie dalej).
 ## Język
 
 MacLister podąża za językiem macOS: po polsku na polskim systemie, w pozostałych przypadkach po angielsku. Wybór:
-ikona w pasku menu → **Język** → *Domyślny systemowy / English / Polski*; aplikacja proponuje ponowne uruchomienie.
+**Ustawienia → Ogólne → Język interfejsu** (*Domyślny systemowy / English / Polski*); aplikacja proponuje ponowne uruchomienie.
 Teksty z liczbą mają poprawne polskie formy (1 element, 2 elementy, 5 elementów). Polecenie
 `python3 Tools/check_localization.py` sprawdza, czy każdy tekst ze źródeł ma polskie tłumaczenie (`Support/pl.lproj`).
 
@@ -443,8 +459,7 @@ Pliki w `~/Library/Application Support/MacLister/`:
 
 ### Przyciski
 
-Ikona w pasku menu → **Edit Buttons…**, potem **Reload Buttons** (odświeża wszystkie otwarte listery). **Reset
-Buttons to Defaults** nadpisuje plik ustawieniami domyślnymi (użyj po aktualizacji, żeby dostać nowe przyciski;
+**Ustawienia → Listery → Edit Buttons…**; po ręcznej edycji pliku użyj obok **Wczytaj ponownie** (odświeża wszystkie otwarte listery). **Przywróć…** nadpisuje plik ustawieniami domyślnymi (użyj po aktualizacji, żeby dostać nowe przyciski;
 działa też `MacLister --reset-buttons`). Domyślny zestaw jest krótki: New Folder, Terminal Here, Copy, Move,
 Extract, Compare, Info, Delete. Resztę (zaznaczanie, filtr, rozmiary, duplikowanie listera, swap …) masz w menu
 i skrótach albo dodajesz jako przycisk.
@@ -476,9 +491,9 @@ Ustawiane przez `defaults write com.example.MacLister <klucz> <wartość>`:
 | `centerOnCursor` | false | wyśrodkuj nowe listery na kliknięciu zamiast kotwiczyć róg |
 | `showStatusItem` | true | pokaż ikonę w pasku menu (po ukryciu zamykasz aplikację z Monitora aktywności) |
 | `startDirectory` | `~` | folder otwierany dwuklikiem na pulpicie |
-| `terminalBundleID` | `com.apple.Terminal` | terminal dla *Terminal Here* (także: ikona w pasku menu → *Terminal App*) |
+| `terminalBundleID` | `com.apple.Terminal` | terminal dla *Terminal Here* (także: Ustawienia → Ogólne) |
 | `restoreLayoutAtLaunch` | false | otwórz zapisany układ przy starcie |
-| `desktopTrigger` | `doubleClick` | `doubleClick`, `middleClick` albo `both` (także: ikona w pasku menu → *Open Lister With*) |
+| `desktopTrigger` | `doubleClick` | `doubleClick`, `middleClick` albo `both` (także: Ustawienia → Ogólne) |
 | `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` albo `bottom` |
 | `showButtonLabels` | false | napisy obok ikon przycisków |
 | `relativeDates` | true | *Dzisiaj / Wczoraj* w kolumnach z datami (także: menu nagłówka kolumn) |
@@ -498,8 +513,8 @@ Ustawiane przez `defaults write com.example.MacLister <klucz> <wartość>`:
   `~/Library/Logs/MacLister.log` – każdy dwuklik zapisuje, co było pod kursorem.
 - **Okna odsuwają się, a lister jest w połowie poza ekranem.** Wyłącz *Kliknij tapetę, aby odsłonić pulpit*
   (krok 6 instalacji).
-- **„Terminal Here” otwiera nie tę aplikację.** Ikona w pasku menu → *Terminal App*.
-- **Po aktualizacji brakuje nowych przycisków.** Ikona w pasku menu → *Reset Buttons to Defaults*.
+- **„Terminal Here” otwiera nie tę aplikację.** Ustawienia → Ogólne → *Aplikacja terminala*.
+- **Po aktualizacji brakuje nowych przycisków.** Ustawienia → Listery → Przyciski → *Przywróć…*.
 - **Gatekeeper pisze, że aplikacja jest uszkodzona albo nie można jej otworzyć.** Krok 3 instalacji
   (`xattr -dr com.apple.quarantine`).
 

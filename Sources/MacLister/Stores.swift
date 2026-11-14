@@ -90,6 +90,19 @@ struct FiletypeRule: Codable {
 }
 
 /// filetypes.json — Magellan's filetype definitions. Re-read whenever the file changes.
+extension FiletypeStore {
+    /// Opens filetypes.json in a text editor.
+    static func openInEditor() {
+        shared.ensureConfigFileExists()
+        let file = shared.configURL
+        if let editor = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.TextEdit") {
+            NSWorkspace.shared.open([file], withApplicationAt: editor, configuration: NSWorkspace.OpenConfiguration())
+        } else {
+            NSWorkspace.shared.activateFileViewerSelecting([file])
+        }
+    }
+}
+
 final class FiletypeStore {
     static let shared = FiletypeStore()
 
