@@ -50,6 +50,10 @@ final class RemoteTransferJob {
     private var result = TransferResult()
     private var progress = TransferProgress()
     private var lastReport = Date.distantPast
+    let gate = PauseGate()
+    private let live = LiveBytes()
+    private let snapshotLock = NSLock()
+    private var lastSnapshot = TransferProgress()
     private var listings: [String: [String: RemoteEntry]] = [:]   // server folder → entries by name
 
     init(kind: TransferKind, direction: Direction, items: [URL], destination: URL, knownSizes: [URL: Int64] = [:]) {
@@ -60,7 +64,7 @@ final class RemoteTransferJob {
         self.knownSizes = knownSizes
     }
 
-    func cancel() { cancelToken.cancel() }
+    func cancel() { cancelToken.cancel(); gate.resume() }
     private var isCancelled: Bool { cancelToken.isCancelled }
 
     func start(completion: @escaping (TransferResult) -> Void) {
@@ -73,11 +77,11 @@ final class RemoteTransferJob {
     func runSync() -> TransferResult {
         result = TransferResult()
         progress = TransferProgress(itemsTotal: items.count)
-        progress.current = "Preparing…"
+        progress.current = tr("Preparing…")
         report(force: true)
 
         guard let session = RemoteSessions.shared.session(for: direction == .download ? items.first ?? destination : destination) else {
-            result.failures.append("Not connected to the server")
+            result.failures.append(tr("Not connected to the server"))
             return result
         }
         let fs = session.fs
@@ -122,7 +126,7 @@ final class RemoteTransferJob {
     private func forget(_ path: String) { listings[path] = nil }
 
     private func fail(_ name: String, _ error: Error) {
-        if (error as? RemoteError)?.message == "Cancelled" { return }
+        if (error as? RemoteError)?.message == RemoteError.cancelled.message { return }
         result.failures.append("\(name): \(error.localizedDescription)")
     }
 
@@ -130,6 +134,7 @@ final class RemoteTransferJob {
 
     @discardableResult
     private func uploadNode(_ source: URL, fs: RemoteFileSystem, intoDirectory directory: String, topLevel: Bool) -> Bool {
+        gate.waitWhilePaused { isCancelled }
         if isCancelled { return false }
         var name = source.lastPathComponent
         let info = LocalInfo(source)
@@ -212,12 +217,13 @@ final class RemoteTransferJob {
 
     @discardableResult
     private func downloadNode(_ source: URL, fs: RemoteFileSystem, intoDirectory directory: URL, topLevel: Bool) -> Bool {
+        gate.waitWhilePaused { isCancelled }
         if isCancelled { return false }
         let path = RemoteURL.path(of: source)
         let name = (path as NSString).lastPathComponent
         let parent = RemoteURL.parentPath(of: path)
         guard let entry = entries(parent, fs)[name] else {
-            result.failures.append("\(name): not found on the server")
+            result.failures.append("\(name): " + tr("not found on the server"))
             return false
         }
         let size = entry.size ?? 0
@@ -266,7 +272,7 @@ final class RemoteTransferJob {
             }
             progress.current = name
             report(force: false)
-            try fs.download(path, to: target, cancel: cancelToken)
+            try downloadWatched(fs, path: path, to: target, size: size)
             advance(size)
             if let modified = entry.modified { try? fm.setAttributes([.modificationDate: modified], ofItemAtPath: target.path) }
             if kind == .move { try fs.remove(path, isDirectory: false); forget(parent) }
@@ -293,6 +299,7 @@ final class RemoteTransferJob {
 
     @discardableResult
     private func moveNode(_ source: URL, fs: RemoteFileSystem, intoDirectory directory: String, topLevel: Bool) -> Bool {
+        gate.waitWhilePaused { isCancelled }
         if isCancelled { return false }
         let path = RemoteURL.path(of: source)
         let name = (path as NSString).lastPathComponent
@@ -301,7 +308,7 @@ final class RemoteTransferJob {
 
         if parent == directory { result.skipped += 1; return false }
         if directory == path || directory.hasPrefix(path + "/") {
-            result.failures.append("\(name): cannot move a folder into itself")
+            result.failures.append("\(name): " + tr("cannot move a folder into itself"))
             return false
         }
         let sourceEntry = entries(parent, fs)[name]
@@ -362,12 +369,37 @@ final class RemoteTransferJob {
         report(force: false)
     }
 
+    /// A download writes the local file as it goes, so its growth shows the speed (uploads cannot be watched).
+    private func downloadWatched(_ fs: RemoteFileSystem, path: String, to target: URL, size: Int64) throws {
+        guard size >= 1_000_000, onProgress != nil else { try fs.download(path, to: target, cancel: cancelToken); return }
+        let watcher = GrowthWatcher(url: target) { [weak self] written in self?.reportLive(min(written, size)) }
+        defer {
+            watcher.stop()
+            live.set(0)
+        }
+        try fs.download(path, to: target, cancel: cancelToken)
+    }
+
+    private func reportLive(_ written: Int64) {
+        live.set(written)
+        guard let onProgress else { return }
+        snapshotLock.lock()
+        var snapshot = lastSnapshot
+        snapshotLock.unlock()
+        snapshot.inFlight = written
+        DispatchQueue.main.async { onProgress(snapshot) }
+    }
+
     private func report(force: Bool) {
         guard let onProgress else { return }
         let now = Date()
         guard force || now.timeIntervalSince(lastReport) >= 0.1 else { return }
         lastReport = now
-        let snapshot = progress
+        var snapshot = progress
+        snapshot.inFlight = live.current
+        snapshotLock.lock()
+        lastSnapshot = snapshot
+        snapshotLock.unlock()
         DispatchQueue.main.async { onProgress(snapshot) }
     }
 

@@ -117,7 +117,7 @@ struct SelectByAttributesView: View {
                 GridRow {
                     Text("Kind")
                     Picker("", selection: $category) {
-                        ForEach(AttributeFilter.Category.allCases) { Text($0.rawValue).tag($0) }
+                        ForEach(AttributeFilter.Category.allCases) { Text(tr($0.rawValue)).tag($0) }
                     }.labelsHidden().gridCellColumns(3)
                 }
                 GridRow {
@@ -164,14 +164,21 @@ struct BatchRenameView: View {
     var onApply: ([RenameEntry]) -> Void
     var close: () -> Void
 
-    @State private var options = BatchRenameOptions()
+    @State private var options: BatchRenameOptions
+
+    init(items: [URL], initial: BatchRenameOptions = BatchRenameOptions(), onApply: @escaping ([RenameEntry]) -> Void, close: @escaping () -> Void) {
+        self.items = items
+        self.onApply = onApply
+        self.close = close
+        _options = State(initialValue: initial)
+    }
 
     var body: some View {
         let plan = BatchRename.plan(for: items, options: options)
         let canApply = plan.contains { $0.changes } && plan.allSatisfy { $0.problem == nil }
 
         VStack(alignment: .leading, spacing: 12) {
-            Text("Rename \(items.count) Item\(items.count == 1 ? "" : "s")").font(.headline)
+            Text(items.count == 1 ? tr("Rename 1 Item") : trCount("Rename %d Items", items.count)).font(.headline)
 
             Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
                 GridRow {
@@ -181,7 +188,7 @@ struct BatchRenameView: View {
                 }
                 GridRow {
                     Text("Replace with")
-                    TextField(options.useRegex ? "use $1, $2 for groups" : "", text: $options.replace).textFieldStyle(.roundedBorder)
+                    TextField(options.useRegex ? tr("use $1, $2 for groups") : "", text: $options.replace).textFieldStyle(.roundedBorder)
                     Toggle("Match case", isOn: $options.caseSensitive)
                 }
                 GridRow {
@@ -224,7 +231,7 @@ struct BatchRenameView: View {
             .frame(height: 200)
 
             HStack {
-                Text(canApply ? "\(plan.filter(\.changes).count) will be renamed" : (plan.contains { $0.problem != nil } ? "Fix the problems in red" : "Nothing to rename yet"))
+                Text(canApply ? tr("%d will be renamed", plan.filter(\.changes).count) : (plan.contains { $0.problem != nil } ? tr("Fix the problems in red") : tr("Nothing to rename yet")))
                     .font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button("Cancel") { close() }.keyboardShortcut(.cancelAction)
@@ -315,7 +322,7 @@ struct AttributesView: View {
                             }.font(.caption).foregroundStyle(.secondary)
                             ForEach(0..<3) { row in
                                 GridRow {
-                                    Text(["Owner", "Group", "Others"][row])
+                                    Text(tr(["Owner", "Group", "Others"][row]))
                                     ForEach(0..<3) { column in
                                         Toggle("", isOn: $bits[row * 3 + column]).labelsHidden()
                                     }
@@ -324,7 +331,7 @@ struct AttributesView: View {
                         }
                         .disabled(!changePermissions)
                         HStack {
-                            Text("Mode \(String(mode, radix: 8))").font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary)
+                            Text(tr("Mode %@", String(mode, radix: 8))).font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary)
                             if initial.anyFolder {
                                 Toggle("Apply to everything inside folders", isOn: $recursive).disabled(!changePermissions)
                             }
@@ -424,11 +431,11 @@ struct ConnectToServerView: View {
                 }
                 GridRow {
                     Text("User")
-                    TextField(scheme == .sftp ? "login name" : "empty = anonymous", text: $user).textFieldStyle(.roundedBorder).gridCellColumns(2)
+                    TextField(scheme == .sftp ? tr("login name") : tr("empty = anonymous"), text: $user).textFieldStyle(.roundedBorder).gridCellColumns(2)
                 }
                 GridRow {
-                    Text(scheme == .sftp && !keyPath.isEmpty ? "Key passphrase" : "Password")
-                    SecureField(scheme == .sftp ? "empty = use ssh-agent or an unprotected key" : "", text: $password)
+                    Text(scheme == .sftp && !keyPath.isEmpty ? tr("Key passphrase") : tr("Password"))
+                    SecureField(scheme == .sftp ? tr("empty = use ssh-agent or an unprotected key") : "", text: $password)
                         .textFieldStyle(.roundedBorder).gridCellColumns(2)
                 }
                 if scheme == .sftp {
@@ -492,7 +499,7 @@ struct ConnectToServerView: View {
         panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".ssh")
         panel.showsHiddenFiles = true
         panel.canChooseDirectories = false
-        panel.message = "Choose your private key file"
+        panel.message = tr("Choose your private key file")
         if panel.runModal() == .OK, let url = panel.url { keyPath = url.path }
     }
 

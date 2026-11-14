@@ -5,11 +5,21 @@ extension ListerViewController {
 
     /// Copies or moves dropped files into `folder`.
     func transfer(_ kind: TransferKind, items: [URL], into folder: URL) {
+        if kind == .move, refuseIfBusy(items) { return }
         if RemoteURL.isRemote(folder) || items.contains(where: RemoteURL.isRemote) {
             beginRemoteTransfer(kind, items: items, into: folder, showingIn: [model])
             return
         }
         beginTransfer(kind, items: items, into: folder, showingIn: [model])
+    }
+
+    /// Something that is being copied or moved (or waits in the queue to be) must not be trashed, renamed or
+    /// moved from under the job. Tells the user and returns true when `urls` are in use.
+    func refuseIfBusy(_ urls: [URL]) -> Bool {
+        guard let busy = urls.first(where: { TransferQueue.shared.isBusy($0) }) else { return false }
+        let name = RemoteURL.isRemote(busy) ? (RemoteURL.path(of: busy) as NSString).lastPathComponent : busy.lastPathComponent
+        model.errorMessage = tr("“%@” is being transferred. Wait until it finishes or cancel the operation.", name)
+        return true
     }
 
     /// Finder-like rule for a drop onto a server: copy, ⌘ moves. Only local files can be dropped.
@@ -29,11 +39,11 @@ extension ListerViewController {
         case (true, false): direction = .download
         case (true, true):
             guard RemoteURL.sessionKey(of: first) == RemoteURL.sessionKey(of: folder) else {
-                flash("Copying between two servers is not supported yet: download the files first")
+                flash(tr("Copying between two servers is not supported yet: download the files first"))
                 return
             }
             guard kind == .move else {
-                flash("Copying inside one server is not supported yet; Move works")
+                flash(tr("Copying inside one server is not supported yet; Move works"))
                 return
             }
             direction = .moveOnServer
@@ -53,33 +63,70 @@ extension ListerViewController {
             return decision
         }
 
-        let verb = direction == .upload ? (kind == .move ? "Uploading (move)" : "Uploading")
-                 : direction == .download ? (kind == .move ? "Downloading (move)" : "Downloading") : "Moving"
+        let verb = direction == .upload ? (kind == .move ? tr("Uploading (move)") : tr("Uploading"))
+                 : direction == .download ? (kind == .move ? tr("Downloading (move)") : tr("Downloading")) : tr("Moving")
         let cancel: () -> Void = { [weak job] in job?.cancel() }
-        for m in models { m.progress = TransferStatus(text: "\(verb)…", fraction: nil, cancel: cancel) }
+        let monitor = TransferMonitor(title: verb, from: Self.placeName(items.first?.deletingLastPathComponent()), to: Self.placeName(folder))
+        monitor.onCancel = cancel
+        monitor.onPause = { [weak job] in job?.gate.pause() }
+        monitor.onResume = { [weak job] in job?.gate.resume() }
         job.onProgress = { progress in
-            let byteFormatter = ByteCountFormatter()
-            byteFormatter.countStyle = .file
-            var text = "\(verb) \(min(progress.itemsDone + 1, progress.itemsTotal)) of \(progress.itemsTotal)"
-            if progress.bytesTotal > 0 {
-                text += " · \(byteFormatter.string(fromByteCount: progress.bytesDone)) of \(byteFormatter.string(fromByteCount: progress.bytesTotal))"
-            }
-            if !progress.current.isEmpty { text += " · \(progress.current)" }
-            let status = TransferStatus(text: text, fraction: progress.bytesTotal > 0 ? progress.fraction : (progress.itemsTotal > 1 ? Double(progress.itemsDone) / Double(progress.itemsTotal) : nil), cancel: cancel)
+            monitor.update(progress)
+            let status = TransferStatus(text: Self.progressText(verb: verb, progress: progress, speed: monitor.speed, paused: monitor.isPaused),
+                                        fraction: progress.bytesTotal > 0 ? progress.fraction : (progress.itemsTotal > 1 ? Double(progress.itemsDone) / Double(progress.itemsTotal) : nil),
+                                        cancel: cancel, details: monitor)
             for m in models { m.progress = status }
         }
-        job.start { [weak self] result in
-            for m in models { m.progress = nil }
-            ListerManager.shared.reloadListers(showing: [folder] + items.map { $0.deletingLastPathComponent() })
-            guard let self else { return }
-            if !result.failures.isEmpty {
-                self.model.errorMessage = result.failures.joined(separator: "; ")
-            } else if result.cancelled {
-                self.flash("Cancelled after \(result.done.count) of \(items.count) item\(items.count == 1 ? "" : "s")")
-            } else if result.done.isEmpty, result.skipped > 0 {
-                self.flash("Nothing transferred: \(result.skipped) skipped")
+        let started = TransferQueue.shared.submit(
+            key: TransferQueue.key(forDestination: folder), sources: items,
+            detail: Self.queueDetail(verb: verb, items: items, to: folder),
+            onCancel: { for m in models { m.statusMessage = nil } }
+        ) { done in
+            for m in models { m.statusMessage = nil; m.progress = TransferStatus(text: tr("%@…", verb), fraction: nil, cancel: cancel, details: monitor) }
+            job.start { [weak self] result in
+                monitor.finish(result.cancelled ? .cancelled : (result.failures.isEmpty ? .finished : .failed))
+                for m in models { m.progress = nil }
+                ListerManager.shared.reloadListers(showing: [folder] + items.map { $0.deletingLastPathComponent() })
+                done()
+                guard let self else { return }
+                if !result.failures.isEmpty {
+                    self.model.errorMessage = result.failures.joined(separator: "; ")
+                } else if result.cancelled {
+                    self.flash(tr("Cancelled after %d of %d items", result.done.count, items.count))
+                } else if result.done.isEmpty, result.skipped > 0 {
+                    self.flash(tr("Nothing transferred: %d skipped", result.skipped))
+                }
             }
         }
+        if !started { for m in models { m.statusMessage = tr("Waiting in queue…") } }
+    }
+
+    /// "Copying 3 of 12 · 1,2 GB of 6 GB · 37,8 MB/s · name" — the status-line text.
+    static func progressText(verb: String, progress: TransferProgress, speed: Double, paused: Bool, queued: Int = TransferQueue.shared.waiting.count) -> String {
+        let byteFormatter = ByteCountFormatter()
+        byteFormatter.countStyle = .file
+        var text = tr("%@ %d of %d", verb, min(progress.itemsDone + 1, progress.itemsTotal), progress.itemsTotal)
+        if progress.bytesTotal > 0 {
+            text += " · " + tr("%@ of %@", byteFormatter.string(fromByteCount: min(progress.effectiveBytes, progress.bytesTotal)), byteFormatter.string(fromByteCount: progress.bytesTotal))
+        }
+        if paused { text += " · " + tr("Paused") } else if speed > 0 { text += " · " + TransferMonitor.speedText(speed) }
+        if !progress.current.isEmpty { text += " · \(progress.current)" }
+        if queued > 0 { text += " · " + tr("In queue: %d", queued) }
+        return text
+    }
+
+    /// "Copying: report.pdf +2 → NAS Backup" — how a waiting operation is listed in the queue menu.
+    static func queueDetail(verb: String, items: [URL], to folder: URL) -> String {
+        let first = RemoteURL.isRemote(items[0]) ? (RemoteURL.path(of: items[0]) as NSString).lastPathComponent : items[0].lastPathComponent
+        let more = items.count > 1 ? " +\(items.count - 1)" : ""
+        return "\(verb): \(first)\(more) → \(Self.placeName(folder))"
+    }
+
+    /// A short place name for the details window: "Downloads", or the server for a remote folder.
+    static func placeName(_ url: URL?) -> String {
+        guard let url else { return "" }
+        if RemoteURL.isRemote(url) { return RemoteURL.serverLabel(of: url) + RemoteURL.path(of: url) }
+        return FileManager.default.displayName(atPath: url.path)
     }
 
     /// Starts a job. Progress and a Cancel button appear in the status line of every lister in `models`.
@@ -99,33 +146,42 @@ extension ListerViewController {
 
         let verb = kind.progressVerb
         let cancel: () -> Void = { [weak job] in job?.cancel() }
-        for m in models { m.progress = TransferStatus(text: "\(verb)…", fraction: nil, cancel: cancel) }
+        let monitor = TransferMonitor(title: verb, from: Self.placeName(items.first?.deletingLastPathComponent()), to: Self.placeName(folder))
+        monitor.onCancel = cancel
+        monitor.onPause = { [weak job] in job?.gate.pause() }
+        monitor.onResume = { [weak job] in job?.gate.resume() }
 
         job.onProgress = { progress in
-            let byteFormatter = ByteCountFormatter()
-            byteFormatter.countStyle = .file
-            var text = "\(verb) \(min(progress.itemsDone + 1, progress.itemsTotal)) of \(progress.itemsTotal)"
-            if progress.bytesTotal > 0 {
-                text += " · \(byteFormatter.string(fromByteCount: progress.bytesDone)) of \(byteFormatter.string(fromByteCount: progress.bytesTotal))"
-            }
-            if !progress.current.isEmpty { text += " · \(progress.current)" }
-            let status = TransferStatus(text: text, fraction: progress.bytesTotal > 0 || progress.itemsTotal > 0 ? progress.fraction : nil, cancel: cancel)
+            monitor.update(progress)
+            let status = TransferStatus(text: Self.progressText(verb: verb, progress: progress, speed: monitor.speed, paused: monitor.isPaused),
+                                        fraction: progress.bytesTotal > 0 || progress.itemsTotal > 0 ? progress.fraction : nil,
+                                        cancel: cancel, details: monitor)
             for m in models { m.progress = status }
         }
 
-        job.start { [weak self] result in
-            for m in models { m.progress = nil }
-            let folders = [folder] + items.map { $0.deletingLastPathComponent() }
-            ListerManager.shared.reloadListers(showing: folders)
-            guard let self else { return }
-            if !result.failures.isEmpty {
-                self.model.errorMessage = result.failures.joined(separator: "; ")
-            } else if result.cancelled {
-                self.flash("Cancelled after \(result.done.count) of \(items.count) item\(items.count == 1 ? "" : "s")")
-            } else if result.done.isEmpty, result.skipped > 0 {
-                self.flash("Nothing \(kind == .copy ? "copied" : "moved"): \(result.skipped) skipped")
+        let started = TransferQueue.shared.submit(
+            key: TransferQueue.key(forDestination: folder), sources: items,
+            detail: Self.queueDetail(verb: verb, items: items, to: folder),
+            onCancel: { for m in models { m.statusMessage = nil } }
+        ) { done in
+            for m in models { m.statusMessage = nil; m.progress = TransferStatus(text: tr("%@…", verb), fraction: nil, cancel: cancel, details: monitor) }
+            job.start { [weak self] result in
+                monitor.finish(result.cancelled ? .cancelled : (result.failures.isEmpty ? .finished : .failed))
+                for m in models { m.progress = nil }
+                let folders = [folder] + items.map { $0.deletingLastPathComponent() }
+                ListerManager.shared.reloadListers(showing: folders)
+                done()
+                guard let self else { return }
+                if !result.failures.isEmpty {
+                    self.model.errorMessage = result.failures.joined(separator: "; ")
+                } else if result.cancelled {
+                    self.flash(tr("Cancelled after %d of %d items", result.done.count, items.count))
+                } else if result.done.isEmpty, result.skipped > 0 {
+                    self.flash(kind == .copy ? tr("Nothing copied: %d skipped", result.skipped) : tr("Nothing moved: %d skipped", result.skipped))
+                }
             }
         }
+        if !started { for m in models { m.statusMessage = tr("Waiting in queue…") } }
     }
 
     // MARK: - Asking about a conflict
@@ -147,18 +203,18 @@ extension ListerViewController {
     /// The buttons offered for a conflict, in display order.
     static func conflictChoices(for conflict: TransferConflict) -> [(title: String, action: ConflictAction)] {
         if conflict.bothDirectories {
-            return [("Merge", .merge), ("Replace", .replace), ("Keep Both", .keepBoth), ("Skip", .skip), ("Cancel", .cancel)]
+            return [(tr("Merge"), .merge), (tr("Replace"), .replace), (tr("Keep Both"), .keepBoth), (tr("Skip"), .skip), (tr("Cancel"), .cancel)]
         }
         if conflict.bothFiles {
-            return [("Replace", .replace), ("Replace If Newer", .replaceIfNewer), ("Keep Both", .keepBoth), ("Skip", .skip), ("Cancel", .cancel)]
+            return [(tr("Replace"), .replace), (tr("Replace If Newer"), .replaceIfNewer), (tr("Keep Both"), .keepBoth), (tr("Skip"), .skip), (tr("Cancel"), .cancel)]
         }
-        return [("Replace", .replace), ("Keep Both", .keepBoth), ("Skip", .skip), ("Cancel", .cancel)]
+        return [(tr("Replace"), .replace), (tr("Keep Both"), .keepBoth), (tr("Skip"), .skip), (tr("Cancel"), .cancel)]
     }
 
     private static func describe(size: Int64?, modified: Date?, isDirectory: Bool) -> String {
-        if isDirectory { return "folder" + (modified.map { ", modified \(dateFormatter.string(from: $0))" } ?? "") }
+        if isDirectory { return tr("folder") + (modified.map { ", " + tr("modified %@", dateFormatter.string(from: $0)) } ?? "") }
         let sizeText = size.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "?"
-        return sizeText + (modified.map { ", modified \(dateFormatter.string(from: $0))" } ?? "")
+        return sizeText + (modified.map { ", " + tr("modified %@", dateFormatter.string(from: $0)) } ?? "")
     }
 
     private static let dateFormatter: DateFormatter = {
@@ -173,16 +229,16 @@ extension ListerViewController {
         let choices = conflictChoices(for: conflict)
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "“\(conflict.target.lastPathComponent)” already exists in “\(conflict.target.deletingLastPathComponent().lastPathComponent)”"
+        alert.messageText = tr("“%@” already exists in “%@”", conflict.target.lastPathComponent, conflict.target.deletingLastPathComponent().lastPathComponent)
         alert.informativeText = """
-            New: \(describe(size: conflict.sourceSize, modified: conflict.sourceModified, isDirectory: conflict.sourceIsDirectory))
-            Existing: \(describe(size: conflict.targetSize, modified: conflict.targetModified, isDirectory: conflict.targetIsDirectory))
+            \(tr("New:")) \(describe(size: conflict.sourceSize, modified: conflict.sourceModified, isDirectory: conflict.sourceIsDirectory))
+            \(tr("Existing:")) \(describe(size: conflict.targetSize, modified: conflict.targetModified, isDirectory: conflict.targetIsDirectory))
 
-            Replace moves the existing item to the Trash.
+            \(tr("Replace moves the existing item to the Trash."))
             """
         for choice in choices { alert.addButton(withTitle: choice.title) }
         alert.showsSuppressionButton = true
-        alert.suppressionButton?.title = "Apply to all remaining conflicts"
+        alert.suppressionButton?.title = tr("Apply to all remaining conflicts")
 
         let finish: (NSApplication.ModalResponse) -> Void = { response in
             let index = response.rawValue - NSApplication.ModalResponse.alertFirstButtonReturn.rawValue

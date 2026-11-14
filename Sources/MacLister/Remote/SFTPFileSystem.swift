@@ -27,10 +27,10 @@ enum SFTPHostKeys {
             .split(whereSeparator: \.isNewline).map(String.init).filter { !$0.hasPrefix("#") && !$0.isEmpty }
         guard !lines.isEmpty else {
             let why = scan.stderr.lowercased()
-            if why.contains("resolve") || why.contains("nodename") { throw RemoteError(message: "Cannot find the server “\(host)”") }
-            if why.contains("timed out") { throw RemoteError(message: "The server did not answer in time") }
+            if why.contains("resolve") || why.contains("nodename") { throw RemoteError(message: tr("Cannot find the server “%@”", host)) }
+            if why.contains("timed out") { throw RemoteError(message: tr("The server did not answer in time")) }
             // refused, reset, broken pipe: nothing is listening, or it is not an SSH server
-            throw RemoteError(message: "Cannot connect to \(host):\(port): no SSH server answered")
+            throw RemoteError(message: tr("Cannot connect to %@:%d: no SSH server answered", host, port))
         }
         var keys: [HostKeyInfo] = []
         for line in lines {
@@ -121,7 +121,7 @@ final class SFTPFileSystem: RemoteFileSystem {
     func verifyHostKey(confirm: ([HostKeyInfo]) -> Bool) throws {
         if SFTPHostKeys.isKnown(host: profile.host, port: profile.port) { return }
         let keys = try SFTPHostKeys.fetch(host: profile.host, port: profile.port)
-        guard confirm(keys) else { throw RemoteError(message: "The server's host key was not trusted") }
+        guard confirm(keys) else { throw RemoteError(message: tr("The server's host key was not trusted")) }
         try SFTPHostKeys.trust(keys)
     }
 
@@ -146,7 +146,7 @@ final class SFTPFileSystem: RemoteFileSystem {
     @discardableResult
     private func batch(_ commands: [String], cancel: CancelToken? = nil) throws -> String {
         for command in commands where command.contains("\n") || command.contains("\r") {
-            throw RemoteError(message: "Invalid character in a file name")
+            throw RemoteError(message: tr("Invalid character in a file name"))
         }
         try ensureMaster(cancel: cancel)
         let arguments = Self.testServerPath.map { ["-D", $0, "-b", "-"] }
@@ -161,17 +161,17 @@ final class SFTPFileSystem: RemoteFileSystem {
         let last = stderr.split(separator: "\n").last.map(String.init) ?? ""
         let lower = stderr.lowercased()
         if lower.contains("permission denied (") || lower.contains("authentication failed") {
-            return RemoteError(message: "Login denied: check the user name, password or key")
+            return RemoteError(message: tr("Login denied: check the user name, password or key"))
         }
         if lower.contains("host key verification failed") || lower.contains("identification has changed") {
-            return RemoteError(message: "The server's host key does not match the one you trusted. This may be an attack; remove it from known_hosts only if the server was reinstalled")
+            return RemoteError(message: tr("The server's host key does not match the one you trusted. This may be an attack; remove it from known_hosts only if the server was reinstalled"))
         }
-        if lower.contains("connection refused") { return RemoteError(message: "Cannot connect to \(profile.host):\(profile.port)") }
-        if lower.contains("could not resolve hostname") { return RemoteError(message: "Cannot find the server “\(profile.host)”") }
-        if lower.contains("timed out") { return RemoteError(message: "The server did not answer in time") }
-        if lower.contains("no such file") { return RemoteError(message: "The file or folder was not found") }
-        if lower.contains("permission denied") { return RemoteError(message: "Access denied") }
-        return RemoteError(message: last.isEmpty ? "sftp failed (exit \(status))" : last)
+        if lower.contains("connection refused") { return RemoteError(message: tr("Cannot connect to %@:%d", profile.host, profile.port)) }
+        if lower.contains("could not resolve hostname") { return RemoteError(message: tr("Cannot find the server “%@”", profile.host)) }
+        if lower.contains("timed out") { return RemoteError(message: tr("The server did not answer in time")) }
+        if lower.contains("no such file") { return RemoteError(message: tr("The file or folder was not found")) }
+        if lower.contains("permission denied") { return RemoteError(message: tr("Access denied")) }
+        return RemoteError(message: last.isEmpty ? tr("sftp failed (exit %d)", Int(status)) : last)
     }
 
     // MARK: Wildcards in names
@@ -194,7 +194,7 @@ final class SFTPFileSystem: RemoteFileSystem {
             defer { parent = RemoteURL.join(parent, component) }
             guard hasWildcard(component) else { continue }
             if component.contains("{") || component.contains("}") {
-                throw RemoteError(message: "A name with { or } cannot be handled safely over SFTP: “\(component)”")
+                throw RemoteError(message: tr("A name with { or } cannot be handled safely over SFTP: “%@”", component))
             }
             let siblings = try listUnchecked(parent).map(\.name)
             let matches = siblings.filter { fnmatch(component, $0, 0) == 0 }
@@ -208,7 +208,7 @@ final class SFTPFileSystem: RemoteFileSystem {
     private func explain(_ error: Error) -> Error {
         guard let ambiguous = error as? AmbiguousName else { return error }
         let others = ambiguous.others.prefix(3).map { "“\($0)”" }.joined(separator: ", ")
-        return RemoteError(message: "“\(ambiguous.component)” contains wildcard characters that also match \(others). MacLister will not risk touching the wrong file")
+        return RemoteError(message: tr("“%@” contains wildcard characters that also match %@. MacLister will not risk touching the wrong file", ambiguous.component, others))
     }
 
     /// Double quotes for sftp's own argument parser.

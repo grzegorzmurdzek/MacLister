@@ -63,13 +63,17 @@ final class DirectoryWatcher {
 
 /// "420 GB free of 994 GB (58% used)" for the volume that holds a folder.
 enum VolumeInfo {
+    /// Pictures for the README leave the disk figures out.
+    static var hidden = false
+
     static func summary(for url: URL) -> String? {
+        if hidden { return nil }
         guard let values = try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey, .volumeTotalCapacityKey]),
               let free = values.volumeAvailableCapacityForImportantUsage,
               let total = values.volumeTotalCapacity, total > 0 else { return nil }
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file
         let used = max(0, min(100, Int((Double(Int64(total) - free) / Double(total) * 100).rounded())))
-        return "\(formatter.string(fromByteCount: free)) free of \(formatter.string(fromByteCount: Int64(total))) (\(used)% used)"
+        return tr("%@ free of %@ (%d%% used)", formatter.string(fromByteCount: free), formatter.string(fromByteCount: Int64(total)), Int(used))
     }
 }

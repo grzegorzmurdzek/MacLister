@@ -24,7 +24,7 @@ final class FTPFileSystem: RemoteFileSystem {
     }
 
     private func quote(_ text: String) throws -> String {
-        guard !text.contains("\n"), !text.contains("\r") else { throw RemoteError(message: "Invalid character in the server settings") }
+        guard !text.contains("\n"), !text.contains("\r") else { throw RemoteError(message: tr("Invalid character in the server settings")) }
         return "\"" + text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
     }
 
@@ -49,17 +49,17 @@ final class FTPFileSystem: RemoteFileSystem {
     static func error(status: Int32, stderr: String, profile: ServerProfile) -> RemoteError {
         let detail = stderr.split(separator: "\n").last.map(String.init) ?? ""
         switch status {
-        case 6: return RemoteError(message: "Cannot find the server “\(profile.host)”")
-        case 7: return RemoteError(message: "Cannot connect to \(profile.host):\(profile.port)")
-        case 9: return RemoteError(message: "The folder does not exist or access is denied")
-        case 19, 78: return RemoteError(message: "The file or folder was not found")
-        case 28: return RemoteError(message: "The server did not answer in time")
-        case 60: return RemoteError(message: "The server's certificate is not trusted. Tick “Accept untrusted certificate” only if you know the server")
+        case 6: return RemoteError(message: tr("Cannot find the server “%@”", profile.host))
+        case 7: return RemoteError(message: tr("Cannot connect to %@:%d", profile.host, profile.port))
+        case 9: return RemoteError(message: tr("The folder does not exist or access is denied"))
+        case 19, 78: return RemoteError(message: tr("The file or folder was not found"))
+        case 28: return RemoteError(message: tr("The server did not answer in time"))
+        case 60: return RemoteError(message: tr("The server's certificate is not trusted. Tick “Accept untrusted certificate” only if you know the server"))
         case 35, 51, 53, 58, 59, 64, 66, 77, 80, 82, 83, 90, 91:
-            return RemoteError(message: "TLS problem: \(detail)")
-        case 67: return RemoteError(message: "Login denied: check the user name and password")
-        case 21, 25: return RemoteError(message: "The server refused the command: \(detail)")
-        default: return RemoteError(message: detail.isEmpty ? "curl failed (exit \(status))" : detail)
+            return RemoteError(message: tr("TLS problem: %@", detail))
+        case 67: return RemoteError(message: tr("Login denied: check the user name and password"))
+        case 21, 25: return RemoteError(message: tr("The server refused the command: %@", detail))
+        default: return RemoteError(message: detail.isEmpty ? tr("curl failed (exit %d)", Int(status)) : detail)
         }
     }
 

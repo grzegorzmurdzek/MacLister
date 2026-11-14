@@ -3,8 +3,8 @@ import Foundation
 enum TransferKind {
     case copy, move
 
-    var verb: String { self == .copy ? "Copy" : "Move" }
-    var progressVerb: String { self == .copy ? "Copying" : "Moving" }
+    var verb: String { self == .copy ? tr("Copy") : tr("Move") }
+    var progressVerb: String { self == .copy ? tr("Copying") : tr("Moving") }
 }
 
 struct TransferResult {

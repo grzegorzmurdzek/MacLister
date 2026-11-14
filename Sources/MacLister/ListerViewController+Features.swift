@@ -17,7 +17,7 @@ extension ListerViewController {
         alert.informativeText = message
         alert.accessoryView = field
         alert.addButton(withTitle: button)
-        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: tr("Cancel"))
         alert.window.initialFirstResponder = field
         alert.beginSheetModal(for: window) { response in
             if response == .alertFirstButtonReturn { completion(field.stringValue) }
@@ -48,10 +48,10 @@ extension ListerViewController {
 
     func promptPattern(select: Bool) {
         promptText(
-            title: select ? "Select by Pattern" : "Deselect by Pattern",
-            message: "Wildcards such as *.jpg or IMG_??.png, several separated by spaces. Text without wildcards matches names containing it.",
+            title: select ? tr("Select by Pattern") : tr("Deselect by Pattern"),
+            message: tr("Wildcards such as *.jpg or IMG_??.png, several separated by spaces. Text without wildcards matches names containing it."),
             initial: model.lastPattern,
-            button: select ? "Select" : "Deselect"
+            button: select ? tr("Select") : tr("Deselect")
         ) { [weak self] text in
             self?.model.lastPattern = text
             self?.applyPattern(text, select: select)
@@ -73,10 +73,10 @@ extension ListerViewController {
 
     func promptFilter() {
         promptText(
-            title: "Filter",
-            message: "Show only files matching these patterns (folders always stay). Leave empty to show everything.",
+            title: tr("Filter"),
+            message: tr("Show only files matching these patterns (folders always stay). Leave empty to show everything."),
             initial: model.filter,
-            button: "Apply"
+            button: tr("Apply")
         ) { [weak self] text in self?.model.setFilter(text) }
     }
 
@@ -84,11 +84,11 @@ extension ListerViewController {
 
     /// Calculates the sizes of the selected folders, or of all folders here when none is selected.
     func calculateFolderSizes() {
-        if remoteUnavailable("Folder sizes") { return }
+        if remoteUnavailable(tr("Folder sizes")) { return }
         let selectedFolders = selectedItems.filter(\.isDirectory).map(\.url)
         let targets = selectedFolders.isEmpty ? rows.filter(\.isDirectory).map(\.url) : selectedFolders
         guard !targets.isEmpty else {
-            flash("No folders to measure")
+            flash(tr("No folders to measure"))
             return
         }
         model.calculateSizes(of: targets)
@@ -101,12 +101,12 @@ extension ListerViewController {
     func compareWithDestination() {
         let manager = ListerManager.shared
         guard let destination = manager.destinationController else {
-            model.errorMessage = "No destination lister: press DST in the lister to compare with"
+            model.errorMessage = tr("No destination lister: press DST in the lister to compare with")
             return
         }
         guard let source = manager.sourceController ?? (view.window?.windowController as? ListerWindowController),
               source !== destination else {
-            model.errorMessage = "Source and destination are the same lister"
+            model.errorMessage = tr("Source and destination are the same lister")
             return
         }
         model.errorMessage = nil
@@ -114,7 +114,7 @@ extension ListerViewController {
         let inDestination = Self.differing(destination.model.items, against: source.model.items)
         source.listerViewController?.select(urls: inSource)
         destination.listerViewController?.select(urls: inDestination)
-        flash("Compare: \(inSource.count) differ in source, \(inDestination.count) in destination")
+        flash(tr("Compare: %d differ in source, %d in destination", inSource.count, inDestination.count))
     }
 
     /// Items of `items` that have no same-named counterpart in `other`, or whose file differs
@@ -136,7 +136,7 @@ extension ListerViewController {
     /// Opens the selected folder (or this folder) in the destination lister.
     func showInDestination() {
         guard let destination = ListerManager.shared.destinationController, destination.model !== model else {
-            model.errorMessage = "No other destination lister: press DST in another lister first"
+            model.errorMessage = tr("No other destination lister: press DST in another lister first")
             return
         }
         let target = selectedItems.count == 1 && selectedItems[0].isNavigable ? selectedItems[0].url : model.url
@@ -148,7 +148,7 @@ extension ListerViewController {
         let manager = ListerManager.shared
         let sourceModel = manager.sourceController?.model ?? model
         guard let destination = manager.destinationController, destination.model !== sourceModel else {
-            model.errorMessage = "No other destination lister: press DST in another lister first"
+            model.errorMessage = tr("No other destination lister: press DST in another lister first")
             return
         }
         destination.model.navigate(to: sourceModel.url)
@@ -157,9 +157,9 @@ extension ListerViewController {
     // MARK: - Info and duplicate
 
     func showInfo() {
-        if remoteUnavailable("Info") { return }
+        if remoteUnavailable(tr("Info")) { return }
         let urls = model.selectedURLs.isEmpty ? [model.url] : model.selectedURLs
-        model.statusMessage = "Reading info…"
+        model.statusMessage = tr("Reading info…")
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let info = InfoText.make(for: urls)
             DispatchQueue.main.async {
@@ -174,13 +174,13 @@ extension ListerViewController {
         let alert = NSAlert()
         alert.messageText = info.title
         alert.informativeText = info.body
-        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: tr("OK"))
         alert.beginSheetModal(for: window)
     }
 
     /// Duplicates the selected files next to the originals ("name copy.ext").
     func duplicateSelection() {
-        if remoteUnavailable("Duplicate") { return }
+        if remoteUnavailable(tr("Duplicate")) { return }
         let urls = model.selectedURLs
         guard !urls.isEmpty else { NSSound.beep(); return }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -203,8 +203,9 @@ extension ListerViewController {
     }
 
     func addBookmark() {
+        if refuseInList(tr("Add Bookmark")) { return }
         BookmarkStore.shared.add(model.url)
-        flash("Bookmarked \(model.url.lastPathComponent)")
+        flash(tr("Bookmarked %@", model.url.lastPathComponent))
     }
 
     // MARK: - Filetypes
@@ -223,7 +224,7 @@ extension ListerViewController {
             return true
         case .app:
             guard let spec = rule.app, let app = Self.applicationURL(spec) else {
-                model.errorMessage = "Filetype application not found: \(rule.app ?? "(none)")"
+                model.errorMessage = tr("Filetype application not found: %@", rule.app ?? tr("(none)"))
                 return true
             }
             NSWorkspace.shared.open([item.url], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
@@ -292,15 +293,16 @@ extension ListerViewController {
         var indexes = tableView.selectedRowIndexes
         for (i, row) in rows.enumerated() where filter.matches(row) { indexes.insert(i) }
         tableView.selectRowIndexes(indexes, byExtendingSelection: false)
-        flash("\(indexes.count) selected")
+        flash(tr("%d selected", indexes.count))
     }
 
     // MARK: - Batch rename and attributes
 
     func promptBatchRename() {
-        if remoteUnavailable("Batch rename") { return }
+        if remoteUnavailable(tr("Batch rename")) { return }
         let urls = model.selectedURLs
         guard !urls.isEmpty, let window = view.window else { NSSound.beep(); return }
+        if refuseIfBusy(urls) { return }
         SheetPresenter().present(on: window, size: NSSize(width: 620, height: 560)) { close in
             BatchRenameView(items: urls, onApply: { [weak self] plan in self?.applyRename(plan) }, close: close)
         }
@@ -312,15 +314,15 @@ extension ListerViewController {
         if let first = result.renamed.first, let controller = view.window?.windowController { selection[ObjectIdentifier(controller)] = first }
         ListerManager.shared.reloadListers(showing: Array(Set(plan.map { $0.url.deletingLastPathComponent() })), selecting: selection)
         if !result.failures.isEmpty { model.errorMessage = result.failures.joined(separator: "; ") }
-        else { flash("Renamed \(result.renamed.count) item\(result.renamed.count == 1 ? "" : "s")") }
+        else { flash(result.renamed.count == 1 ? tr("Renamed 1 item") : trCount("Renamed %d items", result.renamed.count)) }
     }
 
     /// Permissions, dates, hidden flag, tags and comment of the selection (or of this folder).
     func promptAttributes() {
-        if remoteUnavailable("Attributes") { return }
+        if remoteUnavailable(tr("Attributes")) { return }
         let urls = model.selectedURLs.isEmpty ? [model.url] : model.selectedURLs
         guard let window = view.window else { return }
-        let title = urls.count == 1 ? "Attributes of “\(urls[0].lastPathComponent)”" : "Attributes of \(urls.count) Items"
+        let title = urls.count == 1 ? tr("Attributes of “%@”", urls[0].lastPathComponent) : trCount("Attributes of %d Items", urls.count)
         let initial = AttributeFormState.initial(for: urls)
         SheetPresenter().present(on: window, size: NSSize(width: 480, height: 560)) { close in
             AttributesView(title: title, initial: initial, onApply: { [weak self] change in self?.applyAttributes(change, to: urls) }, close: close)
@@ -330,7 +332,7 @@ extension ListerViewController {
     func applyAttributes(_ change: AttributeChange, to urls: [URL]) {
         let failures = AttributeEditor.apply(change, to: urls)
         model.reload()
-        if !failures.isEmpty { model.errorMessage = failures.joined(separator: "; ") } else { flash("Attributes changed") }
+        if !failures.isEmpty { model.errorMessage = failures.joined(separator: "; ") } else { flash(tr("Attributes changed")) }
     }
 
     // MARK: - Alias and symbolic link
@@ -338,7 +340,7 @@ extension ListerViewController {
     /// Creates aliases or symbolic links to the selected items in the destination lister's folder, or
     /// next to the originals when there is no destination.
     func makeLinks(symbolic: Bool) {
-        if remoteUnavailable("Aliases and links") { return }
+        if remoteUnavailable(tr("Aliases and links")) { return }
         let urls = model.selectedURLs
         guard !urls.isEmpty else { NSSound.beep(); return }
         let manager = ListerManager.shared

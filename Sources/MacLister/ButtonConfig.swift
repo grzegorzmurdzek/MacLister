@@ -17,6 +17,10 @@ enum ListerAction: String, Codable, CaseIterable, Identifiable {
     case filter, clearFilter, calcSizes, compare, info
     case showInDestination, destinationHere, addBookmark
     case makeAlias, makeSymlink, selectByAttributes, toggleRoleLock, batchRename, attributes, connectToServer
+    /// Gives this lister a name and colour of your own.
+    case nameLister
+    /// Show the lists of recently opened files and of what is shared on the network.
+    case showRecents, showShared
     /// A thin divider between groups of buttons (no action).
     case separator
     /// Runs `command` with /bin/zsh in the current folder.

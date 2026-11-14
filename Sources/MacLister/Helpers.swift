@@ -24,6 +24,7 @@ enum PathText {
     /// "~/Documents/…" form, shortened in the middle when long.
     static func short(_ path: String) -> String {
         let tilde = (path as NSString).abbreviatingWithTildeInPath
+        if tilde == "~" { return tr("Home") + " (~)" }          // ~ is the shell's short name for the home folder
         return tilde.count > 60 ? String(tilde.prefix(25)) + "…" + String(tilde.suffix(32)) : tilde
     }
 }
@@ -57,7 +58,7 @@ enum InfoText {
         let byteFormatter = ByteCountFormatter()
         byteFormatter.countStyle = .file
         func sizeText(_ bytes: Int64) -> String {
-            "\(byteFormatter.string(fromByteCount: bytes)) (\(bytes.formatted()) bytes)"
+            tr("%@ (%@ bytes)", byteFormatter.string(fromByteCount: bytes), bytes.formatted())
         }
 
         guard urls.count == 1, let url = urls.first else {
@@ -69,7 +70,7 @@ enum InfoText {
                 if isDirectory.boolValue { folders += 1 } else { files += 1 }
                 total += FolderSize.total(of: url)
             }
-            return ("\(urls.count) items", "Files: \(files)\nFolders: \(folders)\nTotal size: \(sizeText(total))")
+            return (trCount("%d items", urls.count), tr("Files: %d", files) + "\n" + tr("Folders: %d", folders) + "\n" + tr("Total size: %@", sizeText(total)))
         }
 
         let attributes = (try? fm.attributesOfItem(atPath: url.path)) ?? [:]
@@ -83,13 +84,13 @@ enum InfoText {
         let permissions = (attributes[.posixPermissions] as? NSNumber)?.intValue ?? 0
 
         let body = """
-        Where: \(url.deletingLastPathComponent().path)
-        Kind: \(values?.localizedTypeDescription ?? "—")
-        Size: \(sizeText(FolderSize.total(of: url)))
-        Created: \(dateText(.creationDate))
-        Modified: \(dateText(.modificationDate))
-        Permissions: \(permissionString(permissions)) (\(String(permissions, radix: 8)))
-        Owner: \(attributes[.ownerAccountName] as? String ?? "—") / \(attributes[.groupOwnerAccountName] as? String ?? "—")
+        \(tr("Where:")) \(url.deletingLastPathComponent().path)
+        \(tr("Kind:")) \(values?.localizedTypeDescription ?? "—")
+        \(tr("Size:")) \(sizeText(FolderSize.total(of: url)))
+        \(tr("Created:")) \(dateText(.creationDate))
+        \(tr("Modified:")) \(dateText(.modificationDate))
+        \(tr("Permissions:")) \(permissionString(permissions)) (\(String(permissions, radix: 8)))
+        \(tr("Owner:")) \(attributes[.ownerAccountName] as? String ?? "—") / \(attributes[.groupOwnerAccountName] as? String ?? "—")
         """
         return (url.lastPathComponent, body)
     }
@@ -110,6 +111,7 @@ struct PathSegment: Equatable {
 enum PathSegments {
     /// "/Users/me/Docs" → [Macintosh HD, Users, me, Docs], each with the URL it leads to.
     static func make(for url: URL) -> [PathSegment] {
+        if let place = VirtualPlace.place(for: url) { return [PathSegment(title: place.title, url: place.url)] }
         if RemoteURL.isRemote(url) {
             // server first ("me@host"), then every folder of the path
             let root = RemoteURL.with(path: "/", on: url)
@@ -145,7 +147,30 @@ struct ProgressSummary: Equatable {
         let unique = statuses.filter { seen.insert($0.text).inserted }
         let fractions = unique.compactMap(\.fraction)
         let fraction = fractions.isEmpty ? nil : fractions.reduce(0, +) / Double(fractions.count)
-        let text = unique.count == 1 ? unique[0].text : "\(unique.count) operations running · \(unique[0].text)"
+        let text = unique.count == 1 ? unique[0].text : tr("%d operations running", unique.count) + " · " + unique[0].text
         return ProgressSummary(fraction: fraction, text: text)
+    }
+}
+
+
+/// Dates for the file list: raw ("Nov 14, 2026 at 10:05") or like Finder ("Today at 10:05", "Yesterday …").
+enum DateText {
+    private static func make(relative: Bool, locale: Locale) -> DateFormatter {
+        let f = DateFormatter()
+        f.locale = locale
+        f.dateStyle = .medium
+        f.timeStyle = .short
+        f.doesRelativeDateFormatting = relative
+        return f
+    }
+
+    private static var cache: [String: DateFormatter] = [:]
+
+    static func string(_ date: Date, relative: Bool = Settings.relativeDates, locale: Locale = .current) -> String {
+        let key = "\(relative)-\(locale.identifier)"
+        if let cached = cache[key] { return cached.string(from: date) }
+        let made = make(relative: relative, locale: locale)
+        cache[key] = made
+        return made.string(from: date)
     }
 }

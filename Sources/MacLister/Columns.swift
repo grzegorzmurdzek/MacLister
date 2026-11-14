@@ -3,19 +3,20 @@ import AppKit
 /// Columns of the file list. Name is always shown; the others can be switched on and off by
 /// right-clicking the column header.
 enum ListerColumn: String, CaseIterable {
-    case name, size, date, created, kind, ext, permissions, tags, comment
+    case name, size, date, created, kind, ext, permissions, tags, comment, folder
 
     var title: String {
         switch self {
-        case .name: return "Name"
-        case .size: return "Size"
-        case .date: return "Modified"
-        case .created: return "Created"
-        case .kind: return "Kind"
-        case .ext: return "Extension"
-        case .permissions: return "Permissions"
-        case .tags: return "Tags"
-        case .comment: return "Comment"
+        case .name: return tr("Name")
+        case .size: return tr("Size")
+        case .date: return tr("Modified")
+        case .created: return tr("Created")
+        case .kind: return tr("Kind")
+        case .ext: return tr("Extension")
+        case .permissions: return tr("Permissions")
+        case .tags: return tr("Tags")
+        case .comment: return tr("Comment")
+        case .folder: return tr("Where")
         }
     }
 
@@ -29,6 +30,7 @@ enum ListerColumn: String, CaseIterable {
         case .permissions: return 96
         case .tags: return 150
         case .comment: return 220
+        case .folder: return 200
         }
     }
 
@@ -42,6 +44,7 @@ enum ListerColumn: String, CaseIterable {
         case .permissions: return 80
         case .tags: return 70
         case .comment: return 80
+        case .folder: return 100
         }
     }
 

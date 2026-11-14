@@ -142,6 +142,8 @@ struct ListerSnapshot: Codable {
     var showHidden: Bool
     var filter: String
     var locked: Bool?
+    var label: String?
+    var labelColor: String?
 }
 
 enum LayoutStore {
@@ -158,7 +160,8 @@ enum LayoutStore {
             return ListerSnapshot(path: model.url.path, x: frame.minX, y: frame.minY, width: frame.width, height: frame.height,
                                   role: role, sort: model.sortKey.rawValue, ascending: model.ascending,
                                   showHidden: model.showHidden, filter: model.filter,
-                                  locked: model.roleLocked ? true : nil)
+                                  locked: model.roleLocked ? true : nil,
+                                  label: model.label.isEmpty ? nil : model.label, labelColor: model.labelColor)
         }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -187,6 +190,8 @@ enum LayoutStore {
             default:            break
             }
             if snapshot.locked == true { controller.model.roleLocked = true }
+            if let label = snapshot.label { controller.model.setLabel(label, color: snapshot.labelColor) }
+            else if snapshot.labelColor != nil { controller.model.setLabel("", color: snapshot.labelColor) }
             opened += 1
         }
         return opened

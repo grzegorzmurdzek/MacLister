@@ -11,10 +11,10 @@ final class ShortcutRecorder: ObservableObject {
     var confirmReassign: (_ combo: KeyCombo, _ otherTitle: String, _ title: String) -> Bool = { combo, otherTitle, title in
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "\(combo.display) is already assigned to “\(otherTitle)”"
-        alert.informativeText = "Assign it to “\(title)” instead? “\(otherTitle)” will have no shortcut."
-        alert.addButton(withTitle: "Reassign")
-        alert.addButton(withTitle: "Cancel")
+        alert.messageText = tr("%@ is already assigned to “%@”", combo.display, otherTitle)
+        alert.informativeText = tr("Assign it to “%@” instead? “%@” will have no shortcut.", title, otherTitle)
+        alert.addButton(withTitle: tr("Reassign"))
+        alert.addButton(withTitle: tr("Cancel"))
         return alert.runModal() == .alertFirstButtonReturn
     }
 
@@ -123,9 +123,9 @@ struct ShortcutsView: View {
             HStack(spacing: 8) {
                 Text(title)
                 Spacer()
-                if let builtIn { Text("also \(builtIn)").font(.caption).foregroundStyle(.tertiary) }
+                if let builtIn { Text(tr("also %@", builtIn)).font(.caption).foregroundStyle(.tertiary) }
                 Button { recording ? recorder.stop() : recorder.begin(id) } label: {
-                    Text(recording ? "Press the keys…" : (combo?.display ?? "None"))
+                    Text(recording ? tr("Press the keys…") : (combo?.display ?? tr("None")))
                         .frame(minWidth: 120)
                         .foregroundStyle(recording ? Color.white : (combo == nil ? Color.secondary : Color.primary))
                 }
@@ -152,7 +152,7 @@ final class ShortcutsWindowController {
         if window == nil {
             let host = NSHostingController(rootView: ShortcutsView())
             let created = NSWindow(contentViewController: host)
-            created.title = "Keyboard Shortcuts"
+            created.title = tr("Keyboard Shortcuts")
             created.styleMask = [.titled, .closable, .resizable]
             created.setContentSize(NSSize(width: 620, height: 640))
             created.isReleasedWhenClosed = false

@@ -22,6 +22,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/MacLister"
 cp Support/Info.plist "$APP/Contents/Info.plist"
 cp Support/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+# Interface languages: English is built in (the text is the key), Polish comes from pl.lproj.
+for lproj in Support/*.lproj; do cp -R "$lproj" "$APP/Contents/Resources/"; done
 
 # Ad-hoc signature. The requirement pins the identifier instead of the per-build cdhash, so
 # Accessibility / Input Monitoring grants survive rebuilds.

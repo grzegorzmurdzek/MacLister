@@ -61,7 +61,7 @@ struct RemoteEntry: Equatable {
 struct RemoteError: LocalizedError {
     let message: String
     var errorDescription: String? { message }
-    static let cancelled = RemoteError(message: "Cancelled")
+    static let cancelled = RemoteError(message: tr("Cancelled"))
 }
 
 /// Lets the UI stop a running transfer: the file system registers a closure that ends its process.
@@ -303,7 +303,7 @@ enum ProcessRunner {
         process.standardInput = inPipe
 
         if cancel?.isCancelled == true { throw RemoteError.cancelled }
-        do { try process.run() } catch { throw RemoteError(message: "Cannot start \(executable): \(error.localizedDescription)") }
+        do { try process.run() } catch { throw RemoteError(message: tr("Cannot start %@: %@", executable, error.localizedDescription)) }
         cancel?.onCancel { if process.isRunning { process.terminate() } }
 
         // Drain both pipes concurrently so a chatty program can never block on a full pipe.

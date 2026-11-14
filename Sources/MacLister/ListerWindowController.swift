@@ -46,15 +46,19 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         window.contentViewController = ListerViewController(model: model)
         window.setContentSize(Settings.listerContentSize)
 
-        model.$url
-            .sink { [weak window] url in
-                if url.isFileURL {
-                    window?.title = FileManager.default.displayName(atPath: url.path)
+        Publishers.CombineLatest(model.$url, model.$label)
+            .sink { [weak window] url, label in
+                let prefix = label.isEmpty ? "" : "\(label) — "
+                if let place = VirtualPlace.place(for: url) {
+                    window?.title = prefix + place.title
+                    window?.representedURL = nil
+                } else if url.isFileURL {
+                    window?.title = prefix + FileManager.default.displayName(atPath: url.path)
                     window?.representedURL = url          // proxy icon; ⌘-click the title for the path menu
                 } else {
                     let path = RemoteURL.path(of: url)
                     let server = RemoteURL.serverLabel(of: url)
-                    window?.title = path == "/" ? server : "\((path as NSString).lastPathComponent) – \(server)"
+                    window?.title = prefix + (path == "/" ? server : "\((path as NSString).lastPathComponent) – \(server)")
                     window?.representedURL = nil
                 }
             }
@@ -62,11 +66,11 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         let model = model
         Publishers.CombineLatest3(model.$items, model.$role, model.$roleLocked)
             .sink { [weak window, weak model] items, role, locked in
-                var text = "\(items.count) items"
-                if let model, let space = VolumeInfo.summary(for: model.url) { text += " · " + space }
+                var text = trCount("%d items", items.count)
+                if let model, model.url.isFileURL, let space = VolumeInfo.summary(for: model.url) { text += " · " + space }
                 switch role {
-                case .source:      text += " · SOURCE" + (locked ? " (locked)" : "")
-                case .destination: text += " · DESTINATION" + (locked ? " (locked)" : "")
+                case .source:      text += " · " + tr("SOURCE") + (locked ? " " + tr("(locked)") : "")
+                case .destination: text += " · " + tr("DESTINATION") + (locked ? " " + tr("(locked)") : "")
                 case .none:        break
                 }
                 window?.subtitle = text
@@ -90,6 +94,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         case .none:        role = ""
         }
         var title = path == name || path == "/" ? name : "\(name) — \(path)"
+        if !model.label.isEmpty { title = "\(model.label)  ·  \(title)" }
         if title.count > 64 { title = String(title.prefix(30)) + "…" + String(title.suffix(32)) }
         return title + role
     }
@@ -215,7 +220,7 @@ final class ListerManager {
     /// One source and one destination at most; pressing the active role again clears it.
     func toggleRole(_ role: ListerRole, for controller: ListerWindowController) {
         guard !controller.model.roleLocked else {
-            controller.model.flash("This lister's role is locked: unlock it first")
+            controller.model.flash(tr("This lister's role is locked: unlock it first"))
             return
         }
         if controller.model.role == role {
@@ -223,7 +228,7 @@ final class ListerManager {
             return
         }
         if let holder = controllers.first(where: { $0.model.role == role }), holder.model.roleLocked {
-            controller.model.flash("The \(role == .source ? "source" : "destination") lister is locked")
+            controller.model.flash(role == .source ? tr("The source lister is locked") : tr("The destination lister is locked"))
             return
         }
         for other in controllers where other.model.role == role { other.model.role = .none }
@@ -233,7 +238,7 @@ final class ListerManager {
     /// Locks or unlocks the role of a lister (only meaningful while it has one).
     func toggleRoleLock(for controller: ListerWindowController) {
         guard controller.model.role != .none else {
-            controller.model.flash("Set this lister as source or destination first")
+            controller.model.flash(tr("Set this lister as source or destination first"))
             return
         }
         controller.model.roleLocked.toggle()
@@ -242,7 +247,7 @@ final class ListerManager {
     func swapRoles() {
         let source = sourceController, destination = destinationController
         if source?.model.roleLocked == true || destination?.model.roleLocked == true {
-            (source ?? destination)?.model.flash("A locked lister cannot swap roles")
+            (source ?? destination)?.model.flash(tr("A locked lister cannot swap roles"))
             return
         }
         source?.model.role = .destination

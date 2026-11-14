@@ -8,7 +8,7 @@ struct FileItem: Hashable {
     let isPackage: Bool
     let isHidden: Bool
     var size: Int64?
-    let modified: Date?
+    var modified: Date?
     // Loaded only while the matching column is visible:
     var created: Date? = nil
     var kind: String? = nil
@@ -32,6 +32,7 @@ struct TransferStatus {
     var text: String
     var fraction: Double?          // nil: indeterminate
     var cancel: () -> Void
+    var details: TransferMonitor? = nil     // opened when the progress bar is clicked
 }
 
 /// Magellan-style role of a lister: Copy/Move go from the source lister to the destination lister.
@@ -39,13 +40,16 @@ enum ListerRole { case none, source, destination }
 
 /// State of one lister: current folder, its (sorted) contents, selection, history.
 final class ListerModel: ObservableObject {
-    enum SortKey: String { case name, size, date, created, kind, ext, permissions, tags, comment }
+    enum SortKey: String { case name, size, date, created, kind, ext, permissions, tags, comment, folder }
 
     @Published private(set) var url: URL
     @Published private(set) var items: [FileItem] = []
     @Published var errorMessage: String?
     @Published var statusMessage: String?      // transient info, e.g. "Copying 3 items…"
     @Published var progress: TransferStatus?   // running copy / move: progress bar with a Cancel button
+    /// Optional name and colour the user gave this lister ("NAS", "Backup" …).
+    @Published var label = ""
+    @Published var labelColor: String?
     @Published var role: ListerRole = .none
     /// true: the path bar shows an editable text field instead of the clickable breadcrumb.
     @Published var editingPath = false
@@ -76,23 +80,93 @@ final class ListerModel: ObservableObject {
 
     var canGoBack: Bool { !backStack.isEmpty }
     var isRemote: Bool { RemoteURL.isRemote(url) }
-    var canGoParent: Bool { RemoteURL.isRemote(url) ? RemoteURL.path(of: url) != "/" : url.path != "/" }
+    var canGoParent: Bool { !isVirtual && (RemoteURL.isRemote(url) ? RemoteURL.path(of: url) != "/" : url.path != "/") }
 
     /// Two locations are the same folder when their keys are equal (symlinks in /var vs /private/var are
     /// folded for local folders).
     static func comparisonKey(_ url: URL) -> String {
-        RemoteURL.isRemote(url) ? RemoteURL.normalized(url).absoluteString : url.standardizedFileURL.path
+        if url.scheme == VirtualPlace.scheme { return url.absoluteString }
+        return RemoteURL.isRemote(url) ? RemoteURL.normalized(url).absoluteString : url.standardizedFileURL.path
     }
 
     /// What the path field shows: a plain path for local folders, the URL for servers.
     static func displayPath(_ url: URL) -> String {
-        url.isFileURL ? url.path : (RemoteURL.normalized(url).absoluteString.removingPercentEncoding ?? url.absoluteString)
+        if let place = VirtualPlace.place(for: url) { return place.title }
+        return url.isFileURL ? url.path : (RemoteURL.normalized(url).absoluteString.removingPercentEncoding ?? url.absoluteString)
     }
 
+    /// Recents and Shared are lists, not folders.
+    var virtualPlace: VirtualPlace? { VirtualPlace.place(for: url) }
+    var isVirtual: Bool { virtualPlace != nil }
+    private var sortBeforeVirtual: (key: SortKey, ascending: Bool)?
+    private var sharedObserver: NSObjectProtocol?
+
     init(url: URL) {
-        self.url = RemoteURL.isRemote(url) ? RemoteURL.normalized(url) : url.standardizedFileURL
+        self.url = VirtualPlace.place(for: url) != nil ? url : (RemoteURL.isRemote(url) ? RemoteURL.normalized(url) : url.standardizedFileURL)
         reload()
         watchCurrentFolder()
+        sharedObserver = NotificationCenter.default.addObserver(forName: .sharedPlacesChanged, object: nil, queue: .main) { [weak self] _ in
+            if self?.virtualPlace == .shared { self?.loadVirtual() }
+        }
+    }
+
+    deinit { if let sharedObserver { NotificationCenter.default.removeObserver(sharedObserver) } }
+
+    // MARK: Recents and Shared
+
+    private func navigateVirtual(_ place: VirtualPlace, recordHistory: Bool) -> Bool {
+        if place.url != url, recordHistory { backStack.append(url) }
+        if sortBeforeVirtual == nil { sortBeforeVirtual = (sortKey, ascending) }
+        sortKey = place == .recents ? .date : .name
+        ascending = place != .recents
+        watcher?.stop()
+        watcher = nil
+        sizeCache = [:]
+        url = place.url
+        items = []
+        errorMessage = nil
+        loadVirtual()
+        return true
+    }
+
+    /// Leaving Recents / Shared brings back the sort order the user had.
+    private func restoreSortAfterVirtual() {
+        guard let saved = sortBeforeVirtual else { return }
+        sortKey = saved.key
+        ascending = saved.ascending
+        sortBeforeVirtual = nil
+    }
+
+    func loadVirtual() {
+        guard let place = virtualPlace else { return }
+        loadGeneration += 1
+        let generation = loadGeneration
+        let patterns = NamePattern.parse(filter)
+        func shown(_ list: [FileItem]) -> [FileItem] {
+            let kept = filter.isEmpty ? list : list.filter { $0.isNavigable || NamePattern.matches($0.name, patterns: patterns) }
+            return Self.sorted(kept, by: sortKey, ascending: ascending)
+        }
+        switch place {
+        case .recents:
+            statusMessage = tr("Searching…")
+            let columns = ColumnSettings.visible
+            RecentFiles.fetch { [weak self] seeds in
+                guard let self, generation == self.loadGeneration, self.virtualPlace == .recents else { return }
+                if self.statusMessage == tr("Searching…") { self.statusMessage = nil }
+                let made: [FileItem] = seeds.map { seed in
+                    var item = self.makeItem(for: seed.url, keys: Self.itemKeys(columns), columns: columns)
+                    item.modified = seed.lastUsed              // the list is about when a file was last opened
+                    return item
+                }
+                self.items = shown(made)
+                if self.items.isEmpty { self.flash(tr("No recently opened files found")) }
+            }
+        case .shared:
+            SharedPlaces.shared.start()
+            items = shown(SharedPlaces.shared.rows())
+            if items.isEmpty { statusMessage = tr("Searching the network…") }
+            else if statusMessage == tr("Searching the network…") { statusMessage = nil }
+        }
     }
 
     // MARK: Auto-refresh
@@ -110,7 +184,7 @@ final class ListerModel: ObservableObject {
         guard url.isFileURL else { return }
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue else {
-            errorMessage = "This folder no longer exists"
+            errorMessage = tr("This folder no longer exists")
             return
         }
         guard let listing = try? Self.sorted(list(url), by: sortKey, ascending: ascending), listing != items else { return }
@@ -122,14 +196,16 @@ final class ListerModel: ObservableObject {
 
     @discardableResult
     func navigate(to target: URL, selecting: URL? = nil, recordHistory: Bool = true) -> Bool {
+        if let place = VirtualPlace.place(for: target) { return navigateVirtual(place, recordHistory: recordHistory) }
         if RemoteURL.isRemote(target) { return navigateRemote(RemoteURL.normalized(target), selecting: selecting, recordHistory: recordHistory) }
         let target = target.standardizedFileURL
         if target != url { sizeCache = [:] }
         var isDir: ObjCBool = false
         guard FileManager.default.fileExists(atPath: target.path, isDirectory: &isDir), isDir.boolValue else {
-            errorMessage = "Not a folder: \(target.path)"
+            errorMessage = tr("Not a folder: %@", target.path)
             return false
         }
+        restoreSortAfterVirtual()
         do {
             let listing = Self.sorted(try list(target), by: sortKey, ascending: ascending)
             if recordHistory, target != url { backStack.append(url) }
@@ -152,24 +228,25 @@ final class ListerModel: ObservableObject {
     /// arrives, and a slower earlier answer never overwrites a newer one.
     private func navigateRemote(_ target: URL, selecting: URL?, recordHistory: Bool) -> Bool {
         guard let session = RemoteSessions.shared.session(for: target) else {
-            errorMessage = "Not connected to \(RemoteURL.serverLabel(of: target)): use Connect to Server…"
+            errorMessage = tr("Not connected to %@: use Connect to Server…", RemoteURL.serverLabel(of: target))
             return false
         }
         loadGeneration += 1
         let generation = loadGeneration
         let path = RemoteURL.path(of: target)
-        statusMessage = "Loading…"
+        statusMessage = tr("Loading…")
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let result = Result { try session.fs.list(path) }
             DispatchQueue.main.async {
                 guard let self, generation == self.loadGeneration else { return }
-                if self.statusMessage == "Loading…" { self.statusMessage = nil }
+                if self.statusMessage == tr("Loading…") { self.statusMessage = nil }
                 switch result {
                 case .success(let entries):
                     if recordHistory, target != self.url { self.backStack.append(self.url) }
                     self.revealOnLoad = selecting
                     self.watcher?.stop()
                     self.watcher = nil
+                    self.restoreSortAfterVirtual()
                     if target != self.url { self.sizeCache = [:] }
                     self.url = target
                     self.items = Self.sorted(self.remoteItems(entries, in: target), by: self.sortKey, ascending: self.ascending)
@@ -223,6 +300,7 @@ final class ListerModel: ObservableObject {
     }
 
     func reload(selecting: URL? = nil) {
+        if isVirtual { loadVirtual(); return }
         if RemoteURL.isRemote(url) {
             _ = navigateRemote(url, selecting: selecting, recordHistory: false)
             return
@@ -263,6 +341,18 @@ final class ListerModel: ObservableObject {
         self.filter = filter
     }
 
+    func setLabel(_ name: String, color: String?) {
+        label = name
+        labelColor = name.isEmpty && color == nil ? nil : color
+    }
+
+    /// How this lister is called in menus: its label, else the folder's name.
+    var displayName: String {
+        if !label.isEmpty { return label }
+        if let place = virtualPlace { return place.title }
+        return url.isFileURL ? FileManager.default.displayName(atPath: url.path) : RemoteURL.serverLabel(of: url)
+    }
+
     func inherit(from other: ListerModel) {
         apply(sort: other.sortKey, ascending: other.ascending, showHidden: other.showHidden, filter: other.filter)
         lastPattern = other.lastPattern
@@ -272,7 +362,7 @@ final class ListerModel: ObservableObject {
     func calculateSizes(of urls: [URL]) {
         guard !urls.isEmpty, url.isFileURL else { return }
         let folder = url
-        statusMessage = "Calculating sizes…"
+        statusMessage = tr("Calculating sizes…")
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             var results: [URL: Int64] = [:]
             for item in urls { results[item] = FolderSize.total(of: item) }
@@ -296,43 +386,51 @@ final class ListerModel: ObservableObject {
 
     // MARK: Listing
 
+    /// The resource values to read; optional ones only while their column is shown.
+    static func itemKeys(_ columns: [ListerColumn]) -> Set<URLResourceKey> {
+        var keys: Set<URLResourceKey> = [.isDirectoryKey, .isPackageKey, .isHiddenKey, .isSymbolicLinkKey,
+                                         .fileSizeKey, .contentModificationDateKey]
+        if columns.contains(.created) { keys.insert(.creationDateKey) }
+        if columns.contains(.kind) { keys.insert(.localizedTypeDescriptionKey) }
+        if columns.contains(.tags) { keys.insert(.tagNamesKey) }
+        return keys
+    }
+
+    private func makeItem(for u: URL, keys: Set<URLResourceKey>, columns: [ListerColumn]) -> FileItem {
+        let values = try? u.resourceValues(forKeys: keys)
+        var isDirectory = values?.isDirectory ?? false
+        if values?.isSymbolicLink == true {   // a link to a folder behaves like a folder
+            let target = u.resolvingSymlinksInPath()
+            isDirectory = (try? target.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+        }
+        var item = FileItem(
+            url: u,
+            name: u.lastPathComponent,
+            isDirectory: isDirectory,
+            isPackage: values?.isPackage ?? false,
+            isHidden: values?.isHidden ?? u.lastPathComponent.hasPrefix("."),
+            size: isDirectory ? sizeCache[u] : values?.fileSize.map(Int64.init),
+            modified: values?.contentModificationDate
+        )
+        if columns.contains(.created) { item.created = values?.creationDate }
+        if columns.contains(.kind) { item.kind = values?.localizedTypeDescription }
+        if columns.contains(.tags) { item.tags = values?.tagNames ?? [] }
+        if columns.contains(.permissions) {
+            item.permissions = ((try? FileManager.default.attributesOfItem(atPath: u.path))?[.posixPermissions] as? NSNumber)?.intValue
+        }
+        if columns.contains(.comment) { item.comment = FinderMetadata.comment(of: u) }
+        return item
+    }
+
     private func list(_ directory: URL) throws -> [FileItem] {
-        var keys: [URLResourceKey] = [.isDirectoryKey, .isPackageKey, .isHiddenKey, .isSymbolicLinkKey,
-                                      .fileSizeKey, .contentModificationDateKey]
         let columns = ColumnSettings.visible          // optional data is read only when its column is shown
-        if columns.contains(.created) { keys.append(.creationDateKey) }
-        if columns.contains(.kind) { keys.append(.localizedTypeDescriptionKey) }
-        if columns.contains(.tags) { keys.append(.tagNamesKey) }
+        let keys = Self.itemKeys(columns)
         let urls = try FileManager.default.contentsOfDirectory(
             at: directory,
-            includingPropertiesForKeys: keys,
+            includingPropertiesForKeys: Array(keys),
             options: showHidden ? [] : [.skipsHiddenFiles]
         )
-        let listed: [FileItem] = urls.map { u in
-            let values = try? u.resourceValues(forKeys: Set(keys))
-            var isDirectory = values?.isDirectory ?? false
-            if values?.isSymbolicLink == true {   // a link to a folder behaves like a folder
-                let target = u.resolvingSymlinksInPath()
-                isDirectory = (try? target.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
-            }
-            var item = FileItem(
-                url: u,
-                name: u.lastPathComponent,
-                isDirectory: isDirectory,
-                isPackage: values?.isPackage ?? false,
-                isHidden: values?.isHidden ?? u.lastPathComponent.hasPrefix("."),
-                size: isDirectory ? sizeCache[u] : values?.fileSize.map(Int64.init),
-                modified: values?.contentModificationDate
-            )
-            if columns.contains(.created) { item.created = values?.creationDate }
-            if columns.contains(.kind) { item.kind = values?.localizedTypeDescription }
-            if columns.contains(.tags) { item.tags = values?.tagNames ?? [] }
-            if columns.contains(.permissions) {
-                item.permissions = ((try? FileManager.default.attributesOfItem(atPath: u.path))?[.posixPermissions] as? NSNumber)?.intValue
-            }
-            if columns.contains(.comment) { item.comment = FinderMetadata.comment(of: u) }
-            return item
-        }
+        let listed: [FileItem] = urls.map { makeItem(for: $0, keys: keys, columns: columns) }
         guard !filter.isEmpty else { return listed }
         let patterns = NamePattern.parse(filter)
         return listed.filter { $0.isNavigable || NamePattern.matches($0.name, patterns: patterns) }
@@ -362,6 +460,8 @@ final class ListerModel: ObservableObject {
                 order = a.tags.joined(separator: ",").localizedStandardCompare(b.tags.joined(separator: ","))
             case .comment:
                 order = (a.comment ?? "").localizedStandardCompare(b.comment ?? "")
+            case .folder:
+                order = a.url.deletingLastPathComponent().path.localizedStandardCompare(b.url.deletingLastPathComponent().path)
             }
             if order == .orderedSame { return a.name.localizedStandardCompare(b.name) == .orderedAscending }
             return ascending ? order == .orderedAscending : order == .orderedDescending

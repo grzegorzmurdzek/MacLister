@@ -12,7 +12,7 @@ extension ListerViewController {
     @discardableResult
     func remoteUnavailable(_ what: String) -> Bool {
         guard isRemote else { return false }
-        flash("\(what) is not available on a server yet")
+        flash(tr("Not available on a server yet: %@", what))
         return true
     }
 
@@ -25,7 +25,7 @@ extension ListerViewController {
         let stored = SecretStore.get(profile.id.uuidString) ?? ""
         let canConnectDirectly = !stored.isEmpty || (profile.scheme == .sftp && profile.keyPath != nil) || profile.user.isEmpty
         if canConnectDirectly {
-            model.statusMessage = "Connecting to \(profile.displayName)…"
+            model.statusMessage = tr("Connecting to %@…", profile.displayName)
             performConnect(profile, secret: stored, remember: false, savePassword: false) { [weak self] message in
                 self?.model.statusMessage = nil
                 if let message { self?.model.errorMessage = message }
@@ -70,7 +70,7 @@ extension ListerViewController {
         DispatchQueue.main.sync {
             let alert = NSAlert()
             alert.alertStyle = .warning
-            alert.messageText = "Trust the server “\(profile.host)”?"
+            alert.messageText = tr("Trust the server “%@”?", profile.host)
             let list = keys.map { "\($0.type)  \($0.fingerprint)" }.joined(separator: "\n")
             alert.informativeText = """
                 This is the first time you connect to \(profile.host):\(profile.port), so its identity cannot be checked yet.
@@ -79,8 +79,8 @@ extension ListerViewController {
 
                 Continue only if these fingerprints match what the server's administrator gave you. MacLister remembers them and warns you if they ever change.
                 """
-            alert.addButton(withTitle: "Trust and Connect")
-            alert.addButton(withTitle: "Cancel")
+            alert.addButton(withTitle: tr("Trust and Connect"))
+            alert.addButton(withTitle: tr("Cancel"))
             trusted = alert.runModal() == .alertFirstButtonReturn
         }
         return trusted
@@ -96,13 +96,13 @@ extension ListerViewController {
 
     func openRemote(_ item: FileItem) {
         guard let session = RemoteSessions.shared.session(for: item.url) else {
-            model.errorMessage = "Not connected to \(RemoteURL.serverLabel(of: item.url))"
+            model.errorMessage = tr("Not connected to %@", RemoteURL.serverLabel(of: item.url))
             return
         }
         if item.isDirectory { model.navigate(to: item.url); return }
         if item.isSymlink {
             // a link may point to a folder: find out before deciding between entering and downloading
-            model.statusMessage = "Opening…"
+            model.statusMessage = tr("Opening…")
             let path = RemoteURL.path(of: item.url)
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                 let isFolder = (try? session.fs.list(path)) != nil
@@ -134,26 +134,26 @@ extension ListerViewController {
         guard !files.isEmpty else { return }
         let token = CancelToken()
         let cancel: () -> Void = { token.cancel() }
-        model.progress = TransferStatus(text: "Downloading…", fraction: nil, cancel: cancel)
+        model.progress = TransferStatus(text: tr("Downloading…"), fraction: nil, cancel: cancel)
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             var local: [URL] = []
             var failure: String?
             for (index, item) in files.enumerated() {
                 if token.isCancelled { break }
-                guard let session = RemoteSessions.shared.session(for: item.url) else { failure = "Not connected to the server"; break }
+                guard let session = RemoteSessions.shared.session(for: item.url) else { failure = tr("Not connected to the server"); break }
                 let target = RemoteCache.localURL(for: item.url)
                 try? FileManager.default.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
                 if Self.cacheIsFresh(target, for: item) { local.append(target); continue }
                 DispatchQueue.main.async {
-                    self?.model.progress = TransferStatus(text: "Downloading \(index + 1) of \(files.count) · \(item.name)",
+                    self?.model.progress = TransferStatus(text: tr("Downloading %d of %d", index + 1, files.count) + " · \(item.name)",
                                                           fraction: Double(index) / Double(files.count), cancel: cancel)
                 }
                 do {
                     try session.fs.download(RemoteURL.path(of: item.url), to: target, cancel: token)
                     local.append(target)
                 } catch {
-                    if (error as? RemoteError)?.message != "Cancelled" { failure = error.localizedDescription }
+                    if (error as? RemoteError)?.message != RemoteError.cancelled.message { failure = error.localizedDescription }
                     break
                 }
             }
@@ -199,7 +199,7 @@ extension ListerViewController {
         guard let session = remoteSession else { return }
         let target = RemoteURL.child(of: model.url, named: name)
         let path = RemoteURL.path(of: target)
-        model.statusMessage = "Creating folder…"
+        model.statusMessage = tr("Creating folder…")
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let result = Result { try session.fs.makeDirectory(path) }
             DispatchQueue.main.async {
@@ -213,7 +213,7 @@ extension ListerViewController {
     }
 
     func promptRemoteRename(_ item: FileItem) {
-        promptText(title: "Rename “\(item.name)”", message: "New name on the server:", initial: item.name, button: "Rename") { [weak self] newName in
+        promptText(title: tr("Rename “%@”", item.name), message: tr("New name on the server:"), initial: item.name, button: tr("Rename")) { [weak self] newName in
             self?.remoteRename(item, to: newName)
         }
     }
@@ -225,7 +225,7 @@ extension ListerViewController {
         let from = RemoteURL.path(of: item.url)
         let to = RemoteURL.join(RemoteURL.parentPath(of: from), name)
         let newURL = RemoteURL.with(path: to, on: item.url)
-        model.statusMessage = "Renaming…"
+        model.statusMessage = tr("Renaming…")
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let result = Result { try session.fs.rename(from, to: to) }
             DispatchQueue.main.async {
@@ -241,13 +241,14 @@ extension ListerViewController {
     func confirmRemoteDelete() {
         let items = selectedItems
         guard !items.isEmpty, let window = view.window else { NSSound.beep(); return }
+        if refuseIfBusy(items.map(\.url)) { return }
         let alert = NSAlert()
         alert.alertStyle = .critical
-        alert.messageText = items.count == 1 ? "Delete “\(items[0].name)” from the server?" : "Delete \(items.count) items from the server?"
-        alert.informativeText = "This cannot be undone: a server has no Trash. Folders are deleted with everything inside."
-        let delete = alert.addButton(withTitle: "Delete")
+        alert.messageText = items.count == 1 ? tr("Delete “%@” from the server?", items[0].name) : trCount("Delete %d items from the server?", items.count)
+        alert.informativeText = tr("This cannot be undone: a server has no Trash. Folders are deleted with everything inside.")
+        let delete = alert.addButton(withTitle: tr("Delete"))
         delete.hasDestructiveAction = true
-        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: tr("Cancel"))
         alert.beginSheetModal(for: window) { [weak self] response in
             if response == .alertFirstButtonReturn { self?.remoteDelete(items) }
         }
@@ -256,16 +257,16 @@ extension ListerViewController {
     func remoteDelete(_ items: [FileItem]) {
         let token = CancelToken()
         let cancel: () -> Void = { token.cancel() }
-        model.progress = TransferStatus(text: "Deleting…", fraction: nil, cancel: cancel)
+        model.progress = TransferStatus(text: tr("Deleting…"), fraction: nil, cancel: cancel)
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             var failures: [String] = []
             for item in items {
-                guard let session = RemoteSessions.shared.session(for: item.url) else { failures.append("Not connected"); break }
+                guard let session = RemoteSessions.shared.session(for: item.url) else { failures.append(tr("Not connected")); break }
                 do {
                     try RemoteOps.deleteRecursively(session.fs, path: RemoteURL.path(of: item.url),
                                                     isDirectory: item.isDirectory && !item.isSymlink, cancel: token)
                 } catch {
-                    if (error as? RemoteError)?.message != "Cancelled" { failures.append("\(item.name): \(error.localizedDescription)") }
+                    if (error as? RemoteError)?.message != RemoteError.cancelled.message { failures.append("\(item.name): \(error.localizedDescription)") }
                     break
                 }
             }

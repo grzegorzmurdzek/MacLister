@@ -54,7 +54,7 @@ enum ArchiveExtractor {
     struct ExtractError: Error { let message: String }
 
     private static func extractOne(_ archive: URL, into parent: URL) -> Result<URL, ExtractError> {
-        guard let kind = kind(of: archive) else { return .failure(.init(message: "not a supported archive")) }
+        guard let kind = kind(of: archive) else { return .failure(.init(message: tr("not a supported archive"))) }
         let fm = FileManager.default
 
         let suffix: String

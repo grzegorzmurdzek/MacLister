@@ -75,9 +75,9 @@ enum BatchRename {
             let newName = finalExtension.isEmpty ? base : base + "." + finalExtension
 
             var problem: String?
-            if regexInvalid { problem = "Invalid regular expression" }
-            else if newName.isEmpty || base.isEmpty { problem = "Empty name" }
-            else if newName.contains("/") || newName.contains(":") { problem = "A name cannot contain / or :" }
+            if regexInvalid { problem = tr("Invalid regular expression") }
+            else if newName.isEmpty || base.isEmpty { problem = tr("Empty name") }
+            else if newName.contains("/") || newName.contains(":") { problem = tr("A name cannot contain / or :") }
             entries.append(RenameEntry(url: url, newName: newName, problem: problem))
         }
 
@@ -87,7 +87,7 @@ enum BatchRename {
         let renaming = Set(entries.map { $0.url.standardizedFileURL.path })
         var existingByFolder: [String: Set<String>] = [:]
         for i in entries.indices where entries[i].problem == nil {
-            if counts[entries[i].newName.lowercased()] ?? 0 > 1 { entries[i].problem = "Duplicate name"; continue }
+            if counts[entries[i].newName.lowercased()] ?? 0 > 1 { entries[i].problem = tr("Duplicate name"); continue }
             guard entries[i].changes else { continue }
             let folder = entries[i].url.deletingLastPathComponent()
             if existingByFolder[folder.path] == nil {
@@ -97,7 +97,7 @@ enum BatchRename {
                     .map { $0.lowercased() })
             }
             if existingByFolder[folder.path]?.contains(entries[i].newName.lowercased()) == true {
-                entries[i].problem = "A different item with this name already exists"
+                entries[i].problem = tr("A different item with this name already exists")
             }
         }
         return entries

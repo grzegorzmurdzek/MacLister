@@ -3,17 +3,28 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDevelopmentRegion</key><string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array><string>en</string><string>pl</string></array>
     <key>CFBundleExecutable</key><string>MacLister</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundleIdentifier</key><string>com.example.MacLister</string>
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
     <key>CFBundleName</key><string>MacLister</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>1.1.0</string>
-    <key>CFBundleVersion</key><string>3</string>
+    <key>CFBundleShortVersionString</key><string>1.2.0</string>
+    <key>CFBundleVersion</key><string>4</string>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>MacLister looks for computers that share files on your network (Go → Shared).</string>
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_smb._tcp</string>
+        <string>_afpovertcp._tcp</string>
+        <string>_sftp-ssh._tcp</string>
+        <string>_ftp._tcp</string>
+    </array>
     <key>NSDesktopFolderUsageDescription</key>
     <string>MacLister shows the contents of folders you browse.</string>
     <key>NSDocumentsFolderUsageDescription</key>

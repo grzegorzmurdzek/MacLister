@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import Carbon
 
 /// `MacLister --selftest-features`: exercises the Directory-Opus-style features through the same
@@ -842,6 +843,428 @@ enum SelfTestFeatures {
             try? fm.removeItem(at: dirA.appendingPathComponent("late.txt"))
         }
         later(1.0) { }
+        // relative dates, compress, tags, Finder-style menu
+        later {
+            let now = Date()
+            let cal = Calendar.current
+            let noon = cal.date(bySettingHour: 12, minute: 0, second: 0, of: now) ?? now
+            let en = Locale(identifier: "en_US"), pl = Locale(identifier: "pl_PL")
+            let today = DateText.string(noon, relative: true, locale: en)
+            let yesterday = DateText.string(cal.date(byAdding: .day, value: -1, to: noon) ?? noon, relative: true, locale: en)
+            check(today.hasPrefix("Today"), "relative date: today: \(today)")
+            check(yesterday.hasPrefix("Yesterday"), "relative date: yesterday: \(yesterday)")
+            let old = cal.date(byAdding: .day, value: -40, to: noon) ?? noon
+            check(!DateText.string(old, relative: true, locale: en).hasPrefix("Today") && DateText.string(old, relative: true, locale: en) == DateText.string(old, relative: false, locale: en),
+                  "relative date: an old date stays absolute")
+            check(!DateText.string(noon, relative: false, locale: en).hasPrefix("Today"), "raw dates are not relative")
+            check(DateText.string(noon, relative: true, locale: pl).lowercased().hasPrefix("dzisiaj"), "Polish: dzisiaj: \(DateText.string(noon, relative: true, locale: pl))")
+            check(DateText.string(cal.date(byAdding: .day, value: -1, to: noon) ?? noon, relative: true, locale: pl).lowercased().hasPrefix("wczoraj"), "Polish: wczoraj")
+            check(DateText.string(cal.date(byAdding: .day, value: -2, to: noon) ?? noon, relative: true, locale: pl).lowercased().hasPrefix("przedwczoraj"),
+                  "Polish: przedwczoraj: \(DateText.string(cal.date(byAdding: .day, value: -2, to: noon) ?? noon, relative: true, locale: pl))")
+            let item = FileItem(url: dirA.appendingPathComponent("a.txt"), name: "a.txt", isDirectory: false, isPackage: false, isHidden: false, size: 1, modified: noon)
+            Settings.relativeDates = true
+            check(ListerViewController.text(for: .date, of: item) == DateText.string(noon, relative: true), "the Modified column uses relative dates when switched on")
+            Settings.relativeDates = false
+            check(ListerViewController.text(for: .date, of: item) == DateText.string(noon, relative: false), "the Modified column shows raw dates when switched off")
+            Settings.relativeDates = true
+        }
+        later {
+            // compress
+            let single = Compressor.compressSync([dirA.appendingPathComponent("a.txt")])
+            check(single.output?.lastPathComponent == "a.txt.zip" && single.error == nil && fm.fileExists(atPath: single.output?.path ?? ""), "compress one file → a.txt.zip (\(single.error ?? "ok"))")
+            let again = Compressor.compressSync([dirA.appendingPathComponent("a.txt")])
+            check(again.output?.lastPathComponent == "a.txt 2.zip", "compress again → numbered name: \(again.output?.lastPathComponent ?? "nil")")
+            let packDir = root.appendingPathComponent("pack")
+            try? fm.createDirectory(at: packDir.appendingPathComponent("big"), withIntermediateDirectories: true)
+            try? Data("one".utf8).write(to: packDir.appendingPathComponent("a.txt"))
+            try? Data("two".utf8).write(to: packDir.appendingPathComponent("b.jpg"))
+            try? Data("three".utf8).write(to: packDir.appendingPathComponent("big/c.bin"))
+            let multi = Compressor.compressSync([packDir.appendingPathComponent("a.txt"), packDir.appendingPathComponent("b.jpg"), packDir.appendingPathComponent("big")])
+            check(multi.output?.lastPathComponent == "Archive.zip" && multi.error == nil, "compress several items → Archive.zip (\(multi.error ?? "ok"))")
+            if let output = multi.output {
+                let check1 = Process()
+                check1.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
+                check1.arguments = ["-Z1", output.path]
+                let pipe = Pipe(); check1.standardOutput = pipe
+                try? check1.run(); let data = pipe.fileHandleForReading.readDataToEndOfFile(); check1.waitUntilExit()
+                let names = String(decoding: data, as: UTF8.self).split(separator: "\n").map(String.init)
+                check(names.contains("a.txt") && names.contains("b.jpg") && names.contains { $0.hasPrefix("big/") }, "Archive.zip holds the items side by side: \(names)")
+            }
+            let missing = Compressor.compressSync([dirA.appendingPathComponent("nope.txt")])
+            check(missing.output == nil && missing.error != nil, "compress of a missing file fails cleanly")
+            for name in ["a.txt.zip", "a.txt 2.zip"] { try? fm.removeItem(at: dirA.appendingPathComponent(name)) }
+            try? fm.removeItem(at: packDir)
+
+            // tags
+            let target = dirA.appendingPathComponent("c.png"), other = dirA.appendingPathComponent("b.jpg")
+            check(FinderTags.entries(of: target).isEmpty, "fresh file has no tags")
+            check(FinderTags.toggle(label: 6, on: [target]).isEmpty && FinderTags.allHave(label: 6, in: [target]), "red tag is added")
+            let written = FinderTags.entries(of: target)
+            check(written.count == 1 && written[0].label == 6, "red tag is stored with its colour number: \(written)")
+            check(((try? target.resourceValues(forKeys: [.tagNamesKey]))?.tagNames ?? []).count == 1, "the system sees the tag")
+            check(!FinderTags.allHave(label: 6, in: [target, other]), "a colour is not 'all' when one item lacks it")
+            _ = FinderTags.toggle(label: 6, on: [target, other])
+            check(FinderTags.allHave(label: 6, in: [target, other]), "toggle on a mixed selection adds it to all")
+            _ = FinderTags.toggle(label: 6, on: [target, other])
+            check(FinderTags.entries(of: target).isEmpty && FinderTags.entries(of: other).isEmpty, "toggle again removes it from all")
+            _ = FinderTags.apply(add: [FinderTags.Entry(name: "Work", label: 0), FinderTags.Entry(name: FinderTags.name(for: 4), label: 4)], remove: [], to: [target])
+            check(Set(FinderTags.entries(of: target).map(\.name)).contains("Work") && FinderTags.allHave(label: 4, in: [target]), "a custom tag and a colour are added together")
+            _ = FinderTags.apply(add: [], remove: [FinderTags.Entry(name: "Work", label: 0)], to: [target])
+            check(!FinderTags.entries(of: target).contains { $0.name == "Work" } && FinderTags.allHave(label: 4, in: [target]), "removing one tag keeps the others")
+            try? FinderTags.write([], to: target)
+            check(FinderTags.entries(of: target).isEmpty, "writing no tags removes the attribute")
+            check(FinderTags.parse("Red\n6") == FinderTags.Entry(name: "Red", label: 6) && FinderTags.parse("Plain") == FinderTags.Entry(name: "Plain", label: 0), "tag entries parse")
+            let state = TagsEditorState.make(for: [target], alsoSeen: ["Extra"])
+            check(state.rows.count == 8 && state.rows.contains { $0.entry.name == "Extra" }, "tags sheet offers the 7 colours plus tags seen in the folder")
+
+            // image quick actions (sips)
+            let pngURL = dirA.appendingPathComponent("real.png")
+            let png = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 8, pixelsHigh: 4, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)
+            try? png?.representation(using: .png, properties: [:])?.write(to: pngURL)
+            check(QuickActions.allImages([pngURL]) && !QuickActions.allImages([dirA.appendingPathComponent("a.txt")]), "image detection for Quick Actions")
+            check(QuickActions.rotate([pngURL], degrees: 90).isEmpty, "rotate right succeeds")
+            if let rep = NSBitmapImageRep(data: (try? Data(contentsOf: pngURL)) ?? Data()) { check(rep.pixelsWide == 4 && rep.pixelsHigh == 8, "the image really rotated: \(rep.pixelsWide)×\(rep.pixelsHigh)") }
+            let converted = QuickActions.convert([pngURL], to: QuickActions.formats[0])
+            check(converted.failures.isEmpty && converted.outputs.first?.lastPathComponent == "real.jpg", "convert to JPEG: \(converted.failures)")
+            let pdf = QuickActions.createPDFs([pngURL])
+            check(pdf.failures.isEmpty && fm.fileExists(atPath: pdf.outputs.first?.path ?? ""), "create PDF: \(pdf.failures)")
+            for name in ["real.png", "real.jpg", "real.pdf"] { try? fm.removeItem(at: dirA.appendingPathComponent(name)) }
+
+            // workflows are only listed when they accept files
+            let services = root.appendingPathComponent("services")
+            let flow = services.appendingPathComponent("Demo.workflow/Contents")
+            try? fm.createDirectory(at: flow, withIntermediateDirectories: true)
+            let plist: [String: Any] = ["NSServices": [["NSMenuItem": ["default": "Demo action"], "NSSendFileTypes": ["public.item"]],
+                                                       ["NSMenuItem": ["default": "Text only"], "NSSendTypes": ["NSStringPboardType"]]]]
+            try? (PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)).write(to: flow.appendingPathComponent("Info.plist"))
+            check(QuickActions.workflows(directories: [services]).map(\.title) == ["Demo action"], "Quick Action workflows: only file-accepting ones are listed")
+
+            // context menu layout (Finder order, our items kept)
+            guard let vc = one.listerViewController else { check(false, "lister view controller available"); return }
+            let menu = NSMenu()
+            vc.populate(menu, selection: [one.model.items.first { $0.name == "a.txt" }].compactMap { $0 })
+            let layout = menu.items.map { $0.isSeparatorItem ? "—" : $0.title }
+            func at(_ title: String) -> Int? { layout.firstIndex(of: title) }
+            check(at("Open") != nil && at("Open With") != nil && at("Open")! < at("Open With")!, "menu: Open, then Open With: \(layout)")
+            let trash = menu.items.first { $0.title == "Move to Trash" }
+            check(trash?.image != nil, "Move to Trash has an icon")
+            check(at("Move to Trash")! < at("Info")! && at("Info")! < at("Rename…")! && at("Rename…")! < at("Duplicate")! && at("Duplicate")! < at("Make Alias")! && at("Make Alias")! < at("Quick Look")!,
+                  "menu order follows Finder: Trash, Info, Rename, Duplicate, Make Alias, Quick Look")
+            check(layout.contains { $0.hasPrefix("Compress") } && layout.contains("Copy"), "menu has Compress and Copy")
+            check(at("Share") != nil && at("Share")! > at("Copy")!, "menu has Share after the file commands")
+            let tagRow = menu.items.first { $0.view is TagColorRowView }
+            check(tagRow != nil && at("Tags…") != nil, "menu has the colour dots and Tags…")
+            check(at("Quick Actions") != nil && at("Services") != nil && at("Quick Actions")! < at("Services")!, "menu has Quick Actions and Services")
+            for ours in ["Attributes…", "Make Symbolic Link", "Copy Path", "Reveal in Finder", "Duplicate Lister", "Add Bookmark", "New Folder…", "Terminal Here", "Refresh"] {
+                check(layout.contains(ours), "our own menu item is kept: \(ours)")
+            }
+            check(menu.items.first { $0.title == "Quick Actions" }?.submenu?.items.contains { $0.title == "Rotate Left" } == false, "no image quick actions for a text file")
+
+            // colour dots toggle through the same code path as a click
+            if let row = tagRow?.view as? TagColorRowView {
+                let index = FinderTags.menuOrder.firstIndex(of: 6) ?? 0
+                let rect = row.rect(at: index)
+                check(row.label(at: NSPoint(x: rect.midX, y: rect.midY)) == 6, "a click on the first dot means red")
+                check(row.label(at: NSPoint(x: 2, y: 2)) == nil, "a click outside the dots does nothing")
+                check(row.frame.width >= TagColorRowView.width, "the dot row is wide enough")
+            }
+            let servicesItem = menu.items.first { $0.title == "Services" }
+            check(servicesItem?.submenu != nil && NSApp.servicesMenu === servicesItem?.submenu, "Services submenu is registered with the system (item \(servicesItem != nil), submenu \(servicesItem?.submenu != nil), same \(NSApp.servicesMenu === servicesItem?.submenu), app menu \(String(describing: NSApp.servicesMenu?.title)))")
+            // services: the table offers the selected files to the system
+            let table = vc.tableView
+            let shownA = one.model.items.first { $0.name == "a.txt" }?.url ?? dirA.appendingPathComponent("a.txt")
+            vc.setSelectionForSheetTest([shownA])
+            check(table.validRequestor(forSendType: .fileURL, returnType: nil) as AnyObject? === table, "the table is a valid service requestor for the selected files")
+            check(table.validRequestor(forSendType: .string, returnType: nil) as AnyObject? !== table, "the table does not claim text-only services")
+            let board = NSPasteboard(name: NSPasteboard.Name("maclister-selftest"))
+            check(table.writeSelection(to: board, types: FinderServices.sendTypes), "writing the selection for a service works")
+            let pasted = board.readObjects(forClasses: [NSURL.self], options: nil) as? [URL] ?? []
+            check(pasted.map(\.lastPathComponent) == ["a.txt"], "the pasteboard holds the selected file: \(pasted)")
+            check((board.propertyList(forType: FinderServices.filenames) as? [String])?.count == 1, "and its legacy file-name list")
+            board.releaseGlobally()
+        }
+        // transfer details: monitor, pause, growth watcher
+        later {
+            let t0 = Date()
+            let m = TransferMonitor(title: "Copying", from: "A", to: "B", now: t0)
+            var paused = 0, resumed = 0
+            m.onPause = { paused += 1 }; m.onResume = { resumed += 1 }
+            var p = TransferProgress(itemsDone: 0, itemsTotal: 4, bytesDone: 0, bytesTotal: 10_000_000, current: "x.bin")
+            for i in 1...8 {
+                p.bytesDone = Int64(i * 500_000)
+                m.update(p, now: t0.addingTimeInterval(Double(i) * 0.5))
+            }
+            let t8 = t0.addingTimeInterval(4)
+            check(abs(m.speed - 1_000_000) < 60_000, "monitor: speed ≈ 1 MB/s: \(m.speed)")
+            check(m.peak >= m.speed && m.samples.count >= 6, "monitor: peak and graph samples: \(m.samples.count)")
+            check(abs(m.averageSpeed(now: t8) - 1_000_000) < 20_000, "monitor: average speed: \(m.averageSpeed(now: t8))")
+            check(abs((m.remaining(now: t8) ?? 0) - 6) < 0.6, "monitor: remaining time ≈ 6 s: \(String(describing: m.remaining(now: t8)))")
+            check(abs(p.fraction - 0.4) < 0.001, "progress fraction counts the bytes: \(p.fraction)")
+            p.inFlight = 1_000_000
+            check(abs(p.fraction - 0.5) < 0.001 && p.effectiveBytes == 5_000_000, "in-flight bytes count towards the fraction")
+            m.pause(now: t8)
+            check(m.isPaused && paused == 1, "monitor: pause is passed on")
+            check(abs(m.activeElapsed(now: t8.addingTimeInterval(10)) - 4) < 0.01, "monitor: paused time is not counted as elapsed")
+            m.resume(now: t8.addingTimeInterval(10))
+            check(!m.isPaused && resumed == 1 && abs(m.activeElapsed(now: t8.addingTimeInterval(11)) - 5) < 0.01, "monitor: resume continues the clock")
+            m.finish(.finished)
+            check(m.state == .finished && m.speed == 0 && m.remaining() == nil, "monitor: finished")
+            check(TransferMonitor.timeText(140) == "2:20" && TransferMonitor.timeText(3725) == "1:02:05", "time text: \(TransferMonitor.timeText(140)) \(TransferMonitor.timeText(3725))")
+            check(TransferMonitor.speedText(37_800_000).contains("/s"), "speed text: \(TransferMonitor.speedText(37_800_000))")
+            let long = TransferMonitor(title: "x", from: "", to: "")
+            for i in 0..<(TransferMonitor.maxSamples + 50) { long.update(TransferProgress(bytesDone: Int64(i * 1000)), now: Date().addingTimeInterval(Double(i))) }
+            check(long.samples.count == TransferMonitor.maxSamples, "monitor keeps a bounded history: \(long.samples.count)")
+
+            let text = ListerViewController.progressText(verb: "Copying", progress: TransferProgress(itemsDone: 0, itemsTotal: 3, bytesDone: 1_000_000, bytesTotal: 5_000_000, current: "f.bin"), speed: 2_500_000, paused: false)
+            check(text.hasPrefix("Copying 1 of 3") && text.contains("/s") && text.hasSuffix("f.bin"), "status line text: \(text)")
+            check(ListerViewController.progressText(verb: "Copying", progress: TransferProgress(itemsDone: 0, itemsTotal: 3), speed: 5, paused: true).contains("Paused"), "status line says Paused")
+
+            // pause gate
+            let gate = PauseGate()
+            gate.pause()
+            let released = DispatchSemaphore(value: 0)
+            DispatchQueue.global().async { gate.waitWhilePaused { false }; released.signal() }
+            check(released.wait(timeout: .now() + 0.4) == .timedOut, "pause gate blocks while paused")
+            gate.resume()
+            check(released.wait(timeout: .now() + 1) == .success, "pause gate releases on resume")
+            gate.pause()
+            let flag = NSLock(); var stop = false
+            DispatchQueue.global().async { gate.waitWhilePaused { flag.lock(); defer { flag.unlock() }; return stop }; released.signal() }
+            flag.lock(); stop = true; flag.unlock()
+            check(released.wait(timeout: .now() + 1) == .success, "pause gate releases when the job is cancelled")
+
+            // growth watcher
+            let grown = root.appendingPathComponent("growing.bin")
+            fm.createFile(atPath: grown.path, contents: nil)
+            let seen = NSLock(); var sizes: [Int64] = []
+            let watcher = GrowthWatcher(url: grown, interval: 0.05) { seen.lock(); sizes.append($0); seen.unlock() }
+            if let handle = try? FileHandle(forWritingTo: grown) {
+                for _ in 0..<3 { handle.write(Data(count: 1_000_000)); Thread.sleep(forTimeInterval: 0.15) }
+                try? handle.close()
+            }
+            watcher.stop()
+            seen.lock(); let observed = sizes; seen.unlock()
+            check(observed.contains(1_000_000) && observed.contains(3_000_000) && observed == observed.sorted(), "growth watcher follows a growing file: \(Set(observed).sorted())")
+            try? fm.removeItem(at: grown)
+        }
+        later(0.2) {
+            // a paused job copies nothing until resumed; cancel releases it
+            let src = root.appendingPathComponent("pausesrc"), dst = root.appendingPathComponent("pausedst")
+            try? fm.createDirectory(at: src, withIntermediateDirectories: true)
+            try? fm.createDirectory(at: dst, withIntermediateDirectories: true)
+            var urls: [URL] = []
+            for i in 1...5 { let u = src.appendingPathComponent("f\(i).bin"); try? Data(count: 100_000).write(to: u); urls.append(u) }
+            let job = TransferJob(kind: .copy, items: urls, destination: dst)
+            var snapshots: [TransferProgress] = []
+            job.onProgress = { snapshots.append($0) }
+            job.gate.pause()
+            var outcome: TransferResult?
+            job.start { outcome = $0 }
+            Thread.sleep(forTimeInterval: 0.01)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                check(outcome == nil && ((try? fm.contentsOfDirectory(atPath: dst.path)) ?? []).isEmpty, "a paused job has copied nothing yet")
+                job.gate.resume()
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+                check(outcome?.done.count == 5 && outcome?.failures.isEmpty == true, "after Resume the job copies everything: \(String(describing: outcome?.done.count))")
+                check(snapshots.allSatisfy { $0.effectiveBytes <= $0.bytesTotal } && snapshots.last?.bytesDone == 500_000, "progress never overshoots and ends at the total")
+                // cancel while paused
+                let src2 = root.appendingPathComponent("pausesrc2"), dst2 = root.appendingPathComponent("pausedst2")
+                try? fm.createDirectory(at: src2, withIntermediateDirectories: true)
+                try? fm.createDirectory(at: dst2, withIntermediateDirectories: true)
+                let one = src2.appendingPathComponent("a.bin"); try? Data(count: 1000).write(to: one)
+                let job2 = TransferJob(kind: .copy, items: [one], destination: dst2)
+                job2.gate.pause()
+                var outcome2: TransferResult?
+                job2.start { outcome2 = $0 }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { job2.cancel() }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                    check(outcome2?.cancelled == true && ((try? fm.contentsOfDirectory(atPath: dst2.path)) ?? []).isEmpty, "cancelling a paused job stops it without copying")
+                    for d in [src, dst, src2, dst2] { try? fm.removeItem(at: d) }
+                }
+            }
+        }
+        later(2.2) {
+            // the details window
+            let monitor = TransferMonitor(title: "Copying", from: "Downloads", to: "NAS")
+            let hosting = NSHostingView(rootView: TransferDetailsView(monitor: monitor, close: { }))
+            check(hosting.fittingSize.width >= 440 && hosting.fittingSize.height > 250, "details view lays out: \(hosting.fittingSize)")
+            TransferDetailsWindows.show(monitor)
+            check(TransferDetailsWindows.isOpen(for: monitor), "details window opens")
+            monitor.update(TransferProgress(itemsDone: 0, itemsTotal: 2, bytesDone: 5_000_000, bytesTotal: 20_000_000, current: "a.iso"))
+            DispatchQueue.main.async {
+                check(NSApp.windows.contains { $0.title.hasSuffix("Copying") && $0.title.contains("25%") }, "the window title follows the progress: \(NSApp.windows.map(\.title).filter { $0.contains("Copying") })")
+                TransferDetailsWindows.close(monitor)
+            }
+        }
+        later(0.5) {
+            check(!NSApp.windows.contains { $0.title.contains("Copying") }, "the details window closes")
+        }
+        // operation queue
+        later {
+            let queue = TransferQueue()
+            var log: [String] = []
+            var finishers: [String: () -> Void] = [:]
+            func submit(_ name: String, key: String, sources: [URL] = []) -> Bool {
+                queue.submit(key: key, sources: sources, detail: name, onCancel: { log.append("cancel \(name)") }) { done in
+                    log.append("start \(name)")
+                    finishers[name] = done
+                }
+            }
+            check(submit("A", key: "disk1", sources: [dirA.appendingPathComponent("a.txt")]), "queue: the first operation starts at once")
+            check(!submit("B", key: "disk1", sources: [dirA.appendingPathComponent("b.jpg")]), "queue: a second one for the same place waits")
+            check(submit("C", key: "disk2"), "queue: an operation for another place runs at the same time")
+            check(!submit("D", key: "disk1"), "queue: a third waits too")
+            check(log == ["start A", "start C"] && queue.waiting.map(\.detail) == ["B", "D"], "queue: only A and C run, B and D wait in order: \(log) \(queue.waiting.map(\.detail))")
+            check(queue.isBusy(dirA.appendingPathComponent("a.txt")) && queue.isBusy(dirA.appendingPathComponent("b.jpg")), "queue: running and waiting sources are busy")
+            check(queue.isBusy(dirA) && queue.isBusy(dirA.appendingPathComponent("a.txt/inside")), "queue: the folder that holds a source and a path inside one are busy")
+            check(!queue.isBusy(dirB) && !queue.isBusy(dirA.appendingPathComponent("c.png")), "queue: unrelated items are not busy")
+            queue.cancelWaiting(queue.waiting[1].id)
+            check(log.last == "cancel D" && queue.waiting.map(\.detail) == ["B"], "queue: a waiting operation can be removed")
+            finishers["A"]?()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                check(log.contains("start B") && !log.contains("start D"), "queue: when A ends B starts: \(log)")
+                check(queue.waiting.isEmpty && !queue.isBusy(dirA.appendingPathComponent("a.txt")) && queue.isBusy(dirA.appendingPathComponent("b.jpg")), "queue: A's source is free again, B's is busy")
+                finishers["B"]?(); finishers["C"]?()
+                finishers["B"]?()          // a second call must do nothing
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { check(queue.isIdle, "queue: idle when everything ended") }
+            }
+        }
+        later(0.8) {
+            // two real copies into one folder: the second waits, both finish, and a busy file cannot be trashed
+            let src = root.appendingPathComponent("qsrc"), dst = root.appendingPathComponent("qdst")
+            try? fm.createDirectory(at: src, withIntermediateDirectories: true)
+            try? fm.createDirectory(at: dst, withIntermediateDirectories: true)
+            var first: [URL] = [], second: [URL] = []
+            for i in 1...60 { let u = src.appendingPathComponent("a\(i).bin"); try? Data(count: 50_000).write(to: u); first.append(u) }
+            for i in 1...3 { let u = src.appendingPathComponent("b\(i).bin"); try? Data(count: 1000).write(to: u); second.append(u) }
+            guard let vc = one.listerViewController else { check(false, "lister for the queue test"); return }
+            let models = [one.model]
+            vc.beginTransfer(.copy, items: first, into: dst, showingIn: models)
+            vc.beginTransfer(.copy, items: second, into: dst, showingIn: models)
+            check(TransferQueue.shared.waiting.count == 1, "queue: the second real copy waits: \(TransferQueue.shared.waiting.count)")
+            check(one.model.progress != nil && one.model.statusMessage == "Waiting in queue…", "queue: the lister shows the running copy and the waiting message")
+            check(vc.refuseIfBusy([second[0]]) && one.model.errorMessage?.contains("is being transferred") == true, "a file that waits in the queue is protected: \(one.model.errorMessage ?? "")")
+            check(!vc.refuseIfBusy([dirB.appendingPathComponent("z.txt")]), "other files are not protected")
+            one.model.errorMessage = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                let copied = (try? fm.contentsOfDirectory(atPath: dst.path)) ?? []
+                check(copied.count == 63, "queue: both copies finished: \(copied.count) files")
+                check(TransferQueue.shared.isIdle && TransferQueue.shared.waiting.isEmpty, "queue: empty afterwards")
+                check(!vc.refuseIfBusy([second[0]]), "files are free again after the copies")
+                one.model.statusMessage = nil
+                for d in [src, dst] { try? fm.removeItem(at: d) }
+            }
+        }
+        later(3.6) { }
+        // lister labels
+        later {
+            guard let vc = one.listerViewController else { check(false, "lister for the label test"); return }
+            check(one.model.label.isEmpty && one.model.displayName == FileManager.default.displayName(atPath: one.model.url.path), "a lister has no label at first")
+            one.model.setLabel("NAS", color: "orange")
+            check(one.window?.title.hasPrefix("NAS — ") == true, "the window title starts with the label: \(one.window?.title ?? "")")
+            check(one.menuTitle.hasPrefix("NAS  ·  "), "the menu-bar list shows the label: \(one.menuTitle)")
+            check(one.model.displayName == "NAS", "the label is the lister's name in menus")
+            let menu = NSMenu()
+            vc.populate(menu, selection: [])
+            let titles = menu.items.map(\.title)
+            check(titles.contains("Rename This Lister…") && !titles.contains("Name This Lister…"), "the folder menu offers Rename once a label exists")
+            check(vc.makeTitleBarMenu().items.contains { $0.title == "Rename This Lister…" }, "the title-bar menu offers it too")
+            check(ListerAction.nameLister.title == "Name lister", "the action can be put on a button or a key")
+            check(LabelPalette.color("orange") != nil && LabelPalette.color("nope") == nil && LabelPalette.color(nil) == nil, "label colours")
+            let copy = ListerManager.shared.duplicate(one)
+            check(copy.model.label.isEmpty, "a duplicate does not inherit the label")
+            copy.window?.close()
+            // the destination shows its label in the Copy to… item
+            let roleBefore = one.model.role
+            ListerManager.shared.toggleRole(.destination, for: one)
+            if let other = ListerManager.shared.allControllers.first(where: { $0 !== one }), let otherVC = other.listerViewController {
+                let m = NSMenu()
+                otherVC.populate(m, selection: other.model.items.filter { $0.name == "b.jpg" || $0.name == "a.txt" }.prefix(1).map { $0 })
+                check(m.items.contains { $0.title == "Copy to “NAS”" }, "Copy to… names the destination by its label: \(m.items.map(\.title).filter { $0.hasPrefix("Copy") })")
+            }
+            ListerManager.shared.toggleRole(.destination, for: one)
+            if roleBefore == .source { ListerManager.shared.toggleRole(.source, for: one) }
+            // saved in the layout and restored
+            check(LayoutStore.save(from: ListerManager.shared) >= 1, "layout saved with a label")
+            let saved = (try? JSONDecoder().decode([ListerSnapshot].self, from: Data(contentsOf: LayoutStore.url))) ?? []
+            check(saved.contains { $0.label == "NAS" && $0.labelColor == "orange" }, "the layout file holds the label and colour")
+            let before = ListerManager.shared.openCount
+            LayoutStore.restore(into: ListerManager.shared)
+            check(ListerManager.shared.allControllers.suffix(ListerManager.shared.openCount - before).contains { $0.model.label == "NAS" && $0.model.labelColor == "orange" }, "a restored lister has its label back")
+            for c in ListerManager.shared.allControllers.suffix(ListerManager.shared.openCount - before) { c.window?.close() }
+            if roleBefore == .source, one.model.role != .source { ListerManager.shared.toggleRole(.source, for: one) }   // restoring moved it
+            // the sheet and the badge draw
+            let hosting = NSHostingView(rootView: ListerLabelView(initialName: "NAS", initialColor: "orange", onApply: { _, _ in }, close: { }))
+            check(hosting.fittingSize.width >= 380 && hosting.fittingSize.height > 150, "the label sheet lays out: \(hosting.fittingSize)")
+            LocalizationAudit.touch(PathBarView(model: one.model, onToggleRole: { _ in }, onConnect: { _ in }), size: NSSize(width: 700, height: 80))
+            one.model.setLabel("", color: nil)
+            check(one.model.labelColor == nil && one.model.label.isEmpty && one.window?.title.contains("—") == false || one.window?.title.hasPrefix("NAS") == false, "removing the label restores the title: \(one.window?.title ?? "")")
+        }
+        // Recents and Shared
+        later {
+            guard let vc = one.listerViewController else { check(false, "lister for the places test"); return }
+            SharedPlaces.browsingEnabled = false
+            check(VirtualPlace.place(for: VirtualPlace.recents.url) == .recents && VirtualPlace.place(for: VirtualPlace.shared.url) == .shared && VirtualPlace.place(for: dirA) == nil, "virtual place addresses")
+            check(ListerModel.comparisonKey(VirtualPlace.recents.url) != ListerModel.comparisonKey(VirtualPlace.shared.url), "the two lists are different locations")
+            check(ListerModel.displayPath(VirtualPlace.recents.url) == "Recents" && PathSegments.make(for: VirtualPlace.shared.url).map(\.title) == ["Shared"], "path text and breadcrumb of a list")
+            // which files belong in Recents
+            let old = Date()
+            let docs = root.appendingPathComponent("recent-docs")
+            try? fm.createDirectory(at: docs.appendingPathComponent("folder"), withIntermediateDirectories: true)
+            try? fm.createDirectory(at: docs.appendingPathComponent("Some.app"), withIntermediateDirectories: true)
+            try? fm.createDirectory(at: docs.appendingPathComponent(".hidden"), withIntermediateDirectories: true)
+            for name in ["new.txt", "old.txt", ".dot.txt"] { try? Data("x".utf8).write(to: docs.appendingPathComponent(name)) }
+            check(RecentFiles.accept(path: docs.appendingPathComponent("new.txt").path, date: old) != nil, "Recents accepts a document")
+            check(RecentFiles.accept(path: docs.appendingPathComponent("folder").path, date: old) == nil, "Recents skips folders")
+            check(RecentFiles.accept(path: docs.appendingPathComponent("Some.app").path, date: old) == nil, "Recents skips applications")
+            check(RecentFiles.accept(path: docs.appendingPathComponent(".dot.txt").path, date: old) == nil, "Recents skips hidden files")
+            check(RecentFiles.accept(path: "/Users/x/Library/Caches/a.txt", date: old) == nil && RecentFiles.accept(path: docs.appendingPathComponent("gone.txt").path, date: old) == nil, "Recents skips ~/Library and missing files")
+            // the list in a lister
+            let sortBefore = (one.model.sortKey, one.model.ascending)
+            let newer = Date().addingTimeInterval(-60), older = Date().addingTimeInterval(-86_400 * 3)
+            RecentFiles.override = { done in done([RecentFiles.Seed(url: docs.appendingPathComponent("old.txt"), lastUsed: older), RecentFiles.Seed(url: docs.appendingPathComponent("new.txt"), lastUsed: newer)]) }
+            let backTo = one.model.url
+            one.model.navigate(to: VirtualPlace.recents.url)
+            check(one.model.isVirtual && one.model.virtualPlace == .recents && !one.model.canGoParent, "the lister shows Recents and has no parent")
+            check(one.window?.title == "Recents" && one.model.displayName == "Recents", "the window is titled Recents: \(one.window?.title ?? "")")
+            check(one.model.sortKey == .date && one.model.ascending == false, "Recents sorts by date, newest first")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                check(one.model.items.map(\.name) == ["new.txt", "old.txt"], "Recents lists the files, newest first: \(one.model.items.map(\.name))")
+                check(one.model.items.first?.modified.map { abs($0.timeIntervalSince(newer)) < 1 } == true, "the date shown is the last-opened date")
+                check(vc.tableView.tableColumns.contains { $0.identifier.rawValue == "folder" }, "a list gets the Where column")
+                check(ListerViewController.text(for: .folder, of: one.model.items[0]).contains("recent-docs"), "the Where column shows the folder: \(ListerViewController.text(for: .folder, of: one.model.items[0]))")
+                check(vc.refuseInList("New Folder") && one.model.statusMessage?.contains("open a folder first") == true, "folder-only commands are refused in a list")
+                check(one.model.items.allSatisfy { $0.url.isFileURL } && !one.model.items[0].isNavigable, "rows of Recents are real files")
+                // Shared
+                SharedPlaces.shared.update(type: "_smb._tcp", names: ["Office NAS", "Printer Room"])
+                SharedPlaces.shared.update(type: "_sftp-ssh._tcp", names: ["Office NAS"])
+                var saved = ServerProfile(); saved.name = "Web host"; saved.host = "example.org"; saved.scheme = .sftp
+                let rows = SharedPlaces.shared.rows(servers: [saved], volumes: [dirB])
+                check(rows.map(\.name) == [FileManager.default.displayName(atPath: dirB.path), "Web host", "Office NAS", "Printer Room"], "Shared rows: volumes, saved servers, computers: \(rows.map(\.name))")
+                check(rows[0].isNavigable && !rows[1].isNavigable && !rows[2].isNavigable, "only volumes open as folders")
+                check(SharedPlaces.shared.computers.first(where: { $0.name == "Office NAS" })?.types == ["_smb._tcp", "_sftp-ssh._tcp"], "a computer with several services lists them in order of preference")
+                if case .server(let id)? = SharedRow.parse(rows[1].url) { check(id == saved.id, "server rows carry their id") } else { check(false, "server row parses") }
+                if case .computer(let name, let types)? = SharedRow.parse(rows[2].url) { check(name == "Office NAS" && types.first == "_smb._tcp", "computer rows carry name and services") } else { check(false, "computer row parses") }
+                check(rows[2].kind?.contains("SMB") == true && rows[1].kind?.contains("SFTP") == true, "rows say what they are: \(rows[1].kind ?? "") / \(rows[2].kind ?? "")")
+                one.model.navigate(to: VirtualPlace.shared.url)
+                check(one.model.virtualPlace == .shared && one.model.sortKey == .name, "the lister shows Shared")
+                check(ListerViewController.icon(for: rows[2]) != nil && ListerViewController.icon(for: rows[1]) != nil, "rows without a file get a symbol icon")
+                // leaving restores the sort order and the columns
+                one.model.navigate(to: backTo)
+                check(!one.model.isVirtual && one.model.sortKey == sortBefore.0 && one.model.ascending == sortBefore.1, "going back to a folder restores the sort order")
+                check(!vc.tableView.tableColumns.contains { $0.identifier.rawValue == "folder" } || ColumnSettings.visible.contains(.folder), "the Where column goes away again")
+                one.model.navigate(to: VirtualPlace.recents.url)
+                one.model.goBack()
+                check(one.model.url == backTo, "Back leaves Recents for the previous folder")
+                SharedPlaces.shared.update(type: "_smb._tcp", names: [])
+                SharedPlaces.shared.update(type: "_sftp-ssh._tcp", names: [])
+                RecentFiles.override = nil
+                try? fm.removeItem(at: docs)
+                SharedPlaces.browsingEnabled = true
+            }
+        }
+        later(1.2) { }
         // layout
         later {
             let count = manager.openCount

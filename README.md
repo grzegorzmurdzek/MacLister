@@ -6,6 +6,14 @@ menu-bar agent, no Dock icon.
 
 **Language:** English · [Polski](README.pl.md)
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/lister-pair-dark.jpg">
+    <img src="docs/screenshots/lister-pair.jpg" alt="Two MacLister listers: Projects as the source with three files selected, a NAS as the destination, a copy in progress" width="900">
+  </picture>
+</p>
+<p align="center"><sub>Source and destination listers with names, colours and a copy in progress. All files in the pictures are made up.</sub></p>
+
 ## Highlights
 
 - **Desktop double-click opens a lister** at the cursor. Any number of listers at once.
@@ -133,15 +141,25 @@ On many laptops F-keys need **fn**.
 
 ### Menus
 
-- **Right-click the file list** – commands for the item(s) under the cursor (Open, Quick Look, Extract,
-  Copy/Move to destination, Rename, Info, Duplicate, Reveal in Finder, Copy Path, Move to Trash), or for the
-  folder when you click empty space (Select by Pattern, Filter, Calculate Folder Sizes, Compare, New Folder …).
+- **Right-click the file list** – laid out like Finder's menu, with MacLister's own commands kept:
+  *Open*, *Open With*, *Extract*, Copy/Move to the destination lister, **Move to Trash** (with its icon),
+  *Info*, *Rename*, *Attributes*, **Compress** (`name.zip`, or `Archive.zip` for several items), *Duplicate*,
+  *Make Alias*, *Make Symbolic Link*, *Quick Look*, *Copy* (puts the files on the pasteboard), *Copy Path*,
+  **Share** (the system sharing menu), a row of **coloured tag dots** and **Tags…**, **Quick Actions**
+  (rotate, create PDF and convert for images, plus your Automator Quick Action workflows from
+  `~/Library/Services`) and **Services** (whatever the installed services offer for the selected files,
+  e.g. “New iTerm2 Tab Here”), then *Open in Destination* and *Reveal in Finder*. Clicking empty space gives the
+  folder commands (Select by Pattern, Filter, Calculate Folder Sizes, Compare, New Folder …).
+  Tag dots toggle a colour on every selected item (a dot with a check mark means all of them have it);
+  *Tags…* adds and removes any tags, coloured or not.
 - **Right-click the title bar** (or Control-click) – lister commands: **Duplicate Lister**, New Lister, Set as
   Source / Destination, Swap, Parent, Back, Refresh, Hidden files, Filter, Bookmarks, Recent Folders,
   Terminal Here, Bring All to Front, Close, Close All, Save/Restore Layout.
 - **Menu-bar icon** – list of all open listers (click to bring one to the front; roles are shown as
   \[SRC\] / \[DST\]), Bring All to Front, Close All, *Duplicate Frontmost Lister*, *Terminal App*, layouts,
   *Edit Filetypes…*, *Edit Buttons…*, *Reload Buttons*, *Reset Buttons to Defaults*, permission status.
+
+<p align="center"><img src="docs/screenshots/context-menu.jpg" alt="The context menu of a file: Open, Open With, Move to Trash, Info, Rename, Compress, Duplicate, Make Alias, Share, tag colours, Quick Actions, Services and MacLister's own commands" width="420"></p>
 
 ### Selecting, filtering, sizes
 
@@ -154,6 +172,8 @@ On many laptops F-keys need **fn**.
 - **Sizes**: calculates the recursive size of the selected folders (or all folders) into the Size column.
 
 ### Renaming, attributes, links
+
+<p align="center"><img src="docs/screenshots/batch-rename.jpg" alt="Batch rename with a live preview of the new names" width="560"></p>
 
 - **Batch rename** (F2 with several items, or *Rename N Items…*): find and replace (plain text or regular
   expression with `$1`, `$2`, optional case matching), a name template with `[N]` name, `[C]` counter (start and
@@ -199,6 +219,8 @@ defaults write com.example.MacLister restoreLayoutAtLaunch -bool true
 
 ## Servers: FTP, FTPS and SFTP
 
+<p align="center"><img src="docs/screenshots/connect-to-server.jpg" alt="The Connect to Server form" width="480"></p>
+
 A lister can show a server like a folder. **Go → Connect to Server…** (or ⌘K, or the menu-bar icon) asks for the
 protocol, address, port, user and password. SFTP can use a key file (and its passphrase) or your ssh-agent.
 **Remember this server** puts it in the Go menu; **Save the password in the Keychain** keeps the password out of
@@ -237,6 +259,8 @@ double-clicking one tries to enter it first. Opening a server file downloads it;
 
 ## Keyboard shortcuts you can set
 
+<p align="center"><img src="docs/screenshots/keyboard-shortcuts.jpg" alt="The Keyboard Shortcuts window" width="520"></p>
+
 Menu-bar icon → **Keyboard Shortcuts…** (also in the title-bar menu). Click a shortcut and press the keys; Esc cancels,
 Delete removes it.
 
@@ -254,6 +278,60 @@ Every shortcut is checked before it is accepted, and the editor explains what is
 5. a combination assigned to another action asks whether to move it.
 
 Assignments are stored in `shortcuts.json`.
+
+## Progress details
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/transfer-details-dark.jpg">
+    <img src="docs/screenshots/transfer-details.jpg" alt="The transfer details window with a speed graph, elapsed and remaining time and Pause and Cancel" width="480">
+  </picture>
+</p>
+
+The progress bar in a lister's status line is clickable: it opens a window (the Mac counterpart of Directory Opus'
+copy dialog) with what is being copied and where, a progress bar with the current file, a **speed graph**,
+the current / average / peak speed, elapsed and remaining time, items and bytes done, and **Pause** / **Cancel**.
+Pause takes effect after the file being copied (one file cannot be interrupted half way). Speed moves smoothly even
+inside one big file for local copies and downloads; uploads report per file. The window title follows the job
+(“37% — Copying”) and the window closes itself a moment after the job ends.
+
+### Recents and Shared
+
+The **Go** menu starts with **Recents** — the files you opened in the last 30 days, newest first, taken from
+Spotlight (documents only: no folders, applications or `~/Library`) — and ends its places with **Shared**: mounted
+network volumes, the servers you saved in MacLister and computers that offer file sharing on the local network
+(SMB, AFP, SFTP, FTP). Both are lists, not folders: a *Where* column shows each file's folder, you can open, preview,
+copy and drag the files, but Parent, New Folder, bookmarks and "copy into this lister" are not available. Opening
+an SMB or AFP computer hands it to Finder to mount; an SFTP or FTP computer opens the *Connect to Server* form filled
+in. The first visit to Shared makes macOS ask once for **Local Network** access.
+
+### Naming listers
+
+With many listers open it helps to tell them apart: right-click the title bar (or the empty list area) →
+**Name This Lister…** and give it a name and a colour. The name appears in the window title (“NAS — Backup”), as a
+coloured tag next to the path (click it to change), in the menu-bar list of listers and in *Copy to “NAS”* /
+*Move to “NAS”* — so you pick the destination by name. Names are saved with *Save Layout*; a duplicate does not
+inherit one. There is also an action, `nameLister`, for a button or a key.
+
+### Queue
+
+Copies and moves that write to the same disk (or the same server) run one after another; the later ones show
+*Waiting in queue…* and a small **In queue: N** menu next to the progress bar, where each can be removed. Operations
+for different disks still run side by side. Files that are being copied or moved — or wait to be — cannot be trashed,
+renamed or moved from under the job; MacLister says so instead.
+
+## Dates
+
+The *Modified* and *Created* columns can show dates the way Finder does — *Today, 10:05*, *Yesterday …*
+(in Polish also *przedwczoraj*), older dates in full. Right-click the column header → **Relative Dates**
+(on by default; the raw form is one click away).
+
+## Language
+
+MacLister follows the macOS language: Polish on a Polish system, English otherwise. To choose, use the menu-bar icon
+→ **Language** → *System Default / English / Polski*; the app offers to restart. Counted texts use proper Polish plurals
+(1 element, 2 elementy, 5 elementów). `python3 Tools/check_localization.py` verifies that every text in the sources has a
+Polish translation (`Support/pl.lproj`).
 
 ## Progress in the menu bar
 
@@ -314,6 +392,7 @@ Set with `defaults write com.example.MacLister <key> <value>`:
 | `desktopTrigger` | `doubleClick` | `doubleClick`, `middleClick` or `both` (also: menu-bar icon → *Open Lister With*) |
 | `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` or `bottom` |
 | `showButtonLabels` | false | text next to the button icons |
+| `relativeDates` | true | *Today / Yesterday* in the date columns (also: column header menu) |
 | `debugHitTest` | false | log every click decision to `~/Library/Logs/MacLister.log` |
 
 ## Troubleshooting

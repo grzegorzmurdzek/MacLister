@@ -54,9 +54,13 @@ struct TransferProgress {
     var bytesDone: Int64 = 0
     var bytesTotal: Int64 = 0
     var current = ""
+    /// Bytes of the file being copied right now that are already written (finished files are in bytesDone).
+    var inFlight: Int64 = 0
+
+    var effectiveBytes: Int64 { bytesDone + inFlight }
 
     var fraction: Double {
-        if bytesTotal > 0 { return min(1, Double(bytesDone) / Double(bytesTotal)) }
+        if bytesTotal > 0 { return min(1, Double(effectiveBytes) / Double(bytesTotal)) }
         return itemsTotal > 0 ? Double(itemsDone) / Double(itemsTotal) : 0
     }
 }
@@ -81,6 +85,10 @@ final class TransferJob {
     private var result = TransferResult()
     private var progress = TransferProgress()
     private var lastReport = Date.distantPast
+    let gate = PauseGate()
+    private let live = LiveBytes()
+    private let snapshotLock = NSLock()
+    private var lastSnapshot = TransferProgress()
 
     init(kind: TransferKind, items: [URL], destination: URL) {
         self.kind = kind
@@ -89,7 +97,7 @@ final class TransferJob {
     }
 
     var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return cancelFlag }
-    func cancel() { lock.lock(); cancelFlag = true; lock.unlock() }
+    func cancel() { lock.lock(); cancelFlag = true; lock.unlock(); gate.resume() }
 
     /// Runs on a background queue; `completion` is called on the main queue.
     func start(completion: @escaping (TransferResult) -> Void) {
@@ -102,7 +110,7 @@ final class TransferJob {
     func runSync() -> TransferResult {
         result = TransferResult()
         progress = TransferProgress(itemsTotal: items.count)
-        progress.current = "Preparing…"
+        progress.current = tr("Preparing…")
         report(force: true)
 
         var sizes: [URL: Int64] = [:]
@@ -127,6 +135,7 @@ final class TransferJob {
     /// Transfers one file or folder into `directory`. Returns true when everything arrived.
     @discardableResult
     private func transferNode(_ source: URL, into directory: URL, topLevel: Bool, knownSize: Int64? = nil) -> Bool {
+        gate.waitWhilePaused { isCancelled }
         if isCancelled { return false }
         var target = directory.appendingPathComponent(source.lastPathComponent)
         let sourceInfo = Self.info(of: source)
@@ -138,7 +147,7 @@ final class TransferJob {
             return false
         }
         if Self.isInside(directory, of: source) {
-            result.failures.append("\(source.lastPathComponent): cannot \(kind == .copy ? "copy" : "move") a folder into itself")
+            result.failures.append("\(source.lastPathComponent): " + (kind == .copy ? tr("cannot copy a folder into itself") : tr("cannot move a folder into itself")))
             return false
         }
 
@@ -195,11 +204,11 @@ final class TransferJob {
                 if Self.sameVolume(source, directory) {
                     try fm.moveItem(at: source, to: target)
                 } else {
-                    try fm.copyItem(at: source, to: target)
+                    try copyWatched(source, to: target, size: size)
                     try fm.removeItem(at: source)
                 }
             } else {
-                try fm.copyItem(at: source, to: target)
+                try copyWatched(source, to: target, size: size)
             }
             if topLevel { result.done.append(target) }
             advance(size)
@@ -267,12 +276,38 @@ final class TransferJob {
         report(force: false)
     }
 
+    /// Copies one file; a big one is watched while it grows so progress and speed move smoothly.
+    private func copyWatched(_ source: URL, to target: URL, size: Int64) throws {
+        guard size >= 4_000_000, onProgress != nil else { try fm.copyItem(at: source, to: target); return }
+        let watcher = GrowthWatcher(url: target) { [weak self] written in self?.reportLive(min(written, size)) }
+        defer {
+            watcher.stop()
+            live.set(0)
+        }
+        try fm.copyItem(at: source, to: target)
+    }
+
+    /// Called from the poller's queue: the last snapshot, with the bytes written so far.
+    private func reportLive(_ written: Int64) {
+        live.set(written)
+        guard let onProgress else { return }
+        snapshotLock.lock()
+        var snapshot = lastSnapshot
+        snapshotLock.unlock()
+        snapshot.inFlight = written
+        DispatchQueue.main.async { onProgress(snapshot) }
+    }
+
     private func report(force: Bool) {
         guard let onProgress else { return }
         let now = Date()
         guard force || now.timeIntervalSince(lastReport) >= 0.1 else { return }
         lastReport = now
-        let snapshot = progress
+        var snapshot = progress
+        snapshot.inFlight = live.current
+        snapshotLock.lock()
+        lastSnapshot = snapshot
+        snapshotLock.unlock()
         DispatchQueue.main.async { onProgress(snapshot) }
     }
 

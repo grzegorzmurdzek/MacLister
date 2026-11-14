@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>%d items</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>%d elementy</string>
+			<key>many</key>
+			<string>%d elementów</string>
+			<key>one</key>
+			<string>%d element</string>
+			<key>other</key>
+			<string>%d elementów</string>
+		</dict>
+	</dict>
+	<key>Attributes of %d Items</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>Atrybuty %d elementów</string>
+			<key>many</key>
+			<string>Atrybuty %d elementów</string>
+			<key>one</key>
+			<string>Atrybuty %d elementu</string>
+			<key>other</key>
+			<string>Atrybuty %d elementów</string>
+		</dict>
+	</dict>
+	<key>Compress %d Items</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>Kompresuj %d elementy</string>
+			<key>many</key>
+			<string>Kompresuj %d elementów</string>
+			<key>one</key>
+			<string>Kompresuj %d element</string>
+			<key>other</key>
+			<string>Kompresuj %d elementów</string>
+		</dict>
+	</dict>
+	<key>Copied %d items</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>Skopiowano %d elementy</string>
+			<key>many</key>
+			<string>Skopiowano %d elementów</string>
+			<key>one</key>
+			<string>Skopiowano %d element</string>
+			<key>other</key>
+			<string>Skopiowano %d elementów</string>
+		</dict>
+	</dict>
+	<key>Delete %d items from the server?</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>Usunąć %d elementy z serwera?</string>
+			<key>many</key>
+			<string>Usunąć %d elementów z serwera?</string>
+			<key>one</key>
+			<string>Usunąć %d element z serwera?</string>
+			<key>other</key>
+			<string>Usunąć %d elementów z serwera?</string>
+		</dict>
+	</dict>
+	<key>Extracting %d archives…</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>Rozpakowywanie %d archiwów…</string>
+			<key>many</key>
+			<string>Rozpakowywanie %d archiwów…</string>
+			<key>one</key>
+			<string>Rozpakowywanie %d archiwum…</string>
+			<key>other</key>
+			<string>Rozpakowywanie %d archiwów…</string>
+		</dict>
+	</dict>
+	<key>Move %d items to the Trash?</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>Przenieść %d elementy do Kosza?</string>
+			<key>many</key>
+			<string>Przenieść %d elementów do Kosza?</string>
+			<key>one</key>
+			<string>Przenieść %d element do Kosza?</string>
+			<key>other</key>
+			<string>Przenieść %d elementów do Kosza?</string>
+		</dict>
+	</dict>
+	<key>Open %d Items</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>Otwórz %d elementy</string>
+			<key>many</key>
+			<string>Otwórz %d elementów</string>
+			<key>one</key>
+			<string>Otwórz %d element</string>
+			<key>other</key>
+			<string>Otwórz %d elementów</string>
+		</dict>
+	</dict>
+	<key>Rename %d Items</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>Zmień nazwy %d elementów</string>
+			<key>many</key>
+			<string>Zmień nazwy %d elementów</string>
+			<key>one</key>
+			<string>Zmień nazwę %d elementu</string>
+			<key>other</key>
+			<string>Zmień nazwy %d elementów</string>
+		</dict>
+	</dict>
+	<key>Rename %d Items…</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>Zmień nazwy %d elementów…</string>
+			<key>many</key>
+			<string>Zmień nazwy %d elementów…</string>
+			<key>one</key>
+			<string>Zmień nazwę %d elementu…</string>
+			<key>other</key>
+			<string>Zmień nazwy %d elementów…</string>
+		</dict>
+	</dict>
+	<key>Renamed %d items</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>Zmieniono nazwy %d elementów</string>
+			<key>many</key>
+			<string>Zmieniono nazwy %d elementów</string>
+			<key>one</key>
+			<string>Zmieniono nazwę %d elementu</string>
+			<key>other</key>
+			<string>Zmieniono nazwy %d elementów</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

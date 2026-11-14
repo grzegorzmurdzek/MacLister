@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let buttonBarMenu = NSMenu(title: "Button Bar")
     private let triggerMenu = NSMenu(title: "Open Lister With")
     private let terminalMenu = NSMenu(title: "Terminal App")
+    private let languageMenu = NSMenu(title: "Language")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         DispatchQueue.global(qos: .utility).async { RemoteCache.purge() }     // old downloaded copies
@@ -46,6 +47,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         if CommandLine.arguments.contains("--selftest-features") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestFeatures.run() }
+            return
+        }
+        if let flag = CommandLine.arguments.firstIndex(of: "--render-details"), CommandLine.arguments.indices.contains(flag + 1) {
+            let out = URL(fileURLWithPath: CommandLine.arguments[flag + 1])
+            let dark = CommandLine.arguments.contains("dark")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                PreviewRender.transferDetails(to: out, dark: dark)
+                NSApp.terminate(nil)
+            }
+            return
+        }
+        if let flag = CommandLine.arguments.firstIndex(of: "--render-lister"), CommandLine.arguments.indices.contains(flag + 1) {
+            let out = URL(fileURLWithPath: CommandLine.arguments[flag + 1])
+            let dark = CommandLine.arguments.contains("dark")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                PreviewRender.lister(to: out, label: "NAS", color: "orange", dark: dark)
+                NSApp.terminate(nil)
+            }
+            return
+        }
+        if let flag = CommandLine.arguments.firstIndex(of: "--screenshots"), CommandLine.arguments.indices.contains(flag + 1) {
+            let out = URL(fileURLWithPath: CommandLine.arguments[flag + 1])
+            let dark = CommandLine.arguments.contains("dark")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { Screenshots.run(outDir: out, dark: dark) }
+            return
+        }
+        if CommandLine.arguments.contains("--check-recents") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                PreviewRender.recentsCheck()
+            }
+            return
+        }
+        if CommandLine.arguments.contains("--selftest-language") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestLanguage.run() }
             return
         }
         if CommandLine.arguments.contains("--selftest") {
@@ -90,57 +125,64 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
 
-        let newLister = menu.addItem(withTitle: "New Lister", action: #selector(newLister), keyEquivalent: "n")
+        let newLister = menu.addItem(withTitle: tr("New Lister"), action: #selector(newLister), keyEquivalent: "n")
         newLister.target = self
         menu.addItem(.separator())
 
         statusLine = menu.addItem(withTitle: "", action: nil, keyEquivalent: "")
         statusLine.isEnabled = false
-        settingsItem = menu.addItem(withTitle: "Open Accessibility Settings…", action: #selector(openAccessibilitySettings), keyEquivalent: "")
+        settingsItem = menu.addItem(withTitle: tr("Open Accessibility Settings…"), action: #selector(openAccessibilitySettings), keyEquivalent: "")
         settingsItem.target = self
         menu.addItem(.separator())
 
-        centerItem = menu.addItem(withTitle: "Center Lister on Cursor", action: #selector(toggleCenter), keyEquivalent: "")
+        centerItem = menu.addItem(withTitle: tr("Center Lister on Cursor"), action: #selector(toggleCenter), keyEquivalent: "")
         centerItem.target = self
-        labelsItem = menu.addItem(withTitle: "Show Button Labels", action: #selector(toggleButtonLabels), keyEquivalent: "")
+        labelsItem = menu.addItem(withTitle: tr("Show Button Labels"), action: #selector(toggleButtonLabels), keyEquivalent: "")
         labelsItem.target = self
-        let triggerItem = menu.addItem(withTitle: "Open Lister With", action: nil, keyEquivalent: "")
+        let triggerItem = menu.addItem(withTitle: tr("Open Lister With"), action: nil, keyEquivalent: "")
         triggerItem.submenu = triggerMenu
         for trigger in DesktopTrigger.allCases {
             let item = triggerMenu.addItem(withTitle: trigger.menuTitle, action: #selector(chooseTrigger(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = trigger.rawValue
         }
-        let buttonBarItem = menu.addItem(withTitle: "Button Bar", action: nil, keyEquivalent: "")
+        let buttonBarItem = menu.addItem(withTitle: tr("Button Bar"), action: nil, keyEquivalent: "")
         buttonBarItem.submenu = buttonBarMenu
         for position in ButtonBarPosition.allCases {
             let item = buttonBarMenu.addItem(withTitle: position.menuTitle, action: #selector(chooseButtonBarPosition(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = position.rawValue
         }
-        let terminalItem = menu.addItem(withTitle: "Terminal App", action: nil, keyEquivalent: "")
+        let terminalItem = menu.addItem(withTitle: tr("Terminal App"), action: nil, keyEquivalent: "")
         terminalItem.submenu = terminalMenu
-        let shortcuts = menu.addItem(withTitle: "Keyboard Shortcuts…", action: #selector(showShortcuts), keyEquivalent: "")
+        let languageItem = menu.addItem(withTitle: tr("Language"), action: nil, keyEquivalent: "")
+        languageItem.submenu = languageMenu
+        for language in AppLanguage.allCases {
+            let item = languageMenu.addItem(withTitle: language.menuTitle, action: #selector(chooseLanguage(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = language.rawValue
+        }
+        let shortcuts = menu.addItem(withTitle: tr("Keyboard Shortcuts…"), action: #selector(showShortcuts), keyEquivalent: "")
         shortcuts.target = self
-        let connect = menu.addItem(withTitle: "Connect to Server…", action: #selector(connectFromMenu), keyEquivalent: "k")
+        let connect = menu.addItem(withTitle: tr("Connect to Server…"), action: #selector(connectFromMenu), keyEquivalent: "k")
         connect.target = self
-        let duplicate = menu.addItem(withTitle: "Duplicate Frontmost Lister", action: #selector(duplicateFrontmost), keyEquivalent: "")
+        let duplicate = menu.addItem(withTitle: tr("Duplicate Frontmost Lister"), action: #selector(duplicateFrontmost), keyEquivalent: "")
         duplicate.target = self
-        let save = menu.addItem(withTitle: "Save Layout", action: #selector(saveLayout), keyEquivalent: "")
+        let save = menu.addItem(withTitle: tr("Save Layout"), action: #selector(saveLayout), keyEquivalent: "")
         save.target = self
-        let restore = menu.addItem(withTitle: "Restore Layout", action: #selector(restoreLayout), keyEquivalent: "")
+        let restore = menu.addItem(withTitle: tr("Restore Layout"), action: #selector(restoreLayout), keyEquivalent: "")
         restore.target = self
         menu.addItem(.separator())
-        let filetypes = menu.addItem(withTitle: "Edit Filetypes…", action: #selector(editFiletypes), keyEquivalent: "")
+        let filetypes = menu.addItem(withTitle: tr("Edit Filetypes…"), action: #selector(editFiletypes), keyEquivalent: "")
         filetypes.target = self
-        let edit = menu.addItem(withTitle: "Edit Buttons…", action: #selector(editButtons), keyEquivalent: "")
+        let edit = menu.addItem(withTitle: tr("Edit Buttons…"), action: #selector(editButtons), keyEquivalent: "")
         edit.target = self
-        let reload = menu.addItem(withTitle: "Reload Buttons", action: #selector(reloadButtons), keyEquivalent: "")
+        let reload = menu.addItem(withTitle: tr("Reload Buttons"), action: #selector(reloadButtons), keyEquivalent: "")
         reload.target = self
-        let reset = menu.addItem(withTitle: "Reset Buttons to Defaults", action: #selector(resetButtons), keyEquivalent: "")
+        let reset = menu.addItem(withTitle: tr("Reset Buttons to Defaults"), action: #selector(resetButtons), keyEquivalent: "")
         reset.target = self
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit MacLister", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(withTitle: tr("Quit MacLister"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
         item.menu = menu
         statusItem = item
@@ -173,7 +215,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         insert(.separator())
         let controllers = ListerManager.shared.allControllers
         if controllers.isEmpty {
-            let none = NSMenuItem(title: "No open listers", action: nil, keyEquivalent: "")
+            let none = NSMenuItem(title: tr("No open listers"), action: nil, keyEquivalent: "")
             none.isEnabled = false
             insert(none)
             return
@@ -192,10 +234,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         if controllers.count > 1 {
             insert(.separator())
-            let all = NSMenuItem(title: "Bring All to Front", action: #selector(bringAllListers), keyEquivalent: "")
+            let all = NSMenuItem(title: tr("Bring All to Front"), action: #selector(bringAllListers), keyEquivalent: "")
             all.target = self
             insert(all)
-            let close = NSMenuItem(title: "Close All Listers", action: #selector(closeAllListers), keyEquivalent: "")
+            let close = NSMenuItem(title: tr("Close All Listers"), action: #selector(closeAllListers), keyEquivalent: "")
             close.target = self
             insert(close)
         }
@@ -257,6 +299,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    /// The language is read when the app starts, so a change asks for a restart.
+    @objc private func chooseLanguage(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let language = AppLanguage(rawValue: raw),
+              language != AppLanguage.current else { return }
+        language.apply()
+        let alert = NSAlert()
+        alert.messageText = tr("Restart MacLister to change the language")
+        alert.informativeText = tr("Open listers will be closed. Your layout can be restored with Restore Layout.")
+        alert.addButton(withTitle: tr("Restart Now"))
+        alert.addButton(withTitle: tr("Later"))
+        NSApp.bringToFront()
+        if alert.runModal() == .alertFirstButtonReturn { Self.relaunch() }
+    }
+
+    /// Starts a fresh copy of the app a moment after this one has quit.
+    static func relaunch() {
+        let path = Bundle.main.bundlePath
+        let helper = Process()
+        helper.executableURL = URL(fileURLWithPath: "/bin/sh")
+        helper.arguments = ["-c", "sleep 0.7; /usr/bin/open -n \"$0\"", path]
+        try? helper.run()
+        NSApp.terminate(nil)
+    }
+
     @objc private func chooseButtonBarPosition(_ sender: NSMenuItem) {
         if let raw = sender.representedObject as? String, let position = ButtonBarPosition(rawValue: raw) {
             Settings.buttonBarPosition = position
@@ -271,12 +337,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         for item in buttonBarMenu.items {
             item.state = (item.representedObject as? String) == Settings.buttonBarPosition.rawValue ? .on : .off
         }
+        for item in languageMenu.items {
+            item.state = (item.representedObject as? String) == AppLanguage.current.rawValue ? .on : .off
+        }
         rebuildTerminalMenu()
         rebuildListerItems(in: menu)
         switch monitor.mode {
-        case .eventTap:      statusLine.title = "Desktop double-click: active"
-        case .globalMonitor: statusLine.title = "Desktop double-click: active (fallback monitor)"
-        case .stopped:       statusLine.title = "Waiting for Accessibility permission…"
+        case .eventTap:      statusLine.title = tr("Desktop double-click: active")
+        case .globalMonitor: statusLine.title = tr("Desktop double-click: active (fallback monitor)")
+        case .stopped:       statusLine.title = tr("Waiting for Accessibility permission…")
         }
         settingsItem.isHidden = monitor.mode != .stopped
         centerItem.state = Settings.centerOnCursor ? .on : .off
@@ -368,26 +437,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let appMenuItem = NSMenuItem()
         main.addItem(appMenuItem)
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "Quit MacLister", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: tr("Quit MacLister"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appMenuItem.submenu = appMenu
 
         let editMenuItem = NSMenuItem()
         main.addItem(editMenuItem)
         let edit = NSMenu(title: "Edit")
-        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        edit.addItem(withTitle: tr("Cut"), action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: tr("Copy"), action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: tr("Paste"), action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: tr("Select All"), action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         editMenuItem.submenu = edit
 
         let windowMenuItem = NSMenuItem()
         main.addItem(windowMenuItem)
         let window = NSMenu(title: "Window")
-        window.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
-        window.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        window.addItem(withTitle: tr("Close"), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        window.addItem(withTitle: tr("Minimize"), action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         windowMenuItem.submenu = window
         NSApp.windowsMenu = window
 
         NSApp.mainMenu = main
+        // Lets the Services submenu of the file context menu offer services that take files.
+        NSApp.registerServicesMenuSendTypes(FinderServices.sendTypes, returnTypes: [])
     }
 }

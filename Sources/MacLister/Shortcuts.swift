@@ -146,22 +146,22 @@ enum SystemShortcuts {
         let f = NSEvent.ModifierFlags(rawValue: UInt(modifiers))
         let cmd = f.contains(.command), opt = f.contains(.option), ctl = f.contains(.control), shift = f.contains(.shift)
         switch (code, cmd, opt, ctl, shift) {
-        case (49, true, false, false, false): return "Spotlight"
-        case (49, true, true, false, false): return "Finder search (Spotlight)"
-        case (49, false, false, true, false): return "Select the previous input source"
-        case (49, false, true, true, false): return "Select the next input source"
-        case (20, true, false, false, true): return "Screenshot of the screen"
-        case (21, true, false, false, true): return "Screenshot of a selection"
-        case (23, true, false, false, true): return "Screenshot and recording options"
-        case (126, false, false, true, false): return "Mission Control"
-        case (125, false, false, true, false): return "Application windows"
-        case (123, false, false, true, false): return "Move left a space"
-        case (124, false, false, true, false): return "Move right a space"
-        case (53, true, true, false, false): return "Force Quit"
-        case (12, true, false, true, false): return "Lock Screen"
-        case (50, true, false, false, false): return "Move focus to the next window"
-        case (2, true, true, false, false): return "Turn Dock hiding on or off"
-        default: return "a macOS system shortcut"
+        case (49, true, false, false, false): return tr("Spotlight")
+        case (49, true, true, false, false): return tr("Finder search (Spotlight)")
+        case (49, false, false, true, false): return tr("Select the previous input source")
+        case (49, false, true, true, false): return tr("Select the next input source")
+        case (20, true, false, false, true): return tr("Screenshot of the screen")
+        case (21, true, false, false, true): return tr("Screenshot of a selection")
+        case (23, true, false, false, true): return tr("Screenshot and recording options")
+        case (126, false, false, true, false): return tr("Mission Control")
+        case (125, false, false, true, false): return tr("Application windows")
+        case (123, false, false, true, false): return tr("Move left a space")
+        case (124, false, false, true, false): return tr("Move right a space")
+        case (53, true, true, false, false): return tr("Force Quit")
+        case (12, true, false, true, false): return tr("Lock Screen")
+        case (50, true, false, false, false): return tr("Move focus to the next window")
+        case (2, true, true, false, false): return tr("Turn Dock hiding on or off")
+        default: return tr("a macOS system shortcut")
         }
     }
 }
@@ -175,14 +175,14 @@ enum BuiltInShortcuts {
     }
 
     static let all: [Entry] = [
-        e(49, [], "Space", "Quick Look"), e(36, [], "Return", "Open"), e(76, [], "Enter", "Open"),
-        e(125, .command, "↓", "Open"), e(126, .command, "↑", "Parent folder"), e(51, [], "Delete", "Parent folder"),
-        e(51, .command, "Delete", "Move to Trash"), e(47, [.command, .shift], ".", "Show hidden files"),
-        e(120, [], "F2", "Rename"), e(96, [], "F5", "Copy"), e(97, [], "F6", "Move"),
-        e(14, .command, "E", "Extract"), e(34, .command, "I", "Info"), e(34, [.command, .option], "I", "Attributes"),
-        e(2, .command, "D", "Duplicate files"), e(2, [.command, .option], "D", "Duplicate lister"),
-        e(3, .command, "F", "Filter"), e(11, .command, "B", "Bookmark"), e(37, [.command, .shift], "L", "Bring all listers to front"),
-        e(37, .command, "L", "Type a path"), e(40, .command, "K", "Connect to Server"),
+        e(49, [], "Space", tr("Quick Look")), e(36, [], "Return", tr("Open")), e(76, [], "Enter", tr("Open")),
+        e(125, .command, "↓", tr("Open")), e(126, .command, "↑", tr("Parent folder")), e(51, [], "Delete", tr("Parent folder")),
+        e(51, .command, "Delete", tr("Move to Trash")), e(47, [.command, .shift], ".", tr("Show hidden files")),
+        e(120, [], "F2", tr("Rename")), e(96, [], "F5", tr("Copy")), e(97, [], "F6", tr("Move")),
+        e(14, .command, "E", tr("Extract")), e(34, .command, "I", tr("Info")), e(34, [.command, .option], "I", tr("Attributes")),
+        e(2, .command, "D", tr("Duplicate files")), e(2, [.command, .option], "D", tr("Duplicate lister")),
+        e(3, .command, "F", tr("Filter")), e(11, .command, "B", tr("Bookmark")), e(37, [.command, .shift], "L", tr("Bring all listers to front")),
+        e(37, .command, "L", tr("Type a path")), e(40, .command, "K", tr("Connect to Server")),
     ]
 
     /// Built-in key of an action, for display next to the custom one.
@@ -194,16 +194,16 @@ enum BuiltInShortcuts {
 
     /// Menu and window commands that are handled before a lister sees the key.
     static let reserved: [(combo: KeyCombo, name: String)] = [
-        (KeyCombo(keyCode: 12, modifiers: .command, label: "Q"), "Quit"),
-        (KeyCombo(keyCode: 13, modifiers: .command, label: "W"), "Close window"),
-        (KeyCombo(keyCode: 46, modifiers: .command, label: "M"), "Minimize"),
-        (KeyCombo(keyCode: 4, modifiers: .command, label: "H"), "Hide"),
-        (KeyCombo(keyCode: 0, modifiers: .command, label: "A"), "Select all"),
-        (KeyCombo(keyCode: 8, modifiers: .command, label: "C"), "Copy text"),
-        (KeyCombo(keyCode: 9, modifiers: .command, label: "V"), "Paste"),
-        (KeyCombo(keyCode: 7, modifiers: .command, label: "X"), "Cut"),
-        (KeyCombo(keyCode: 6, modifiers: .command, label: "Z"), "Undo"),
-        (KeyCombo(keyCode: 48, modifiers: .command, label: "Tab"), "Switch application"),
+        (KeyCombo(keyCode: 12, modifiers: .command, label: "Q"), tr("Quit")),
+        (KeyCombo(keyCode: 13, modifiers: .command, label: "W"), tr("Close window")),
+        (KeyCombo(keyCode: 46, modifiers: .command, label: "M"), tr("Minimize")),
+        (KeyCombo(keyCode: 4, modifiers: .command, label: "H"), tr("Hide")),
+        (KeyCombo(keyCode: 0, modifiers: .command, label: "A"), tr("Select all")),
+        (KeyCombo(keyCode: 8, modifiers: .command, label: "C"), tr("Copy text")),
+        (KeyCombo(keyCode: 9, modifiers: .command, label: "V"), tr("Paste")),
+        (KeyCombo(keyCode: 7, modifiers: .command, label: "X"), tr("Cut")),
+        (KeyCombo(keyCode: 6, modifiers: .command, label: "Z"), tr("Undo")),
+        (KeyCombo(keyCode: 48, modifiers: .command, label: "Tab"), tr("Switch application")),
     ]
 }
 
@@ -220,11 +220,11 @@ enum ShortcutProblem: Equatable {
     func message(for combo: KeyCombo, title: (String) -> String = { $0 }) -> String {
         switch self {
         case .needsModifier(let why): return why
-        case .reserved(let name): return "\(combo.display) is “\(name)” in every macOS app. Choose another shortcut."
-        case .builtIn(let name): return "\(combo.display) is already used in listers for “\(name)”."
-        case .system(let name): return "\(combo.display) is a macOS shortcut (\(name)). Choose another, or change it in System Settings → Keyboard → Shortcuts."
-        case .usedBy(let id): return "\(combo.display) is already assigned to “\(title(id))”."
-        case .otherApplication: return "\(combo.display) is already registered by another application."
+        case .reserved(let name): return tr("%@ is “%@” in every macOS app. Choose another shortcut.", combo.display, tr(name))
+        case .builtIn(let name): return tr("%@ is already used in listers for “%@”.", combo.display, tr(name))
+        case .system(let name): return tr("%@ is a macOS shortcut (%@). Choose another, or change it in System Settings → Keyboard → Shortcuts.", combo.display, tr(name))
+        case .usedBy(let id): return tr("%@ is already assigned to “%@”.", combo.display, title(id))
+        case .otherApplication: return tr("%@ is already registered by another application.", combo.display)
         }
     }
 }
@@ -238,9 +238,9 @@ enum ShortcutRules {
         let isGlobal = id.hasPrefix("global.")
 
         if isGlobal {
-            if !combo.hasMainModifier { return .needsModifier("A shortcut that works in every app needs ⌘, ⌥ or ⌃, otherwise it would block normal typing.") }
+            if !combo.hasMainModifier { return .needsModifier(tr("A shortcut that works in every app needs ⌘, ⌥ or ⌃, otherwise it would block normal typing.")) }
         } else if !combo.hasMainModifier && !combo.isFunctionKey {
-            return .needsModifier("Use ⌘, ⌥ or ⌃ with the key (function keys and arrows may stand alone). Plain keys are for typing and type-select.")
+            return .needsModifier(tr("Use ⌘, ⌥ or ⌃ with the key (function keys and arrows may stand alone). Plain keys are for typing and type-select."))
         }
         if let hit = BuiltInShortcuts.reserved.first(where: { $0.combo.keyCode == combo.keyCode && $0.combo.modifiers == combo.modifiers }) {
             return .reserved(hit.name)
@@ -329,8 +329,8 @@ enum GlobalShortcutActions {
     static let bringAllToFront = "global.bringAllToFront"
 
     static let all: [(id: String, title: String)] = [
-        (openLister, "Open a lister (in any application)"),
-        (bringAllToFront, "Bring all listers to the front (in any application)"),
+        (openLister, tr("Open a lister (in any application)")),
+        (bringAllToFront, tr("Bring all listers to the front (in any application)")),
     ]
 
     /// Registers whatever is assigned; called at launch and whenever the assignments change.
@@ -361,6 +361,6 @@ extension ListerAction {
         for character in rawValue {
             if character.isUppercase { words += " " + character.lowercased() } else { words.append(character) }
         }
-        return words.prefix(1).uppercased() + words.dropFirst()
+        return tr(words.prefix(1).uppercased() + words.dropFirst())
     }
 }

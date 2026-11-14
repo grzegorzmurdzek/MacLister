@@ -6,6 +6,14 @@ działa jako agent w pasku menu, bez ikony w Docku.
 
 **Język:** [English](README.md) · Polski
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/pl/lister-pair-dark.jpg">
+    <img src="docs/screenshots/pl/lister-pair.jpg" alt="Dwa listery MacLister: Projekty jako źródło z trzema zaznaczonymi plikami, NAS jako cel, trwa kopiowanie" width="900">
+  </picture>
+</p>
+<p align="center"><sub>Listery źródłowy i docelowy z nazwami, kolorami i trwającym kopiowaniem. Wszystkie pliki na obrazkach są zmyślone.</sub></p>
+
 ## Najważniejsze cechy
 
 - **Dwuklik na pulpicie otwiera lister** pod kursorem. Dowolna liczba listerów naraz.
@@ -135,15 +143,25 @@ W wielu laptopach klawisze F wymagają **fn**.
 
 ### Menu
 
-- **Prawy przycisk na liście plików** – polecenia dla elementów pod kursorem (Open, Quick Look, Extract,
-  Copy/Move do celu, Rename, Info, Duplicate, Reveal in Finder, Copy Path, Move to Trash), a po kliknięciu pustego
-  miejsca dla folderu (Select by Pattern, Filter, Calculate Folder Sizes, Compare, New Folder …).
+- **Prawy przycisk na liście plików** – układ jak w menu Findera, z zachowaniem własnych poleceń MacLister:
+  *Otwórz*, *Otwórz w aplikacji*, *Rozpakuj*, Kopiuj/Przenieś do listera docelowego, **Przenieś do Kosza** (z ikoną),
+  *Informacje*, *Zmień nazwę*, *Atrybuty*, **Kompresuj** (`nazwa.zip`, a dla kilku elementów `Archive.zip`), *Powiel*,
+  *Utwórz alias*, *Utwórz dowiązanie symboliczne*, *Szybki podgląd*, *Kopiuj* (pliki trafiają do schowka),
+  *Kopiuj ścieżkę*, **Udostępnij** (systemowe menu udostępniania), rząd **kolorowych kropek tagów** i **Tagi…**,
+  **Szybkie czynności** (obrót, tworzenie PDF i konwersja dla obrazów oraz Twoje przepływy Automatora typu
+  „Szybka czynność” z `~/Library/Services`) i **Usługi** (to, co zainstalowane usługi oferują dla zaznaczonych
+  plików, np. „New iTerm2 Tab Here”), a dalej *Otwórz w celu* i *Pokaż w Finderze*. Kliknięcie pustego miejsca
+  daje polecenia folderu (zaznaczanie wg wzorca, filtr, rozmiary folderów, porównanie, nowy folder …).
+  Kropka przełącza kolor na wszystkich zaznaczonych elementach (kropka z haczykiem: mają go wszystkie);
+  *Tagi…* dodaje i usuwa dowolne tagi, kolorowe lub nie.
 - **Prawy przycisk na belce okna** (albo Control-klik) – polecenia listera: **Duplicate Lister**, New Lister,
   Set as Source / Destination, Swap, Parent, Back, Refresh, pliki ukryte, Filter, Bookmarks, Recent Folders,
   Terminal Here, Bring All to Front, Close, Close All, Save/Restore Layout.
 - **Ikona w pasku menu** – lista wszystkich otwartych listerów (kliknięcie wynosi lister na wierzch; role widać jako
   \[SRC\] / \[DST\]), Bring All to Front, Close All, *Duplicate Frontmost Lister*, *Terminal App*, układy,
   *Edit Filetypes…*, *Edit Buttons…*, *Reload Buttons*, *Reset Buttons to Defaults*, stan uprawnień.
+
+<p align="center"><img src="docs/screenshots/pl/context-menu.jpg" alt="Menu pod prawym przyciskiem dla pliku: Otwórz, Otwórz w aplikacji, Przenieś do Kosza, Informacje, Kompresuj, Udostępnij, kolory tagów, Szybkie czynności, Usługi i własne polecenia MacLister" width="420"></p>
 
 ### Zaznaczanie, filtr, rozmiary
 
@@ -156,6 +174,8 @@ W wielu laptopach klawisze F wymagają **fn**.
 - **Sizes**: liczy rekurencyjny rozmiar zaznaczonych folderów (albo wszystkich) do kolumny Size.
 
 ### Zmiana nazw, atrybuty, dowiązania
+
+<p align="center"><img src="docs/screenshots/pl/batch-rename.jpg" alt="Zbiorcza zmiana nazw z podglądem nowych nazw" width="560"></p>
 
 - **Zmiana wielu nazw** (F2 przy kilku elementach albo *Rename N Items…*): znajdź i zamień (zwykły tekst albo
   wyrażenie regularne z `$1`, `$2`, opcjonalnie z wielkością liter), szablon nazwy z `[N]` nazwa, `[C]` licznik
@@ -201,6 +221,8 @@ defaults write com.example.MacLister restoreLayoutAtLaunch -bool true
 
 ## Serwery: FTP, FTPS i SFTP
 
+<p align="center"><img src="docs/screenshots/pl/connect-to-server.jpg" alt="Formularz Połącz z serwerem" width="480"></p>
+
 Lister może pokazywać serwer jak folder. **Go → Connect to Server…** (albo ⌘K, albo ikona w pasku menu) pyta
 o protokół, adres, port, użytkownika i hasło. SFTP może używać pliku klucza (i jego hasła) albo Twojego ssh-agenta.
 **Remember this server** wstawia serwer do menu Go, a **Save the password in the Keychain** trzyma hasło w Pęku kluczy,
@@ -239,6 +261,8 @@ zmiany nie są odsyłane z powrotem.
 
 ## Skróty klawiszowe, które możesz ustawić
 
+<p align="center"><img src="docs/screenshots/pl/keyboard-shortcuts.jpg" alt="Okno skrótów klawiszowych" width="520"></p>
+
 Ikona w pasku menu → **Keyboard Shortcuts…** (także w menu na belce okna). Kliknij skrót i naciśnij klawisze; Esc
 anuluje, Delete usuwa.
 
@@ -258,6 +282,60 @@ Każdy skrót jest sprawdzany przed przyjęciem, a okno tłumaczy, co jest nie t
 5. kombinacja przypisana do innej akcji pyta, czy ją przenieść.
 
 Przypisania są w `shortcuts.json`.
+
+## Szczegóły postępu
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/pl/transfer-details-dark.jpg">
+    <img src="docs/screenshots/pl/transfer-details.jpg" alt="Okno szczegółów postępu z wykresem prędkości, czasem i przyciskami Wstrzymaj i Anuluj" width="480">
+  </picture>
+</p>
+
+Pasek postępu w linii stanu listera można kliknąć: otwiera okno (macowy odpowiednik okna kopiowania z Directory Opus)
+z informacją, co i dokąd jest kopiowane, paskiem postępu z bieżącym plikiem, **wykresem prędkości**, prędkością bieżącą /
+średnią / szczytową, czasem, który upłynął i który pozostał, liczbą elementów i bajtów oraz przyciskami **Wstrzymaj** /
+**Anuluj**. Wstrzymanie działa po zakończeniu kopiowanego pliku (jednego pliku nie da się przerwać w połowie). Prędkość
+zmienia się płynnie nawet w obrębie jednego dużego pliku przy kopiowaniu lokalnym i pobieraniu; wysyłanie raportuje
+plik po pliku. Tytuł okna śledzi zadanie („37% — Kopiowanie”), a po zakończeniu okno zamyka się samo.
+
+### Ostatnie i Udostępniane
+
+Menu **Go** zaczyna się od **Ostatnie** — plików otwieranych w ostatnich 30 dniach, od najnowszego, z danych Spotlight
+(tylko dokumenty: bez folderów, programów i `~/Library`) — a miejsca kończy pozycja **Udostępniane**: zamontowane
+woluminy sieciowe, serwery zapisane w MacLister i komputery oferujące udostępnianie plików w sieci lokalnej (SMB, AFP,
+SFTP, FTP). Obie to listy, nie foldery: kolumna *Gdzie* pokazuje folder każdego pliku, pliki można otwierać, podglądać,
+kopiować i przeciągać, ale Nadrzędny, Nowy folder, zakładki i „kopiuj do tego listera” są niedostępne. Otwarcie
+komputera SMB lub AFP przekazuje go Finderowi do zamontowania; komputer SFTP lub FTP otwiera formularz *Połącz z serwerem*
+z wypełnionymi polami. Pierwsza wizyta w Udostępnianych powoduje, że macOS jednorazowo prosi o dostęp do **sieci lokalnej**.
+
+### Nazwy listerów
+
+Gdy listerów jest wiele, warto je odróżniać: prawy przycisk na belce okna (albo na pustym miejscu listy) →
+**Nazwij ten lister…** i nadaj mu nazwę oraz kolor. Nazwa pojawia się w tytule okna („NAS — Backup”), jako kolorowa
+etykieta obok ścieżki (kliknięcie ją zmienia), na liście listerów w pasku menu oraz w poleceniach *Kopiuj do „NAS”* /
+*Przenieś do „NAS”* — cel wybierasz więc po nazwie. Nazwy zapisują się z poleceniem *Zapisz układ*; kopia listera
+nazwy nie dziedziczy. Jest też akcja `nameLister` do przycisku lub skrótu.
+
+### Kolejka
+
+Kopiowania i przenoszenia zapisujące na ten sam dysk (lub ten sam serwer) wykonują się jedno po drugim; kolejne
+pokazują *Oczekiwanie w kolejce…* i obok paska postępu mały przycisk **W kolejce: N**, z którego można usunąć każdą z nich.
+Operacje na różne dyski nadal idą równolegle. Pliki, które są kopiowane lub przenoszone (albo czekają na to), nie dadzą
+się przenieść do Kosza, zmienić nazwy ani przenieść spod trwającej operacji; MacLister mówi o tym zamiast to robić.
+
+## Daty
+
+Kolumny *Data zmian* i *Data utworzenia* mogą pokazywać daty tak jak Finder — *Dzisiaj, 10:05*, *Wczoraj …*,
+*Przedwczoraj …*, starsze w pełnej postaci. Prawy przycisk na nagłówku kolumn → **Daty względne** (domyślnie włączone;
+postać surowa jest o jedno kliknięcie dalej).
+
+## Język
+
+MacLister podąża za językiem macOS: po polsku na polskim systemie, w pozostałych przypadkach po angielsku. Wybór:
+ikona w pasku menu → **Język** → *Domyślny systemowy / English / Polski*; aplikacja proponuje ponowne uruchomienie.
+Teksty z liczbą mają poprawne polskie formy (1 element, 2 elementy, 5 elementów). Polecenie
+`python3 Tools/check_localization.py` sprawdza, czy każdy tekst ze źródeł ma polskie tłumaczenie (`Support/pl.lproj`).
 
 ## Postęp w pasku menu
 
@@ -318,6 +396,7 @@ Ustawiane przez `defaults write com.example.MacLister <klucz> <wartość>`:
 | `desktopTrigger` | `doubleClick` | `doubleClick`, `middleClick` albo `both` (także: ikona w pasku menu → *Open Lister With*) |
 | `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` albo `bottom` |
 | `showButtonLabels` | false | napisy obok ikon przycisków |
+| `relativeDates` | true | *Dzisiaj / Wczoraj* w kolumnach z datami (także: menu nagłówka kolumn) |
 | `debugHitTest` | false | zapisuj decyzję dla każdego kliknięcia do `~/Library/Logs/MacLister.log` |
 
 ## Rozwiązywanie problemów

@@ -37,19 +37,7 @@ struct ToolbarIconButtonStyle: ButtonStyle {
 extension ListerButton {
     /// Icon colour from the `color` field; neutral when unset or unknown.
     var tint: Color {
-        switch color?.lowercased() {
-        case "blue": return .blue
-        case "green": return .green
-        case "orange": return .orange
-        case "red": return .red
-        case "purple": return .purple
-        case "teal": return .teal
-        case "pink": return .pink
-        case "yellow": return .yellow
-        case "brown": return .brown
-        case "gray", "grey": return .gray
-        default: return .primary
-        }
+        LabelPalette.color(color) ?? .primary
     }
 
     static let knownColors = ["blue", "green", "orange", "red", "purple", "teal", "pink", "yellow", "brown", "gray"]
@@ -60,6 +48,7 @@ struct PathBarView: View {
     @ObservedObject var model: ListerModel
     var onToggleRole: (ListerRole) -> Void
     var onConnect: (ServerProfile?) -> Void
+    var onEditLabel: () -> Void = {}
     @ObservedObject private var servers = ServerStore.shared
     @ObservedObject private var bookmarks = BookmarkStore.shared
     @ObservedObject private var history = PathHistory.shared
@@ -83,6 +72,8 @@ struct PathBarView: View {
 
                 pathField
 
+                if !model.label.isEmpty || model.labelColor != nil { labelBadge }
+
                 roleButton(.source, title: "SRC", tint: .blue, help: "Make this lister the source of Copy / Move")
                 roleButton(.destination, title: "DST", tint: .orange, help: "Make this lister the destination of Copy / Move")
             }
@@ -98,6 +89,25 @@ struct PathBarView: View {
 }
 
 extension PathBarView {
+    /// The name the user gave this lister, as a coloured tag; click to change it.
+    fileprivate var labelBadge: some View {
+        let tint = LabelPalette.color(model.labelColor) ?? Color.secondary
+        return Button(action: onEditLabel) {
+            HStack(spacing: 4) {
+                Circle().fill(tint).frame(width: 7, height: 7)
+                if !model.label.isEmpty { Text(model.label).lineLimit(1).truncationMode(.tail) }
+            }
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Capsule().fill(tint.opacity(0.15)))
+            .frame(maxWidth: 140)
+        }
+        .buttonStyle(.plain)
+        .help("Name of this lister (click to change)")
+    }
+
     /// Clickable breadcrumb; clicking the empty part (or ⌘L) switches to an editable text field.
     @ViewBuilder
     fileprivate var pathField: some View {
@@ -124,12 +134,14 @@ extension PathBarView {
     fileprivate var goMenu: some View {
         Menu {
             Section("Go to") {
+                Button { model.navigate(to: VirtualPlace.recents.url) } label: { Label(VirtualPlace.recents.title, systemImage: VirtualPlace.recents.symbol) }
                 ForEach(Self.places, id: \.title) { place in
                     Button { model.navigate(to: place.url) } label: { Label(place.title, systemImage: place.symbol) }
                 }
                 ForEach(Self.volumes, id: \.path) { volume in
                     Button { model.navigate(to: volume) } label: { Label(volume.lastPathComponent, systemImage: "externaldrive") }
                 }
+                Button { model.navigate(to: VirtualPlace.shared.url) } label: { Label(VirtualPlace.shared.title, systemImage: VirtualPlace.shared.symbol) }
             }
             Section("Servers") {
                 ForEach(servers.servers) { server in
@@ -154,8 +166,12 @@ extension PathBarView {
                 ForEach(bookmarks.paths, id: \.self) { path in
                     Button { model.navigate(to: BookmarkStore.url(forKey: path)) } label: { Text(Self.short(path)) }
                 }
-                Button { bookmarks.add(model.url) } label: { Label("Add This Folder", systemImage: "star") }
-                    .disabled(bookmarks.contains(model.url))
+                if bookmarks.contains(model.url) {
+                    Button {} label: { Label("This Folder Is Bookmarked", systemImage: "star.fill") }.disabled(true)
+                } else {
+                    Button { bookmarks.add(model.url) } label: { Label("Add This Folder", systemImage: "star") }
+                        .disabled(model.isVirtual)
+                }
                 if !bookmarks.paths.isEmpty {
                     Menu("Remove Bookmark") {
                         ForEach(bookmarks.paths, id: \.self) { path in
@@ -165,7 +181,7 @@ extension PathBarView {
                 }
             }
             if !history.recent.isEmpty {
-                Section("Recent") {
+                Section("Recent Folders") {
                     ForEach(history.recent, id: \.self) { path in
                         Button { model.navigate(to: BookmarkStore.url(forKey: path)) } label: { Text(Self.short(path)) }
                     }
@@ -181,12 +197,12 @@ extension PathBarView {
     fileprivate static var places: [(title: String, symbol: String, url: URL)] {
         let fm = FileManager.default
         func user(_ dir: FileManager.SearchPathDirectory) -> URL? { fm.urls(for: dir, in: .userDomainMask).first }
-        var result: [(String, String, URL)] = [("Home", "house", fm.homeDirectoryForCurrentUser)]
-        if let u = user(.desktopDirectory) { result.append(("Desktop", "menubar.dock.rectangle", u)) }
-        if let u = user(.documentDirectory) { result.append(("Documents", "doc", u)) }
-        if let u = user(.downloadsDirectory) { result.append(("Downloads", "arrow.down.circle", u)) }
-        result.append(("Applications", "square.grid.2x2", URL(fileURLWithPath: "/Applications")))
-        result.append(("Root /", "internaldrive", URL(fileURLWithPath: "/")))
+        var result: [(String, String, URL)] = [(tr("Home"), "house", fm.homeDirectoryForCurrentUser)]
+        if let u = user(.desktopDirectory) { result.append((tr("Desktop"), "menubar.dock.rectangle", u)) }
+        if let u = user(.documentDirectory) { result.append((tr("Documents"), "doc", u)) }
+        if let u = user(.downloadsDirectory) { result.append((tr("Downloads"), "arrow.down.circle", u)) }
+        result.append((tr("Applications"), "square.grid.2x2", URL(fileURLWithPath: "/Applications")))
+        result.append((tr("Root /"), "internaldrive", URL(fileURLWithPath: "/")))
         return result
     }
 
@@ -212,7 +228,7 @@ extension PathBarView {
                 .background(RoundedRectangle(cornerRadius: 4).fill(active ? tint : tint.opacity(0.15)))
         }
         .buttonStyle(.plain)
-        .help(help)
+        .help(tr(help))
     }
 }
 
@@ -239,7 +255,7 @@ struct ButtonBarView: View {
                             Button { onAction(button) } label: { label(for: button) }
                                 .buttonStyle(ToolbarIconButtonStyle(tint: button.tint))
                                 .disabled(button.needsSelection && model.selectedURLs.isEmpty)
-                                .help(button.help.map { "\(button.title) – \($0)" } ?? button.title)
+                                .help(button.help.map { "\(tr(button.title)) – \(tr($0))" } ?? tr(button.title))
                         }
                     }
                 }
@@ -255,9 +271,9 @@ struct ButtonBarView: View {
     @ViewBuilder
     private func label(for button: ListerButton) -> some View {
         if let symbol = button.symbol, !symbol.isEmpty {
-            if showLabels { Label(button.title, systemImage: symbol) } else { Image(systemName: symbol) }
+            if showLabels { Label(tr(button.title), systemImage: symbol) } else { Image(systemName: symbol) }
         } else {
-            Text(button.title)
+            Text(tr(button.title))
         }
     }
 }
@@ -265,20 +281,30 @@ struct ButtonBarView: View {
 /// Thin status line at the bottom: item count, selection size, filter, progress and errors.
 struct StatusBarView: View {
     @ObservedObject var model: ListerModel
+    @ObservedObject private var queue = TransferQueue.shared
 
     var body: some View {
         VStack(spacing: 0) {
             Divider()
             HStack(spacing: 10) {
                 if let progress = model.progress {
-                    if let fraction = progress.fraction {
-                        ProgressView(value: fraction).frame(width: 150)
-                    } else {
-                        ProgressView().controlSize(.small)
+                    // Clicking the bar or its text opens the details window (speed, graph, Pause).
+                    Button { if let details = progress.details { TransferDetailsWindows.show(details) } } label: {
+                        HStack(spacing: 10) {
+                            if let fraction = progress.fraction {
+                                ProgressView(value: fraction).frame(width: 150)
+                            } else {
+                                ProgressView().controlSize(.small)
+                            }
+                            Text(progress.text).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        }
+                        .contentShape(Rectangle())
                     }
-                    Text(progress.text).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                    .buttonStyle(.plain)
+                    .help("Show details: speed, graph, pause")
                     Button { progress.cancel() } label: { Image(systemName: "xmark.circle.fill") }
                         .buttonStyle(.plain).foregroundStyle(.secondary).help("Cancel")
+                    if !queue.waiting.isEmpty { queueMenu }
                 } else {
                     status
                 }
@@ -288,6 +314,22 @@ struct StatusBarView: View {
                 .frame(maxHeight: .infinity)
         }
         .background(Color(nsColor: .windowBackgroundColor))
+    }
+
+    /// Operations waiting for the running one; each can be removed from the queue.
+    private var queueMenu: some View {
+        Menu {
+            ForEach(queue.waiting) { item in
+                Button { TransferQueue.shared.cancelWaiting(item.id) } label: {
+                    Label(tr("Remove from queue: %@", item.detail), systemImage: "xmark.circle")
+                }
+            }
+        } label: {
+            Text(tr("In queue: %d", queue.waiting.count)).font(.caption)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Operations that wait for the running one. Choose one to remove it from the queue.")
     }
 
     @ViewBuilder
@@ -308,8 +350,8 @@ struct StatusBarView: View {
             let selected = model.selectedURLs.count
             let bytes = model.selectedBytes
             let sizeText = bytes > 0 ? " · " + ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file) : ""
-            let filterText = model.filter.isEmpty ? "" : " · filter: \(model.filter)"
-            Text((selected > 0 ? "\(selected) of \(model.items.count) selected\(sizeText)" : "\(model.items.count) items") + filterText)
+            let filterText = model.filter.isEmpty ? "" : " · " + tr("filter: %@", model.filter)
+            Text((selected > 0 ? tr("%d of %d selected", selected, model.items.count) + sizeText : trCount("%d items", model.items.count)) + filterText)
                 .foregroundStyle(.secondary)
                 .font(.caption)
                 .lineLimit(1)
@@ -325,27 +367,30 @@ struct BreadcrumbView: View {
 
     var body: some View {
         let segments = PathSegments.make(for: url)
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 0) {
-                    ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
-                        if index > 0 {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 9, weight: .semibold))
-                                .foregroundStyle(.tertiary)
-                                .padding(.horizontal, 2)
-                        }
-                        SegmentButton(title: segment.title, isCurrent: index == segments.count - 1) { onSelect(segment.url) }
-                            .id(index)
+        // A long path shows its tail (the folder you are in) and fades out at the left; the Go menu and the
+        // Parent button lead to the earlier folders.
+        GeometryReader { geometry in
+            HStack(spacing: 0) {
+                ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
+                    if index > 0 {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                            .padding(.horizontal, 2)
                     }
+                    SegmentButton(title: segment.title, isCurrent: index == segments.count - 1) { onSelect(segment.url) }
                 }
-                .padding(.horizontal, 4)
-                .frame(maxHeight: .infinity)
             }
-            .onAppear { proxy.scrollTo(segments.count - 1, anchor: .trailing) }
-            .onChange(of: url) { _ in
-                DispatchQueue.main.async { proxy.scrollTo(PathSegments.make(for: url).count - 1, anchor: .trailing) }
-            }
+            .fixedSize()
+            .padding(.horizontal, 4)
+            .frame(width: geometry.size.width, alignment: .trailing)
+            .clipped()
+            .mask(
+                HStack(spacing: 0) {
+                    LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing).frame(width: 18)
+                    Color.black
+                }
+            )
         }
         .frame(height: 28)
         .background(

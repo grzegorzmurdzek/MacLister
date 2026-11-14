@@ -247,7 +247,7 @@ enum SelfTestRemote {
             check(rvc()?.quickLookURLs.count == 1, "ui: Quick Look URLs follow the selection")
             // commands that exist only for local files say so
             rvc()?.showInfo()
-            check(remoteC?.model.statusMessage?.contains("not available on a server") == true, "ui: Info on a server says it is not available: \(remoteC?.model.statusMessage ?? "nil")")
+            check(remoteC?.model.statusMessage?.contains("Not available on a server yet") == true, "ui: Info on a server says it is not available: \(remoteC?.model.statusMessage ?? "nil")")
             let menu = NSMenu()
             if let item = remoteC?.model.items.first(where: { $0.name == "from-server.txt" }) {
                 rvc()?.populate(menu, selection: [item])

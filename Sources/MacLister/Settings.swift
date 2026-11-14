@@ -5,9 +5,9 @@ enum ButtonBarPosition: String, CaseIterable {
 
     var menuTitle: String {
         switch self {
-        case .abovePath: return "Above the Path (like Ambient)"
-        case .belowPath: return "Below the Path"
-        case .bottom:    return "At the Bottom"
+        case .abovePath: return tr("Above the Path (like Ambient)")
+        case .belowPath: return tr("Below the Path")
+        case .bottom:    return tr("At the Bottom")
         }
     }
 }
@@ -18,9 +18,9 @@ enum DesktopTrigger: String, CaseIterable {
 
     var menuTitle: String {
         switch self {
-        case .doubleClick: return "Double-click (left button)"
-        case .middleClick: return "Click the middle button"
-        case .both:        return "Both"
+        case .doubleClick: return tr("Double-click (left button)")
+        case .middleClick: return tr("Click the middle button")
+        case .both:        return tr("Both")
         }
     }
 
@@ -55,6 +55,7 @@ enum Settings {
             "buttonBarPosition": ButtonBarPosition.abovePath.rawValue,
             "desktopTrigger": DesktopTrigger.doubleClick.rawValue,
             "terminalBundleID": "com.apple.Terminal",
+            "relativeDates": true,
         ])
     }
 
@@ -96,6 +97,12 @@ enum Settings {
             defaults.set(Double(newValue.width), forKey: "listerWidth")
             defaults.set(Double(newValue.height), forKey: "listerHeight")
         }
+    }
+
+    /// Dates in the file list as Finder shows them: Today, Yesterday, (in Polish also Przedwczoraj).
+    static var relativeDates: Bool {
+        get { defaults.bool(forKey: "relativeDates") }
+        set { defaults.set(newValue, forKey: "relativeDates") }
     }
 
     static var showStatusItem: Bool { defaults.bool(forKey: "showStatusItem") }
