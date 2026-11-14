@@ -164,23 +164,28 @@ extension ListerViewController {
             let info = InfoText.make(for: urls)
             DispatchQueue.main.async {
                 self?.model.statusMessage = nil
-                self?.presentInfo(info)
+                self?.presentInfo(info, urls: urls)
             }
         }
     }
 
-    private func presentInfo(_ info: (title: String, body: String)) {
+    private func presentInfo(_ info: (title: String, body: String), urls: [URL]) {
         guard let window = view.window else { return }
         let alert = NSAlert()
         alert.messageText = info.title
         alert.informativeText = info.body
         alert.addButton(withTitle: tr("OK"))
-        alert.beginSheetModal(for: window)
+        let files = urls.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) != true }
+        if !files.isEmpty { alert.addButton(withTitle: tr("Checksums…")) }
+        alert.beginSheetModal(for: window) { [weak self] response in
+            if response == .alertSecondButtonReturn { self?.showChecksums(for: files) }
+        }
     }
 
     /// Duplicates the selected files next to the originals ("name copy.ext").
     func duplicateSelection() {
         if remoteUnavailable(tr("Duplicate")) { return }
+        if refuseInArchive(tr("Duplicate")) { return }
         let urls = model.selectedURLs
         guard !urls.isEmpty else { NSSound.beep(); return }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -206,6 +211,7 @@ extension ListerViewController {
 
     func addBookmark() {
         if refuseInList(tr("Add Bookmark")) { return }
+        if refuseInArchive(tr("Add Bookmark")) { return }
         BookmarkStore.shared.add(model.url)
         flash(tr("Bookmarked %@", model.url.lastPathComponent))
     }
@@ -302,6 +308,7 @@ extension ListerViewController {
 
     func promptBatchRename() {
         if remoteUnavailable(tr("Batch rename")) { return }
+        if refuseInArchive(tr("Batch rename")) { return }
         let urls = model.selectedURLs
         guard !urls.isEmpty, let window = view.window else { NSSound.beep(); return }
         if refuseIfBusy(urls) { return }
@@ -321,6 +328,7 @@ extension ListerViewController {
 
     /// Permissions, dates, hidden flag, tags and comment of the selection (or of this folder).
     func promptAttributes() {
+        if refuseInArchive(tr("Attributes")) { return }
         if remoteUnavailable(tr("Attributes")) { return }
         let urls = model.selectedURLs.isEmpty ? [model.url] : model.selectedURLs
         guard let window = view.window else { return }
@@ -342,6 +350,7 @@ extension ListerViewController {
     /// Creates aliases or symbolic links to the selected items in the destination lister's folder, or
     /// next to the originals when there is no destination.
     func makeLinks(symbolic: Bool) {
+        if refuseInArchive(symbolic ? tr("Make Symbolic Link") : tr("Make Alias")) { return }
         if remoteUnavailable(tr("Aliases and links")) { return }
         let urls = model.selectedURLs
         guard !urls.isEmpty else { NSSound.beep(); return }

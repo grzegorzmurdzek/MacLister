@@ -1,0 +1,249 @@
+import AppKit
+
+/// One folder in the tree; its sub-folders are read the first time it is opened.
+final class TreeNode: NSObject {
+    let url: URL
+    let name: String
+    private(set) var children: [TreeNode] = []
+    private(set) var isLoaded = false
+
+    init(url: URL, name: String? = nil) {
+        self.url = url
+        self.name = name ?? FileManager.default.displayName(atPath: url.path)
+    }
+
+    /// Reads the sub-folders again (folders only, no bundles; hidden ones when asked for, and the one that leads
+    /// to `ensuring` even if it is hidden: the lister may be in /private/var).
+    func load(showHidden: Bool, ensuring target: URL? = nil) {
+        let keys: [URLResourceKey] = [.isDirectoryKey, .isPackageKey, .isHiddenKey, .isSymbolicLinkKey]
+        let entries = (try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: keys, options: [])) ?? []
+        let targetPath = target?.standardizedFileURL.path
+        let folders = entries.filter { entry in
+            let values = try? entry.resourceValues(forKeys: Set(keys))
+            var isFolder = values?.isDirectory == true
+            if !isFolder, values?.isSymbolicLink == true {         // a link to a folder (/var, /tmp …) is a folder here
+                var isDirectory: ObjCBool = false      // fileExists follows the link
+                isFolder = FileManager.default.fileExists(atPath: entry.path, isDirectory: &isDirectory) && isDirectory.boolValue
+            }
+            guard isFolder, values?.isPackage != true else { return false }
+            if showHidden { return true }
+            if values?.isHidden != true && !entry.lastPathComponent.hasPrefix(".") { return true }
+            let path = url.appendingPathComponent(entry.lastPathComponent).path
+            return targetPath.map { $0 == path || $0.hasPrefix(path + "/") } ?? false
+        }
+        // below a link such as /var the system hands back /private/var/…: build the paths from this folder's own
+        let sorted = folders.map { url.appendingPathComponent($0.lastPathComponent, isDirectory: true) }
+            .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+        // keep the nodes that already exist, so open branches stay open
+        var existing: [String: TreeNode] = [:]
+        for child in children { existing[child.url.path] = child }
+        children = sorted.map { existing[$0.path] ?? TreeNode(url: $0) }
+        isLoaded = true
+    }
+}
+
+/// The directory tree beside the file list: the home folder and every volume, folders only.
+/// Choosing a folder shows it in the lister; the tree follows the lister; folders accept dropped files.
+final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate {
+    let scrollView = NSScrollView()
+    private let outline = NSOutlineView()
+    private(set) var roots: [TreeNode] = []
+    var showHidden = false
+    /// The user chose a folder.
+    var onSelect: ((URL) -> Void)?
+    /// Files were dropped on a folder: urls, folder, the operation Finder rules chose.
+    var onDrop: (([URL], URL, NSDragOperation) -> Void)?
+    private var suppressSelection = false
+
+    override init() {
+        super.init()
+        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("tree"))
+        column.resizingMask = .autoresizingMask
+        outline.addTableColumn(column)
+        outline.outlineTableColumn = column
+        outline.headerView = nil
+        outline.rowSizeStyle = .small
+        outline.style = .sourceList
+        outline.indentationPerLevel = 12
+        outline.dataSource = self
+        outline.delegate = self
+        outline.registerForDraggedTypes([.fileURL])
+        outline.draggingDestinationFeedbackStyle = .regular
+        scrollView.documentView = outline
+        scrollView.hasVerticalScroller = true
+        scrollView.drawsBackground = false
+        buildRoots()
+    }
+
+    // MARK: Roots
+
+    /// Home first, then every mounted volume.
+    func buildRoots() {
+        var list: [TreeNode] = []
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        list.append(TreeNode(url: home, name: NSUserName()))
+        let volumes = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: [.volumeNameKey], options: [.skipHiddenVolumes]) ?? []
+        for volume in volumes {
+            let name = (try? volume.resourceValues(forKeys: [.volumeNameKey]).volumeName) ?? volume.lastPathComponent
+            list.append(TreeNode(url: volume, name: name))
+        }
+        roots = list
+        outline.reloadData()
+    }
+
+    // MARK: Following the lister
+
+    /// The deepest root that contains `url`.
+    private func root(containing url: URL) -> TreeNode? {
+        let path = url.standardizedFileURL.path
+        return roots.filter { path == $0.url.path || path.hasPrefix($0.url.path == "/" ? "/" : $0.url.path + "/") }
+            .max { $0.url.path.count < $1.url.path.count }
+    }
+
+    /// Opens the branches down to `url` and selects it.
+    func reveal(_ url: URL) {
+        guard url.isFileURL, var node = root(containing: url) else { select(nil); return }
+        let target = url.standardizedFileURL.path
+        outline.expandItem(node)
+        if !node.isLoaded { node.load(showHidden: showHidden, ensuring: url); outline.reloadItem(node, reloadChildren: true); outline.expandItem(node) }
+        while node.url.path != target {
+            if !node.isLoaded { node.load(showHidden: showHidden, ensuring: url); outline.reloadItem(node, reloadChildren: true) }
+            func child() -> TreeNode? { node.children.first(where: { target == $0.url.path || target.hasPrefix($0.url.path + "/") }) }
+            if child() == nil {                     // a hidden folder on the way (or one that was just made)
+                node.load(showHidden: showHidden, ensuring: url)
+                outline.reloadItem(node, reloadChildren: true)
+            }
+            guard let next = child() else { break }
+            outline.expandItem(node)
+            node = next
+        }
+        if node.url.path == target {
+            outline.expandItem(node)                 // its sub-folders are what you will want next
+            select(node)
+        } else {
+            select(nil)
+        }
+    }
+
+    private func select(_ node: TreeNode?) {
+        suppressSelection = true
+        defer { suppressSelection = false }
+        if let node {
+            let row = outline.row(forItem: node)
+            if row >= 0 {
+                outline.selectRowIndexes([row], byExtendingSelection: false)
+                outline.scrollRowToVisible(row)
+            }
+        } else {
+            outline.deselectAll(nil)
+        }
+    }
+
+    /// The folder was read again by the lister: show new or removed sub-folders.
+    func refresh(_ url: URL) {
+        guard url.isFileURL, let node = find(url), node.isLoaded else { return }
+        let before = node.children.map(\.url.path)
+        node.load(showHidden: showHidden)
+        guard node.children.map(\.url.path) != before else { return }
+        outline.reloadItem(node, reloadChildren: true)
+        reveal(url)
+    }
+
+    private func find(_ url: URL) -> TreeNode? {
+        guard var node = root(containing: url) else { return nil }
+        let target = url.standardizedFileURL.path
+        while node.url.path != target {
+            guard node.isLoaded, let next = node.children.first(where: { target == $0.url.path || target.hasPrefix($0.url.path + "/") }) else { return nil }
+            node = next
+        }
+        return node
+    }
+
+    /// Hidden folders were switched on or off: read everything again.
+    func hiddenChanged(showing url: URL) {
+        func reload(_ node: TreeNode) {
+            guard node.isLoaded else { return }
+            node.load(showHidden: showHidden)
+            node.children.forEach(reload)
+        }
+        roots.forEach(reload)
+        outline.reloadData()
+        reveal(url)
+    }
+
+    /// The folder selected in the tree (the self-test reads it).
+    var selectedURL: URL? { (outline.item(atRow: outline.selectedRow) as? TreeNode)?.url }
+
+    /// Names of the sub-folders the tree knows below `url` (the self-test reads them).
+    func knownChildren(of url: URL) -> [String] { find(url)?.children.map(\.name) ?? [] }
+
+    // MARK: Data source
+
+    func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
+        guard let node = item as? TreeNode else { return roots.count }
+        if !node.isLoaded { node.load(showHidden: showHidden) }
+        return node.children.count
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
+        guard let node = item as? TreeNode else { return roots[index] }
+        if !node.isLoaded { node.load(showHidden: showHidden) }
+        return node.children[index]
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
+        guard let node = item as? TreeNode else { return false }
+        return !node.isLoaded || !node.children.isEmpty
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
+        guard let node = item as? TreeNode else { return nil }
+        let identifier = NSUserInterfaceItemIdentifier("TreeCell")
+        let cell = outlineView.makeView(withIdentifier: identifier, owner: self) as? NSTableCellView ?? {
+            let cell = NSTableCellView()
+            cell.identifier = identifier
+            let image = NSImageView()
+            let text = NSTextField(labelWithString: "")
+            text.lineBreakMode = .byTruncatingTail
+            for v in [image, text] as [NSView] { v.translatesAutoresizingMaskIntoConstraints = false; cell.addSubview(v) }
+            cell.imageView = image
+            cell.textField = text
+            NSLayoutConstraint.activate([
+                image.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
+                image.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+                image.widthAnchor.constraint(equalToConstant: 16), image.heightAnchor.constraint(equalToConstant: 16),
+                text.leadingAnchor.constraint(equalTo: image.trailingAnchor, constant: 5),
+                text.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -2),
+                text.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            ])
+            return cell
+        }()
+        cell.textField?.stringValue = node.name
+        cell.imageView?.image = NSWorkspace.shared.icon(forFile: node.url.path)
+        return cell
+    }
+
+    func outlineViewSelectionDidChange(_ notification: Notification) {
+        guard !suppressSelection, let node = outline.item(atRow: outline.selectedRow) as? TreeNode else { return }
+        onSelect?(node.url)
+    }
+
+    // MARK: Dropping files on a folder
+
+    func outlineView(_ outlineView: NSOutlineView, validateDrop info: NSDraggingInfo, proposedItem item: Any?, proposedChildIndex index: Int) -> NSDragOperation {
+        guard let node = item as? TreeNode, ArchiveBrowser.shared.location(of: node.url) == nil else { return [] }
+        outlineView.setDropItem(node, dropChildIndex: NSOutlineViewDropOnItemIndex)
+        let urls = ListerViewController.droppedURLs(from: info.draggingPasteboard)
+        guard !urls.isEmpty else { return [] }
+        return ListerViewController.dragOperation(for: urls, into: node.url, modifiers: NSEvent.modifierFlags, sourceMask: info.draggingSourceOperationMask)
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, acceptDrop info: NSDraggingInfo, item: Any?, childIndex index: Int) -> Bool {
+        guard let node = item as? TreeNode else { return false }
+        let urls = ListerViewController.droppedURLs(from: info.draggingPasteboard)
+        let operation = ListerViewController.dragOperation(for: urls, into: node.url, modifiers: NSEvent.modifierFlags, sourceMask: info.draggingSourceOperationMask)
+        guard !urls.isEmpty, operation != [] else { return false }
+        onDrop?(urls, node.url, operation)
+        return true
+    }
+}

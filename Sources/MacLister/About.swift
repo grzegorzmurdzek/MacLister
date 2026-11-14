@@ -50,6 +50,7 @@ struct AboutView: View {
             Text("MacLister").font(.system(size: 22, weight: .semibold))
             Text("A lister-based file manager in the spirit of Directory Opus Magellan.")
                 .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)          // wrap onto more lines instead of cutting the text
 
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 4) {
                 GridRow {
@@ -85,7 +86,7 @@ struct AboutView: View {
             Text(AboutInfo.copyright).font(.caption).foregroundStyle(.tertiary)
         }
         .padding(24)
-        .frame(width: 340)
+        .frame(width: 380)
     }
 }
 
@@ -95,10 +96,13 @@ enum AboutWindow {
     static func show() {
         if let window { NSApp.bringToFront(); window.makeKeyAndOrderFront(nil); return }
         let host = NSHostingController(rootView: AboutView())
+        host.sizingOptions = [.preferredContentSize]
         let created = NSWindow(contentViewController: host)
         created.styleMask = [.titled, .closable]
         created.title = tr("About MacLister")
         created.isReleasedWhenClosed = false
+        host.view.layoutSubtreeIfNeeded()
+        created.setContentSize(host.view.fittingSize)           // tall enough for the wrapped description
         created.center()
         NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: created, queue: .main) { _ in window = nil }
         window = created

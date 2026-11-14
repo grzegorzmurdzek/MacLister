@@ -121,6 +121,7 @@ extension ListerViewController {
             return
         }
         if kind == .move, refuseIfBusy(items) { return }
+        if archiveBlocksTransfer(kind, items: items, destination: destinationModel.url) { return }
         guard let window = view.window else { return }
         model.errorMessage = nil
         let folder = destinationModel.url

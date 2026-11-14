@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         DispatchQueue.global(qos: .utility).async { RemoteCache.purge() }     // old downloaded copies
+        DispatchQueue.global(qos: .utility).async { ArchiveBrowser.cleanOldCaches() }     // archives unpacked for browsing
         NotificationCenter.default.addObserver(forName: .shortcutsChanged, object: nil, queue: .main) { _ in GlobalShortcutActions.apply() }
         GlobalShortcutActions.apply()
         LegacyMigration.run()          // before anything touches buttons.json or the defaults
@@ -344,6 +345,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func terminalChoices() -> [(name: String, id: String)] { Self.terminalChoices() }
+
+    // MARK: - Text editor used by "New Text File"
+
+    private static let knownEditors: [(name: String, id: String)] = [
+        ("TextEdit", "com.apple.TextEdit"),
+        ("Visual Studio Code", "com.microsoft.VSCode"),
+        ("Sublime Text", "com.sublimetext.4"),
+        ("BBEdit", "com.barebones.bbedit"),
+        ("CotEditor", "com.coteditor.CotEditor"),
+        ("Nova", "com.panic.Nova"),
+        ("Zed", "dev.zed.Zed"),
+        ("TextMate", "com.macromates.TextMate"),
+        ("MacVim", "org.vim.MacVim"),
+        ("Xcode", "com.apple.dt.Xcode"),
+    ]
+
+    /// Text editors that are installed (checked live).
+    static func editorChoices() -> [(name: String, id: String)] {
+        knownEditors.filter { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0.id) != nil }
+    }
 
     func chooseTerminal(id: String) { Settings.terminalBundleID = id }
 

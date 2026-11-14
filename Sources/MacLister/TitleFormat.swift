@@ -112,6 +112,11 @@ enum TitleFormat {
         c.label = model.label
         if let title = VirtualPlace.title(for: url), model.virtualPlace != nil {
             c.name = title
+        } else if let location = model.archiveLocation {
+            c.name = location.inner.last ?? location.archive.lastPathComponent
+            c.path = ListerModel.displayPath(url)
+            c.shortPath = (c.path as NSString).abbreviatingWithTildeInPath
+            c.volume = location.archive.lastPathComponent
         } else if url.isFileURL {
             c.name = FileManager.default.displayName(atPath: url.path)
             c.path = url.path

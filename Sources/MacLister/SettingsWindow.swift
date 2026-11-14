@@ -11,7 +11,26 @@ private struct GeneralSettingsView: View {
     @AppStorage("showDockIcon") private var showDockIcon = true
     @AppStorage("listersOnAllDesktops") private var allDesktops = false
     @AppStorage("terminalBundleID") private var terminal = "com.apple.Terminal"
+    @AppStorage("textEditorBundleID") private var editor = "com.apple.TextEdit"
     @State private var language = AppLanguage.current
+
+    /// Installed editors, plus the chosen one even when it is not in the list (an app picked with "Other App…").
+    private var editorChoices: [(name: String, id: String)] {
+        var choices = AppDelegate.editorChoices()
+        if !choices.contains(where: { $0.id == editor }) {
+            let name = NSWorkspace.shared.urlForApplication(withBundleIdentifier: editor).map { FileManager.default.displayName(atPath: $0.path).replacingOccurrences(of: ".app", with: "") } ?? editor
+            choices.append((name, editor))
+        }
+        return choices
+    }
+
+    private func chooseEditorApp() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.application]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.canChooseDirectories = false
+        if panel.runModal() == .OK, let url = panel.url, let id = Bundle(url: url)?.bundleIdentifier { editor = id }
+    }
 
     private var terminalChoices: [(name: String, id: String)] {
         var choices = AppDelegate.terminalChoices()
@@ -58,6 +77,19 @@ private struct GeneralSettingsView: View {
                 }
             }
             Section {
+                Picker("Text editor", selection: $editor) {
+                    ForEach(editorChoices, id: \.id) { Text($0.name).tag($0.id) }
+                }
+                HStack {
+                    Spacer()
+                    Button("Other App…") { chooseEditorApp() }
+                }
+            } header: {
+                Text("New Text File")
+            } footer: {
+                Text("The New Text File button makes an empty text file in the folder and opens it in this app.")
+            }
+            Section {
                 Picker("Interface language", selection: $language) {
                     ForEach(AppLanguage.allCases, id: \.self) { Text($0.menuTitle).tag($0) }
                 }
@@ -91,6 +123,7 @@ private struct ListersSettingsView: View {
     @AppStorage("relativeDates") private var relativeDates = true
     @AppStorage("foldersFirst") private var foldersFirst = true
     @AppStorage("dragSelectFromNames") private var dragSelect = true
+    @AppStorage("browseArchives") private var browseArchives = true
     @State private var confirmReset = false
 
     var body: some View {
@@ -113,6 +146,9 @@ private struct ListersSettingsView: View {
                     .onChange(of: foldersFirst) { _ in NotificationCenter.default.post(name: .columnsChanged, object: nil) }
                 Toggle("Show dates as Today and Yesterday", isOn: $relativeDates)
                     .onChange(of: relativeDates) { _ in NotificationCenter.default.post(name: .columnsChanged, object: nil) }
+                Toggle("Open archives like folders", isOn: $browseArchives)
+                Text("A double-click on a zip, tar, 7z or rar file shows what is inside, read-only; copy files out with Copy. Off: the system opens the archive. Extract unpacks it either way.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Toggle("Select by dragging from file names", isOn: $dragSelect)
                 Text("Dragging from empty space of a row always selects. With this on, an unselected file name does too; a selected file is always dragged as a file.")
                     .font(.caption).foregroundStyle(.secondary)

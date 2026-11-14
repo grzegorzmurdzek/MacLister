@@ -20,8 +20,8 @@ menu-bar app with an optional Dock icon.
 - **Source / destination listers** with Copy (F5), Move (F6), Extract, Compare, Swap.
 - **Drag and drop** between listers and to/from Finder (Finder rules: same volume moves, ⌥ copies, ⌘ moves).
 - **Configurable button bar**, **filetype actions** (what a double-click does), **bookmarks**, **saved layouts**.
-- Select by pattern, filter, **find** (Spotlight or a folder scan), folder sizes, info panel, rename, duplicate, Quick Look on Space, archive extraction
-  (zip, tar.\*, 7z, rar, gz, bz2 …).
+- Select by pattern, filter, **find** (Spotlight or a folder scan), **find duplicates**, **checksums**, folder sizes, info panel, rename, duplicate, Quick Look on Space, archive extraction
+  (zip, tar.\*, 7z, rar, gz, bz2 …) and **browsing archives like folders**.
 - **Right-click the title bar** for lister commands (duplicate, source/destination, close all …).
 - **Undo** for the last copy, move, duplicate or Trash (⌘Z) and an **operation log** with a retention limit.
 - **Drag-select** (press on a row and drag down or up to select the rows in between), **Tab** between listers, a **history
@@ -88,6 +88,7 @@ run `defaults delete com.example.MacLister`, and remove MacLister from the two P
   the tooltip. **Settings → Listers → Button bar** puts it above the path, below the path or at the bottom;
   **Show Button Labels** adds text.
 - A thin **status line** at the bottom: item count, selection size, filter, progress and errors.
+- An optional **folder tree** on the left (⌥⌘T, or *Show Folder Tree* in the menus): your home folder and every volume, folders only. Choosing a folder shows it in the lister, the tree follows the lister, new folders appear in it, and files dropped on a folder are copied or moved there like any other drop. The width you drag the divider to is remembered.
 - New listers open at 560 × 400 and remember the size you last gave a lister by dragging its edge.
 - The window subtitle shows the item count and the lister's role (SOURCE / DESTINATION).
 
@@ -162,165 +163,18 @@ On many laptops F-keys need **fn**.
 - **Right-click the file list** – laid out like Finder's menu; the commands you use less often are in submenus so the
   menu stays short. On top: *Open*, *Open With*, *Extract*, Copy/Move to the destination lister, **Move to Trash**
   (with its icon), *Info*, *Rename*, *Quick Look*, *Copy* (puts the files on the pasteboard), *Copy Path*, then the
-  submenu **Details** (*Attributes…*, *Calculate Folder Size*, *Tags…*) and **Make** (**Compress** – `name.zip`, or
-  `Archive.zip` for several items –, *Duplicate*, *Make Alias*, *Make Symbolic Link*, *Copy As…*, *Move As…*), then
-  **Share** (the system sharing menu), a row of **coloured tag dots**, **Quick Actions** (rotate, create PDF and
-  convert for images, plus your Automator Quick Action workflows from `~/Library/Services`) and **Services**
-  (whatever the installed services offer for the selected files, e.g. “New iTerm2 Tab Here”), *Open in Destination*,
-  *Reveal in Finder*, and **This Lister** (*New Folder…*, *Terminal Here*, *Show Hidden Files*, *Refresh*,
-  *Duplicate Lister*, *Name This Lister…*, *Add Bookmark*). Clicking empty space gives the folder commands: the
-  submenu **Select** (by pattern, by attributes, all, invert), Filter, Find, Flat View, Calculate Folder Sizes,
-  Compare and Synchronize with the destination, New Folder, Terminal Here, Copy Folder Path, Hidden Files, Refresh, and
-  **This Lister**. Tag dots toggle a colour on every selected item (a dot with a check mark means all of them have
-  it); *Tags…* adds and removes any tags, coloured or not.
-- **Right-click the title bar** for lister commands (duplicate, source/destination, close all …).
-- **Undo** for the last copy, move, duplicate or Trash (⌘Z) and an **operation log** with a retention limit.
-- **Drag-select** (press on a row and drag down or up to select the rows in between), **Tab** between listers, a **history
-  menu** under right-click on Back.
-- **Left, right and middle click** of every button can do something different; a **button editor** and a
-  **title format** with `%` variables.
-- **Update check** — manual, or automatic if you agree (off by default).
-
-## Requirements
-
-macOS 13 Ventura or later. Apple Silicon or Intel (universal build; the Intel half has not been run on real
-Intel hardware).
-
-## Install
-
-1. Download `MacLister-<version>-macos.zip` from the **Releases** page of this repository. Optionally verify it
-   against the `.sha256` file: `shasum -a 256 -c MacLister-<version>-macos.zip.sha256`.
-2. Unzip it and drag **MacLister.app** into `/Applications`.
-3. **First launch.** The app is ad-hoc signed, not notarized, so Gatekeeper blocks it at first:
-   - Control-click the app → **Open** → **Open**, or
-   - System Settings → Privacy & Security → **Open Anyway** (macOS 15 and later), or
-   - run `xattr -dr com.apple.quarantine /Applications/MacLister.app` once.
-4. **Grant two permissions** in System Settings → Privacy & Security:
-   - **Accessibility** – to recognise what is under the cursor (empty desktop vs. icon, window, Dock).
-   - **Input Monitoring** – macOS requires it for the passive event tap that sees double-clicks.
-
-   Switch both on for MacLister, then **quit and start the app again** (menu-bar icon → *Quit MacLister*).
-5. Click the menu-bar icon. The first line should read **Desktop double-click: active**.
-6. *Recommended:* turn off the system's "reveal desktop" feature, otherwise the first click of a double-click
-   slides all windows aside and the new lister can end up partly off-screen.
-   System Settings → Desktop & Dock → **Click wallpaper to reveal desktop** → *Only in Stage Manager*, or:
-
-   ```bash
-   defaults write com.apple.WindowManager EnableStandardClickToShowDesktop -bool false
-   ```
-
-7. *Optional:* start at login via System Settings → General → Login Items → **+** → MacLister.
-
-**Uninstall:** quit from the menu-bar icon, delete the app, remove `~/Library/Application Support/MacLister`,
-run `defaults delete com.example.MacLister`, and remove MacLister from the two Privacy lists.
-
-## Using MacLister
-
-### Opening a lister
-
-- **Double-click an empty spot on the desktop.** Nothing happens on icons, windows, the menu bar or the Dock,
-  and clicks with ⌘/⇧/⌥/⌃ held are ignored. Prefer the mouse wheel? **Settings → General → Open a lister with** lets a
-  **single click of the middle button** open a lister instead of, or in addition to, the double-click.
-- Or use the menu-bar icon → **New Lister**.
-- By default the window's top-left corner sits on the click; **Settings → General → Center the lister on the pointer**
-  centres it instead. A lister opens on your home folder (see *startDirectory* below).
-
-### Anatomy of a lister
-
-- **Path bar:** *Back*, *Parent*, the **Go** menu (places, volumes, bookmarks, recent folders), the path as a
-  clickable **breadcrumb** (click a folder to jump there; click the empty part of the bar or press **⌘L** to
-  type a path instead, `~` works) and the **SRC** / **DST** badges.
-- **File list:** icon, name, size, modified date. Click a header to sort; folders come first by default, or switch *Keep folders above files when sorting* off (Settings → Listers, or the column header menu) to sort folders and files together.
-  Double-click or Return opens a file or enters a folder. **Right-click the column header** to choose the
-  columns: Size, Modified, Created, Kind, Extension, Permissions, Tags, Comment.
-- **The list refreshes itself** when files are added, removed or changed on disk (FSEvents), and the window
-  subtitle shows the free space of the volume.
-- **Button bar** above the path bar, as in Ambient on MorphOS (see *Configuration*): icons only, the name is in
-  the tooltip. **Settings → Listers → Button bar** puts it above the path, below the path or at the bottom;
-  **Show Button Labels** adds text.
-- A thin **status line** at the bottom: item count, selection size, filter, progress and errors.
-- New listers open at 560 × 400 and remember the size you last gave a lister by dragging its edge.
-- The window subtitle shows the item count and the lister's role (SOURCE / DESTINATION).
-
-### Source and destination
-
-Mark one lister as **SRC** and another as **DST** with the badges in the path bar (click again to clear).
-Then:
-
-| Action | What it does |
-|---|---|
-| **Copy** (F5) | copies the selection of the source lister into the destination lister's folder |
-| **Move** (F6) | moves it there |
-| **Copy As** (⇧F5) / **Move As** (⇧F6) | the same, but first asks for a new name for every item, so the copy or move and the rename are one step; without a destination lister the copy goes into this folder |
-| **Extract** (⌘E) | unpacks selected archives into a new sub-folder of the destination folder |
-| **Compare** | selects, in both listers, items that are missing on the other side or differ (size / newer) |
-| **Synchronize…** | compares the two folders including everything below them and shows a list of what would be copied (or sent to the Trash); you tick what to do |
-| **Swap** | exchanges the roles |
-| **Open in Destination** | context menu: shows the selected folder in the destination lister |
-
-If no lister is marked SRC, the lister whose button you pressed is the source.
-
-**Progress and Cancel.** Copy and Move show a progress bar in the status line (item, bytes, current file) with a
-**Cancel** button; folders are processed file by file, so cancelling takes effect between files. A move on the
-same volume is a plain rename.
-
-**Conflicts** are asked one at a time, with the old and new size and date: **Replace** (the old item goes to the
-Trash), **Replace If Newer**, **Keep Both** ("name 2.ext"), **Skip**, **Cancel**, and **Merge** when a folder
-meets a folder (its contents are then resolved item by item). Tick **Apply to all remaining conflicts** to stop
-being asked.
-
-**Synchronize** works on the folders of the source and destination listers (both local). *Update the destination from
-the source* copies new files and files that are newer in the source (an option also replaces files that are newer in the
-destination, another moves files that exist only in the destination to the Trash); *Both ways* lets the newer file win in
-each direction and copies one-sided files across. Nothing happens before you press **Synchronize**: the list shows
-every planned step with a tick box. A replaced file goes to the Trash first, copies keep their dates (so the next
-comparison is clean), and the operation is in the log and can be undone with ⌘Z (files moved to the Trash by the
-*only in the destination* option are not part of Undo; take them out of the Trash). Empty folders are not copied.
-
-**Lock Role** (title-bar menu) pins a lister as source or destination: no other lister can take the role, it
-cannot be cleared or swapped away until you unlock it.
-
-### Keyboard
-
-| Key | Action |
-|---|---|
-| Space | Quick Look (arrows move through files, Space closes) |
-| Return, ⌘↓ | open file / enter folder |
-| Backspace, ⌘↑ | parent folder |
-| ⌘⌫ | move selection to the Trash |
-| F2 | rename (with several items selected: batch rename) |
-| F5 / F6 | copy / move to the destination lister |
-| ⌘E | extract archives |
-| ⌘I | info (size, dates, permissions, owner) |
-| ⌥⌘I | edit attributes (permissions, dates, hidden, tags, comment) |
-| ⌘L | type a path instead of using the breadcrumb |
-| ⌘D | duplicate the selected files (`name copy.ext`) |
-| ⌥⌘D | **duplicate this lister** (same folder, size, sort, filter) |
-| ⌘F | filter by pattern |
-| `+` / `-` / `*` | select by pattern / deselect by pattern / invert selection |
-| ⌘A | select all |
-| ⌘B | bookmark this folder |
-| ⌘⇧. | show or hide hidden files |
-| ⌘⇧L | bring all listers to the front |
-| ⌘W | close the lister |
-| ⌘Z | undo the last copy, move, duplicate or Move to Trash (this session) |
-| Tab / ⇧Tab | move to the next / previous lister |
-
-On many laptops F-keys need **fn**.
-
-### Menus
-
-- **Right-click the file list** – laid out like Finder's menu, with MacLister's own commands kept:
-  *Open*, *Open With*, *Extract*, Copy/Move to the destination lister, **Move to Trash** (with its icon),
-  *Info*, *Rename*, *Attributes*, **Compress** (`name.zip`, or `Archive.zip` for several items), *Duplicate*,
-  *Make Alias*, *Make Symbolic Link*, *Quick Look*, *Copy* (puts the files on the pasteboard), *Copy Path*,
-  **Share** (the system sharing menu), a row of **coloured tag dots** and **Tags…**, **Quick Actions**
-  (rotate, create PDF and convert for images, plus your Automator Quick Action workflows from
-  `~/Library/Services`) and **Services** (whatever the installed services offer for the selected files,
-  e.g. “New iTerm2 Tab Here”), then *Open in Destination* and *Reveal in Finder*. Clicking empty space gives the
-  folder commands (Select by Pattern, Filter, Calculate Folder Sizes, Compare, New Folder …).
-  Tag dots toggle a colour on every selected item (a dot with a check mark means all of them have it);
-  *Tags…* adds and removes any tags, coloured or not.
+  submenu **Details** (*Attributes…*, *Checksums…*, *Calculate Folder Size*, *Tags…*) and **Make** (**Compress** –
+  `name.zip`, or `Archive.zip` for several items –, *Duplicate*, *Make Alias*, *Make Symbolic Link*, *Copy As…*,
+  *Move As…*), then **Share** (the system sharing menu), a row of **coloured tag dots**, **Quick Actions** (rotate,
+  create PDF and convert for images, plus your Automator Quick Action workflows from `~/Library/Services`) and
+  **Services** (whatever the installed services offer for the selected files, e.g. “New iTerm2 Tab Here”),
+  *Open in Destination*, *Reveal in Finder*, and **This Lister** (*New Folder…*, *New Text File*, *Terminal Here*,
+  *Show Hidden Files*, *Refresh*, *Snapshot This Folder*, *Show Folder Tree*, *Duplicate Lister*, *Name This Lister…*,
+  *Add Bookmark*). Clicking empty space gives the folder commands: the submenu **Select** (by pattern, by attributes,
+  all, invert), Filter, Find, Find Duplicates, Flat View, Calculate Folder Sizes, Compare and Synchronize with the
+  destination, New Folder, New Text File, Terminal Here, Copy Folder Path, Hidden Files, Refresh, and **This Lister**.
+  Tag dots toggle a colour on every selected item (a dot with a check mark means all of them have it); *Tags…* adds
+  and removes any tags, coloured or not.
 - **Right-click the title bar** (or Control-click) – lister commands: **Duplicate Lister**, New Lister, Set as
   Source / Destination, Swap, Parent, Back, Refresh, Hidden files, Filter, Bookmarks, Recent Folders,
   Terminal Here, Bring All to Front, Close, Close All, Save/Restore Layout.
@@ -341,9 +195,9 @@ On many laptops F-keys need **fn**.
 
 - **General** — what opens a lister (double-click, middle button or both), centre it on the pointer, the folder it
   opens, reopen the saved layout at launch, listers on all desktops, the Dock icon, the terminal app for
-  *Terminal Here*, the interface language.
+  *Terminal Here*, the text editor for *New Text File*, the interface language.
 - **Listers** — button bar position and labels, folders above files, **Edit Buttons…** / *Reload* / *Reset…*, relative dates,
-  drag-select from file names, **Lister Title…**, **Keyboard Shortcuts…**, **Edit Filetypes…**.
+  open archives like folders, drag-select from file names, **Lister Title…**, **Keyboard Shortcuts…**, **Edit Filetypes…**.
 - **Operations** — how long the operation log is kept, **Open Operation Log…**, and **Clear Recent Folders…** /
   **Clear Operation Log…** (each asks for confirmation first).
 - **Updates** — version, last check, automatic checks (off by default), *Check for Updates…*.
@@ -388,6 +242,16 @@ bottom of the *Recent Folders* menu (**Go** and the context menu) and in the Ope
   of its own and a search over the whole home folder is fast. Network volumes, volumes without an index and
   **Search the folders directly** in the window use a plain walk through the folders instead (slower, finds hidden and
   unindexed files too; text is searched in files up to 16 MB). Shows the first 5000 matches.
+- **Find Duplicates…** (context menu on empty space, title-bar menu, or a button): finds files with exactly the same
+  content below a folder. Files are compared by size first, then by their first 64 KB, and only the ones that still
+  look alike are read completely (SHA-256), so a big folder is searched quickly; hard links to one file count once.
+  The window lists the groups, the ones that waste the most space first, with a tick box on every copy and a menu to
+  mark all but the oldest or the newest in each group. **Move to the Trash** works on what you ticked, never on all
+  copies of a file (at least one always stays), is logged and can be undone with ⌘Z.
+- **Checksums…** (*Details* in the context menu of files, a button in the *Info* window, or the `checksums` action):
+  MD5, SHA-1, SHA-256 and SHA-512 of the selected files, calculated in one pass with progress and Cancel. Paste a
+  checksum you were given into *Compare with* and it tells which file and which algorithm match; *Copy List* puts
+  `hash  name` lines (the format `shasum -c` reads) on the pasteboard.
 - **Flat View** (context menu on empty space, title-bar menu, or the `flatView` button action): lists every file below
   the folder, in all sub-folders, as one list (no folders; bundles such as `.app` stay). Sort, filter, select and copy
   as usual, *Where* shows the folder of each file. The same command (*Leave Flat View*) or Back returns to the folder.
@@ -407,6 +271,12 @@ bottom of the *Recent Folders* menu (**Go** and the context menu) and in the Ope
 - **Make Alias** and **Make Symbolic Link** (context menu): created next to the originals, or in the destination
   lister's folder when there is one.
 - **Open With** (context menu on files): the applications that can open the file, the default first, or *Other…*.
+
+- **New Text File** (a default button, the context menu on empty space, or *This Lister*): makes an empty
+  `untitled.txt` in the folder, selects it and opens it in **TextEdit**. **Settings → General → New Text File** chooses
+  another editor (Visual Studio Code, Sublime Text, BBEdit, CotEditor, Nova, Zed, TextMate, MacVim, Xcode when
+  installed, or *Other App…* for any application). New installations get the button; with an older `buttons.json`
+  add the `newTextFile` action in *Edit Buttons…* or use *Reset…*.
 
 ### Bookmarks and history
 
@@ -442,6 +312,25 @@ filter); **Restore Layout** reopens them. To restore automatically at launch:
 ```bash
 defaults write com.example.MacLister restoreLayoutAtLaunch -bool true
 ```
+
+### Snapshot
+
+*Snapshot This Folder* (title-bar menu, *This Lister*, or the `snapshot` action) remembers the lister's **window size
+and position and the sort order** for the folder it shows. Entering that folder in any lister brings its sort order
+back; a lister opened on it gets its size, and a new lister cascaded beside another one also its position. Folders
+without a snapshot use the sort order you last chose by clicking a column header. *Forget Snapshot* removes it.
+Snapshots are kept in `snapshots.json`.
+
+### Browsing archives
+
+A double-click on a zip, tar, tar.gz, 7z, rar … file shows what is inside, like a folder. The archive is unpacked once
+into `~/Library/Caches/MacLister/Archives` (a progress message while it works) and shown **read-only**: the path bar and
+the title name the archive (`…/pack.zip/folder`), *Parent* from the top of the archive goes back to the folder it lies
+in, and Back, Quick Look, Info, Open and **Copy** (also by dragging) work as in any folder. Commands that would change
+the archive (Trash, Rename, New Folder, Move out of it, dropping into it …) are not offered, or say why. Unpacked
+archives nobody opened for two days are removed when the app starts. **Settings → Listers → Open archives like folders**
+turns this off (then the system opens the archive); *Extract* unpacks into a folder either way, and a filetype rule
+for the extension still wins over the double-click.
 
 ## Servers: FTP, FTPS and SFTP
 
@@ -657,7 +546,7 @@ Files in `~/Library/Application Support/MacLister/`:
 
 **Settings → Listers → Edit Buttons…** opens the button editor (see *Button clicks and the button editor*); after changing
 `buttons.json` by hand use **Reload** next to it (all open listers update). **Reset…** rewrites the file (use it after an update to get new default buttons; also
-`MacLister --reset-buttons`). The default set is short: New Folder, Terminal Here, Copy, Move, Extract,
+`MacLister --reset-buttons`). The default set is short: New Folder, New Text File, Terminal Here, Copy, Move, Extract,
 Compare, Info, Delete. Everything else (select, filter, sizes, duplicate lister, swap …) is in the menus and
 shortcuts, or add it as a button.
 
@@ -766,7 +655,7 @@ Layout: `Sources/MacLister/` – `DesktopDoubleClickMonitor` (event tap), `Deskt
 
 ## Known limitations
 
-No tree view or hex viewer, no search on servers, and archives cannot be browsed like folders (they are extracted).
+No hex viewer, no search, duplicates, checksums or snapshots on servers, and archives are browsed read-only (they cannot be changed from inside).
 Servers support browsing, copying and the basic folder operations only (see *Servers*).
 Dragging uses Finder conventions; spring-loaded folders are not implemented. Password-protected archives report
 an error.

@@ -30,6 +30,20 @@ enum ArchiveExtractor {
 
     static func isArchive(_ url: URL) -> Bool { kind(of: url) != nil }
 
+    /// Archives with several files (not a single .gz / .bz2) can be shown as a folder.
+    static func isBrowsable(_ url: URL) -> Bool {
+        if case .archive? = kind(of: url) { return true }
+        return false
+    }
+
+    /// Unpacks into exactly `folder` (which exists). Returns the problem, or nil when it worked.
+    static func extractContents(of archive: URL, to folder: URL) -> String? {
+        guard case .archive? = kind(of: archive) else { return tr("not a supported archive") }
+        let outcome = run("/usr/bin/bsdtar", ["-xf", archive.path, "-C", folder.path], stdoutTo: nil)
+        if outcome.status == 0 { return nil }
+        return outcome.error.split(separator: "\n").last.map(String.init) ?? "exit \(outcome.status)"
+    }
+
     /// Runs on a background queue; `completion` is called on the main queue.
     static func extract(_ archives: [URL], into parent: URL, completion: @escaping (ExtractResult) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {

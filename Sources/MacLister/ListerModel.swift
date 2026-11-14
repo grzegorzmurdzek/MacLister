@@ -63,6 +63,8 @@ final class ListerModel: ObservableObject {
     @Published private(set) var filter = ""
     /// Remembered between "select by pattern" prompts.
     var lastPattern = "*"
+    /// The sort order the user last chose by hand: folders without a snapshot use it.
+    private var userSort: (key: SortKey, ascending: Bool) = (.name, true)
     private var sizeGeneration = 0
     typealias Measure = FolderSize.Measure
     private var sizeCache: [URL: Int64] = [:]     // folder sizes calculated on request
@@ -93,6 +95,9 @@ final class ListerModel: ObservableObject {
 
     /// What the path field shows: a plain path for local folders, the URL for servers.
     static func displayPath(_ url: URL) -> String {
+        if let location = ArchiveBrowser.shared.location(of: url) {          // the archive's own path, then what is inside
+            return ([displayPath(location.archive)] + location.inner).joined(separator: "/")
+        }
         if let title = VirtualPlace.title(for: url) { return title }
         return url.isFileURL ? url.path : (RemoteURL.normalized(url).absoluteString.removingPercentEncoding ?? url.absoluteString)
     }
@@ -105,6 +110,7 @@ final class ListerModel: ObservableObject {
 
     init(url: URL) {
         self.url = VirtualPlace.place(for: url) != nil ? url : (RemoteURL.isRemote(url) ? RemoteURL.normalized(url) : url.standardizedFileURL)
+        applyFolderSort(for: self.url)
         reload()
         watchCurrentFolder()
         sharedObserver = NotificationCenter.default.addObserver(forName: .sharedPlacesChanged, object: nil, queue: .main) { [weak self] _ in
@@ -138,6 +144,18 @@ final class ListerModel: ObservableObject {
         errorMessage = nil
         loadVirtual()
         return true
+    }
+
+    /// A folder with a snapshot is sorted the way it was saved; any other folder the way the user last chose.
+    private func applyFolderSort(for target: URL) {
+        guard target.isFileURL else { return }
+        if let snapshot = SnapshotStore.shared.snapshot(for: target), let key = SortKey(rawValue: snapshot.sort) {
+            sortKey = key
+            ascending = snapshot.ascending
+        } else {
+            sortKey = userSort.key
+            ascending = userSort.ascending
+        }
     }
 
     /// Leaving Recents / Shared brings back the sort order the user had.
@@ -261,6 +279,7 @@ final class ListerModel: ObservableObject {
             return false
         }
         restoreSortAfterVirtual()
+        applyFolderSort(for: target)
         do {
             let listing = Self.sorted(try list(target), by: sortKey, ascending: ascending)
             if recordHistory, target != url { backStack.append(url) }
@@ -268,7 +287,7 @@ final class ListerModel: ObservableObject {
             url = target            // before items: observers of `items` already see the new url
             items = listing
             errorMessage = nil
-            PathHistory.shared.add(target)
+            if !isInArchive { PathHistory.shared.add(target) }
             watchCurrentFolder()
             return true
         } catch {
@@ -346,6 +365,10 @@ final class ListerModel: ObservableObject {
 
     func goParent() {
         guard canGoParent else { return }
+        if let location = archiveLocation, location.inner.isEmpty {          // the top of an archive: back to where it lies
+            navigate(to: location.archive.deletingLastPathComponent(), selecting: location.archive)
+            return
+        }
         navigate(to: url.deletingLastPathComponent(), selecting: url)
     }
 
@@ -404,6 +427,7 @@ final class ListerModel: ObservableObject {
     func apply(sort: SortKey, ascending: Bool, showHidden: Bool, filter: String) {
         sortKey = sort
         self.ascending = ascending
+        userSort = (sort, ascending)
         self.showHidden = showHidden
         self.filter = filter
     }
@@ -416,6 +440,7 @@ final class ListerModel: ObservableObject {
     /// How this lister is called in menus: its label, else the folder's name.
     var displayName: String {
         if !label.isEmpty { return label }
+        if let location = archiveLocation { return location.inner.last ?? location.archive.lastPathComponent }
         if let title = VirtualPlace.title(for: url), virtualPlace != nil { return title }
         return url.isFileURL ? FileManager.default.displayName(atPath: url.path) : RemoteURL.serverLabel(of: url)
     }
@@ -476,6 +501,7 @@ final class ListerModel: ObservableObject {
         guard key != sortKey || ascending != self.ascending else { return }
         sortKey = key
         self.ascending = ascending
+        if !isVirtual { userSort = (key, ascending) }
         items = Self.sorted(items, by: key, ascending: ascending)
     }
 

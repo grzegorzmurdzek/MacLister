@@ -221,6 +221,10 @@ final class ListerManager {
                     configure: ((ListerWindowController) -> Void)? = nil) -> ListerWindowController {
         let controller = ListerWindowController(directory: directory)
         controllers.append(controller)
+        if let window = controller.window, let snapshot = SnapshotStore.shared.snapshot(for: directory) {
+            window.setContentSize(NSSize(width: snapshot.width, height: snapshot.height))
+            if case .cascade = anchor, let x = snapshot.x, let y = snapshot.y { snapshotOrigin = visibleOrigin(NSPoint(x: x, y: y), size: window.frame.size) }
+        }
         // $progress publishes before the value changes, so look at it on the next turn of the run loop
         progressSubscriptions[ObjectIdentifier(controller)] = controller.model.$progress.sink { [weak self] _ in
             DispatchQueue.main.async { self?.onProgressChange?() }
@@ -228,7 +232,8 @@ final class ListerManager {
         configure?(controller)
 
         if let window = controller.window {
-            window.setFrameOrigin(origin(for: window.frame.size, anchor: anchor))
+            window.setFrameOrigin(snapshotOrigin ?? origin(for: window.frame.size, anchor: anchor))
+            snapshotOrigin = nil
             // The desktop click made Finder the active app, and macOS 14+ refuses a plain activation
             // from the background. orderFrontRegardless puts the window above other apps' windows
             // without needing activation; activate + makeKey then give it keyboard focus when allowed.
@@ -310,6 +315,17 @@ final class ListerManager {
         controllers.removeAll { $0 === controller }
         progressSubscriptions[ObjectIdentifier(controller)] = nil
         DispatchQueue.main.async { [weak self] in self?.onProgressChange?() }
+    }
+
+    /// Where a snapshot wants the next window (set and used inside openLister).
+    private var snapshotOrigin: NSPoint?
+
+    /// `origin`, moved so the window stays on a screen (the screen of the snapshot may be gone).
+    private func visibleOrigin(_ origin: NSPoint, size: NSSize) -> NSPoint {
+        let screen = NSScreen.screens.first { $0.frame.contains(origin) } ?? NSScreen.main
+        guard let visible = screen?.visibleFrame else { return origin }
+        return NSPoint(x: max(visible.minX, min(origin.x, visible.maxX - size.width)),
+                       y: max(visible.minY, min(origin.y, visible.maxY - size.height)))
     }
 
     private func origin(for size: NSSize, anchor: Anchor) -> NSPoint {

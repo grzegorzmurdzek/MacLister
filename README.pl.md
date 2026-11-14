@@ -21,8 +21,8 @@ działa w pasku menu, z opcjonalną ikoną w Docku.
 - **Przeciąganie i upuszczanie** między listerami oraz z/do Findera (reguły Findera: ten sam wolumin przenosi,
   ⌥ kopiuje, ⌘ przenosi).
 - **Konfigurowalny pasek przycisków**, **akcje dla typów plików** (co robi dwuklik), **zakładki**, **zapisane układy**.
-- Zaznaczanie wzorcem, filtr, **wyszukiwanie** (Spotlight albo przejście po folderach), rozmiary folderów, panel informacji, zmiana nazwy, duplikowanie, Quick Look na
-  Spacji, rozpakowywanie archiwów (zip, tar.\*, 7z, rar, gz, bz2 …).
+- Zaznaczanie wzorcem, filtr, **wyszukiwanie** (Spotlight albo przejście po folderach), **duplikaty**, **sumy kontrolne**, rozmiary folderów, panel informacji, zmiana nazwy, duplikowanie, Quick Look na
+  Spacji, rozpakowywanie archiwów (zip, tar.\*, 7z, rar, gz, bz2 …) i **przeglądanie archiwów jak folderów**.
 - **Prawy przycisk na belce okna** otwiera polecenia listera (duplikuj, źródło/cel, zamknij wszystkie …).
 - **Cofnij** ostatnie kopiowanie, przeniesienie, duplikowanie lub wyrzucenie do Kosza (⌘Z) oraz **dziennik operacji**
   z limitem przechowywania.
@@ -92,6 +92,7 @@ wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list 
   **Show Button Labels** dodaje napisy.
 - Cienka **linia stanu** na dole: liczba elementów, rozmiar zaznaczenia, filtr, postęp i błędy.
 - Nowe listery mają 560 × 400 i pamiętają rozmiar, który ostatnio nadałeś listerowi przeciągając krawędź.
+- Opcjonalne **drzewo folderów** po lewej (⌥⌘T albo *Pokaż drzewo folderów* w menu): folder domowy i wszystkie woluminy, tylko foldery. Wybranie folderu pokazuje go w listerze, drzewo podąża za listerem, nowe foldery pojawiają się w nim, a pliki upuszczone na folder są kopiowane lub przenoszone tak jak przy każdym innym upuszczeniu. Szerokość, na którą przeciągniesz podział, jest zapamiętywana.
 - Podtytuł okna pokazuje liczbę elementów i rolę listera (SOURCE / DESTINATION).
 
 ### Źródło i cel
@@ -165,167 +166,18 @@ W wielu laptopach klawisze F wymagają **fn**.
 - **Prawy przycisk na liście plików** – układ jak w menu Findera; rzadziej używane polecenia są w podmenu, więc menu
   pozostaje krótkie. Na wierzchu: *Otwórz*, *Otwórz w aplikacji*, *Rozpakuj*, Kopiuj/Przenieś do listera docelowego,
   **Przenieś do Kosza** (z ikoną), *Informacje*, *Zmień nazwę*, *Szybki podgląd*, *Kopiuj* (pliki trafiają do schowka),
-  *Kopiuj ścieżkę*, potem podmenu **Szczegóły** (*Atrybuty…*, *Oblicz rozmiar folderu*, *Tagi…*) i **Utwórz**
-  (**Kompresuj** – `nazwa.zip`, a dla kilku elementów `Archive.zip` –, *Powiel*, *Utwórz alias*, *Utwórz dowiązanie
-  symboliczne*, *Kopiuj jako…*, *Przenieś jako…*), a dalej **Udostępnij** (systemowe menu udostępniania), rząd
-  **kolorowych kropek tagów**, **Szybkie czynności** (obrót, tworzenie PDF i konwersja dla obrazów oraz Twoje przepływy
-  Automatora typu „Szybka czynność” z `~/Library/Services`) i **Usługi** (to, co zainstalowane usługi oferują dla
-  zaznaczonych plików, np. „New iTerm2 Tab Here”), *Otwórz w celu*, *Pokaż w Finderze* oraz **Ten lister** (*Nowy
-  folder…*, *Terminal tutaj*, *Pokaż ukryte pliki*, *Odśwież*, *Duplikuj lister*, *Nazwij lister…*, *Dodaj zakładkę*).
-  Kliknięcie pustego miejsca daje polecenia folderu: podmenu **Zaznacz** (wg wzorca, wg atrybutów, wszystko, odwróć),
-  Filtr, Znajdź, Widok płaski, Oblicz rozmiary folderów, Porównaj i Synchronizuj z celem, Nowy folder, Terminal tutaj,
+  *Kopiuj ścieżkę*, potem podmenu **Szczegóły** (*Atrybuty…*, *Sumy kontrolne…*, *Oblicz rozmiar folderu*, *Tagi…*) i
+  **Utwórz** (**Kompresuj** – `nazwa.zip`, a dla kilku elementów `Archive.zip` –, *Powiel*, *Utwórz alias*, *Utwórz
+  dowiązanie symboliczne*, *Kopiuj jako…*, *Przenieś jako…*), a dalej **Udostępnij** (systemowe menu udostępniania),
+  rząd **kolorowych kropek tagów**, **Szybkie czynności** (obrót, tworzenie PDF i konwersja dla obrazów oraz Twoje
+  przepływy Automatora typu „Szybka czynność” z `~/Library/Services`) i **Usługi** (to, co zainstalowane usługi oferują
+  dla zaznaczonych plików, np. „New iTerm2 Tab Here”), *Otwórz w celu*, *Pokaż w Finderze* oraz **Ten lister** (*Nowy
+  folder…*, *Nowy plik tekstowy*, *Terminal tutaj*, *Pokaż ukryte pliki*, *Odśwież*, *Zrób migawkę tego folderu*, *Pokaż
+  drzewo folderów*, *Duplikuj lister*, *Nazwij lister…*, *Dodaj zakładkę*). Kliknięcie pustego miejsca daje polecenia
+  folderu: podmenu **Zaznacz** (wg wzorca, wg atrybutów, wszystko, odwróć), Filtr, Znajdź, Znajdź duplikaty, Widok
+  płaski, Oblicz rozmiary folderów, Porównaj i Synchronizuj z celem, Nowy folder, Nowy plik tekstowy, Terminal tutaj,
   Kopiuj ścieżkę folderu, Ukryte pliki, Odśwież oraz **Ten lister**. Kropka przełącza kolor na wszystkich zaznaczonych
   elementach (kropka z haczykiem: mają go wszystkie); *Tagi…* dodaje i usuwa dowolne tagi, kolorowe lub nie.
-- **Prawy przycisk na belce okna** otwiera polecenia listera (duplikuj, źródło/cel, zamknij wszystkie …).
-- **Cofnij** ostatnie kopiowanie, przeniesienie, duplikowanie lub wyrzucenie do Kosza (⌘Z) oraz **dziennik operacji**
-  z limitem przechowywania.
-- **Zaznaczanie przeciąganiem** (naciśnij wiersz i ciągnij w dół lub w górę, żeby zaznaczyć wiersze pomiędzy), **Tab** między
-  listerami, **menu historii** pod prawym przyciskiem na przycisku Wstecz.
-- **Lewy, prawy i środkowy przycisk** każdego przycisku mogą robić co innego; **edytor przycisków** i **format tytułu**
-  ze zmiennymi `%`.
-- **Sprawdzanie aktualizacji** — ręczne albo automatyczne, jeśli się zgodzisz (domyślnie wyłączone).
-
-## Wymagania
-
-macOS 13 Ventura lub nowszy. Apple Silicon albo Intel (wersja uniwersalna; część dla Intela nie była
-uruchamiana na prawdziwym sprzęcie Intel).
-
-## Instalacja
-
-1. Pobierz `MacLister-<wersja>-macos.zip` ze strony **Releases** tego repozytorium. Opcjonalnie sprawdź sumę:
-   `shasum -a 256 -c MacLister-<wersja>-macos.zip.sha256`.
-2. Rozpakuj i przeciągnij **MacLister.app** do `/Applications`.
-3. **Pierwsze uruchomienie.** Aplikacja jest podpisana ad-hoc i nie przeszła notaryzacji Apple (płatnego programu dla programistów), więc Gatekeeper z początku ją
-   blokuje:
-   - kliknij aplikację z klawiszem Control → **Otwórz** → **Otwórz**, albo
-   - Ustawienia systemowe → Prywatność i ochrona → **Otwórz mimo to** (macOS 15 i nowsze), albo
-   - raz wykonaj `xattr -dr com.apple.quarantine /Applications/MacLister.app`.
-4. **Nadaj dwa uprawnienia** w Ustawieniach systemowych → Prywatność i ochrona:
-   - **Dostępność** – żeby rozpoznać, co jest pod kursorem (puste miejsce, ikona, okno, Dock).
-   - **Monitorowanie wprowadzania** – macOS wymaga go dla pasywnego nasłuchu, który widzi dwuklik.
-
-   Włącz oba dla MacLister, potem **zamknij i uruchom aplikację ponownie** (ikona w pasku menu → *Quit MacLister*).
-5. Kliknij ikonę w pasku menu. Pierwsza linia powinna brzmieć **Desktop double-click: active**.
-6. *Zalecane:* wyłącz systemowe odsłanianie pulpitu. Inaczej pierwszy klik dwukliku odsuwa wszystkie okna
-   na bok, a nowy lister może wylądować częściowo poza ekranem.
-   Ustawienia systemowe → Pulpit i Dock → **Kliknij tapetę, aby odsłonić pulpit** → *Tylko w Stage Manager*, albo:
-
-   ```bash
-   defaults write com.apple.WindowManager EnableStandardClickToShowDesktop -bool false
-   ```
-
-7. *Opcjonalnie:* uruchamianie przy logowaniu: Ustawienia systemowe → Ogólne → Elementy logowania → **+** → MacLister.
-
-**Odinstalowanie:** zamknij aplikację z ikony w pasku menu, usuń ją, usuń `~/Library/Application Support/MacLister`,
-wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list uprawnień.
-
-## Użycie
-
-### Otwieranie listera
-
-- **Dwuklik w puste miejsce pulpitu.** Na ikonach, oknach, pasku menu i Docku nic się nie dzieje, a kliknięcia
-  z wciśniętym ⌘/⇧/⌥/⌃ są ignorowane. Wolisz rolkę myszy? **Ustawienia → Ogólne → Otwieraj lister przez** pozwala
-  otwierać lister **pojedynczym kliknięciem środkowego przycisku** zamiast dwukliku albo oprócz niego.
-- Albo ikona w pasku menu → **New Lister**.
-- Domyślnie lewy górny róg okna leży w punkcie kliknięcia; **Ustawienia → Ogólne → Wyśrodkuj lister na kursorze**
-  wyśrodkowuje okno. Lister otwiera się w folderze domowym (zob. *startDirectory* niżej).
-
-### Budowa listera
-
-- **Pasek ścieżki:** *Back*, *Parent*, menu **Go** (miejsca, woluminy, zakładki, ostatnie foldery), ścieżka jako
-  klikalny **breadcrumb** (kliknij folder, żeby tam przejść; kliknij puste miejsce paska albo naciśnij **⌘L**, żeby
-  wpisać ścieżkę, `~` działa) oraz znaczki **SRC** / **DST**.
-- **Lista plików:** ikona, nazwa, rozmiar, data modyfikacji. Kliknięcie nagłówka sortuje; foldery domyślnie są
-  na początku (wyłączysz to w **Ustawienia → Listery → Foldery nad plikami przy sortowaniu** albo w menu nagłówka kolumn). Dwuklik lub Return otwiera plik albo wchodzi do folderu. **Prawy przycisk na nagłówku kolumn**
-  wybiera kolumny: Size, Modified, Created, Kind, Extension, Permissions, Tags, Comment.
-- **Lista odświeża się sama**, gdy pliki są dodawane, usuwane lub zmieniane na dysku (FSEvents), a podtytuł okna
-  pokazuje wolne miejsce na woluminie.
-- **Pasek przycisków** nad paskiem ścieżki, jak w Ambiencie na MorphOS (zob. *Konfiguracja*): same ikony, nazwa
-  w podpowiedzi. **Ustawienia → Listery → Pasek przycisków** ustawia go nad ścieżką, pod ścieżką albo na dole;
-  **Show Button Labels** dodaje napisy.
-- Cienka **linia stanu** na dole: liczba elementów, rozmiar zaznaczenia, filtr, postęp i błędy.
-- Nowe listery mają 560 × 400 i pamiętają rozmiar, który ostatnio nadałeś listerowi przeciągając krawędź.
-- Podtytuł okna pokazuje liczbę elementów i rolę listera (SOURCE / DESTINATION).
-
-### Źródło i cel
-
-Oznacz jeden lister jako **SRC**, a drugi jako **DST** znaczkami w pasku ścieżki (ponowne kliknięcie zdejmuje rolę).
-Potem:
-
-| Akcja | Co robi |
-|---|---|
-| **Copy** (F5) | kopiuje zaznaczenie listera źródłowego do folderu listera docelowego |
-| **Move** (F6) | przenosi je tam |
-| **Copy As** (⇧F5) / **Move As** (⇧F6) | to samo, ale najpierw pyta o nową nazwę każdego elementu, więc kopiowanie lub przenoszenie i zmiana nazwy to jeden krok; bez listera docelowego kopia trafia do tego folderu |
-| **Extract** (⌘E) | rozpakowuje zaznaczone archiwa do nowego podfolderu folderu docelowego |
-| **Compare** | zaznacza w obu listerach elementy, których brakuje po drugiej stronie albo które się różnią (rozmiar / nowsze) |
-| **Synchronize…** | porównuje oba foldery razem ze wszystkim pod nimi i pokazuje listę tego, co zostanie skopiowane (albo trafi do Kosza); zaznaczasz, co wykonać |
-| **Swap** | zamienia role miejscami |
-| **Open in Destination** | menu kontekstowe: pokazuje zaznaczony folder w liście docelowym |
-
-Gdy żaden lister nie jest oznaczony jako SRC, źródłem jest ten, w którym wciśnięto przycisk.
-
-**Postęp i Cancel.** Copy i Move pokazują w linii stanu pasek postępu (element, bajty, bieżący plik) z przyciskiem
-**Cancel**; foldery są przetwarzane plik po pliku, więc anulowanie działa między plikami. Przeniesienie w obrębie
-tego samego woluminu to zwykła zmiana nazwy.
-
-**Konflikty** są rozstrzygane pojedynczo, z rozmiarem i datą starego i nowego elementu: **Replace** (stary trafia
-do Kosza), **Replace If Newer**, **Keep Both** („nazwa 2.ext”), **Skip**, **Cancel**, a przy folderze na folder
-także **Merge** (zawartość jest wtedy rozstrzygana element po elemencie). Zaznacz **Apply to all remaining
-conflicts**, żeby nie być pytanym dalej.
-
-**Synchronize** działa na folderach listera źródłowego i docelowego (oba lokalne). *Zaktualizuj cel na podstawie źródła*
-kopiuje nowe pliki i te, które są nowsze w źródle (opcja zastępuje też pliki nowsze w celu, inna przenosi do Kosza pliki
-istniejące tylko w celu); *W obie strony* pozwala wygrać nowszemu plikowi w każdym kierunku i kopiuje pliki
-jednostronne na drugą stronę. Nic się nie dzieje przed naciśnięciem **Synchronize**: lista pokazuje każdy planowany krok
-z polem wyboru. Zastępowany plik trafia najpierw do Kosza, kopie zachowują daty (więc następne porównanie jest czyste),
-a operacja jest w dzienniku i można ją cofnąć ⌘Z (pliki przeniesione do Kosza opcją *tylko w celu* nie są częścią
-Cofania; wyjmij je z Kosza). Puste foldery nie są kopiowane.
-
-**Lock Role** (menu na belce okna) przypina lister jako źródło albo cel: inny lister nie może przejąć roli, a jej
-nie da się wyczyścić ani zamienić, dopóki nie odblokujesz.
-
-### Klawiatura
-
-| Klawisz | Akcja |
-|---|---|
-| Spacja | Quick Look (strzałki przechodzą po plikach, Spacja zamyka) |
-| Return, ⌘↓ | otwórz plik / wejdź do folderu |
-| Backspace, ⌘↑ | folder nadrzędny |
-| ⌘⌫ | przenieś zaznaczenie do Kosza |
-| F2 | zmień nazwę (przy kilku zaznaczonych: zmiana wielu nazw) |
-| F5 / F6 | kopiuj / przenieś do listera docelowego |
-| ⌘E | rozpakuj archiwa |
-| ⌘I | informacje (rozmiar, daty, uprawnienia, właściciel) |
-| ⌥⌘I | edycja atrybutów (uprawnienia, daty, ukryty, tagi, komentarz) |
-| ⌘L | wpisz ścieżkę zamiast klikać breadcrumb |
-| ⌘D | duplikuj zaznaczone pliki (`nazwa copy.ext`) |
-| ⌥⌘D | **duplikuj ten lister** (ten sam folder, rozmiar, sortowanie, filtr) |
-| ⌘F | filtr wzorcem |
-| `+` / `-` / `*` | zaznacz wzorcem / odznacz wzorcem / odwróć zaznaczenie |
-| ⌘A | zaznacz wszystko |
-| ⌘B | dodaj bieżący folder do zakładek |
-| ⌘⇧. | pokaż lub ukryj pliki ukryte |
-| ⌘⇧L | wynieś wszystkie listery na wierzch |
-| ⌘W | zamknij lister |
-| ⌘Z | cofnij ostatnie kopiowanie, przeniesienie, duplikowanie lub wyrzucenie do Kosza (w tej sesji) |
-| Tab / ⇧Tab | przejdź do następnego / poprzedniego listera |
-
-W wielu laptopach klawisze F wymagają **fn**.
-
-### Menu
-
-- **Prawy przycisk na liście plików** – układ jak w menu Findera, z zachowaniem własnych poleceń MacLister:
-  *Otwórz*, *Otwórz w aplikacji*, *Rozpakuj*, Kopiuj/Przenieś do listera docelowego, **Przenieś do Kosza** (z ikoną),
-  *Informacje*, *Zmień nazwę*, *Atrybuty*, **Kompresuj** (`nazwa.zip`, a dla kilku elementów `Archive.zip`), *Powiel*,
-  *Utwórz alias*, *Utwórz dowiązanie symboliczne*, *Szybki podgląd*, *Kopiuj* (pliki trafiają do schowka),
-  *Kopiuj ścieżkę*, **Udostępnij** (systemowe menu udostępniania), rząd **kolorowych kropek tagów** i **Tagi…**,
-  **Szybkie czynności** (obrót, tworzenie PDF i konwersja dla obrazów oraz Twoje przepływy Automatora typu
-  „Szybka czynność” z `~/Library/Services`) i **Usługi** (to, co zainstalowane usługi oferują dla zaznaczonych
-  plików, np. „New iTerm2 Tab Here”), a dalej *Otwórz w celu* i *Pokaż w Finderze*. Kliknięcie pustego miejsca
-  daje polecenia folderu (zaznaczanie wg wzorca, filtr, rozmiary folderów, porównanie, nowy folder …).
-  Kropka przełącza kolor na wszystkich zaznaczonych elementach (kropka z haczykiem: mają go wszystkie);
-  *Tagi…* dodaje i usuwa dowolne tagi, kolorowe lub nie.
 - **Prawy przycisk na belce okna** (albo Control-klik) – polecenia listera: **Duplicate Lister**, New Lister,
   Set as Source / Destination, Swap, Parent, Back, Refresh, pliki ukryte, Filter, Bookmarks, Recent Folders,
   Terminal Here, Bring All to Front, Close, Close All, Save/Restore Layout.
@@ -346,9 +198,9 @@ W wielu laptopach klawisze F wymagają **fn**.
 
 - **Ogólne** — co otwiera lister (dwuklik, środkowy przycisk albo oba), wyśrodkowanie na kursorze, folder, który się
   otwiera, otwieranie zapisanego układu przy starcie, listery na wszystkich pulpitach, ikona w Docku, aplikacja
-  terminala dla *Terminal Here*, język interfejsu.
+  terminala dla *Terminal Here*, edytor tekstu dla *New Text File*, język interfejsu.
 - **Listery** — położenie paska przycisków i etykiety, foldery nad plikami, **Edit Buttons…** / *Wczytaj ponownie* / *Przywróć…*, daty
-  względne, zaznaczanie przeciąganiem od nazw plików, **Tytuł listera…**, **Keyboard Shortcuts…**, **Edit Filetypes…**.
+  względne, otwieranie archiwów jak folderów, zaznaczanie przeciąganiem od nazw plików, **Tytuł listera…**, **Keyboard Shortcuts…**, **Edit Filetypes…**.
 - **Operacje** — jak długo przechowywany jest dziennik operacji, **Otwórz dziennik operacji…** oraz **Wyczyść ostatnie
   foldery…** / **Wyczyść dziennik operacji…** (każde najpierw prosi o potwierdzenie).
 - **Aktualizacje** — wersja, ostatnie sprawdzenie, automatyczne sprawdzanie (domyślnie wyłączone), *Sprawdź aktualizacje…*.
@@ -394,6 +246,17 @@ operacji…**. Obie czynności proszą o potwierdzenie i nie ruszają plików an
   woluminy bez indeksu i opcja **Przeszukaj foldery bezpośrednio** w oknie używają zwykłego przejścia po folderach
   (wolniej, znajduje też pliki ukryte i nieindeksowane; tekst jest szukany w plikach do 16 MB). Pokazuje pierwsze 5000
   trafień.
+- **Find Duplicates…** (menu kontekstowe na pustym miejscu, menu paska tytułu albo przycisk): znajduje pliki o dokładnie
+  takiej samej zawartości w folderze i pod nim. Pliki porównywane są najpierw po rozmiarze, potem po pierwszych 64 KB,
+  a w całości (SHA-256) czytane są tylko te, które nadal wyglądają tak samo, więc duży folder jest przeszukiwany
+  szybko; twarde dowiązania do jednego pliku liczą się raz. Okno pokazuje grupy, najpierw te, które marnują najwięcej
+  miejsca, z polem wyboru przy każdej kopii i menu zaznaczającym wszystkie oprócz najstarszej lub najnowszej w grupie.
+  **Przenieś do Kosza** działa na zaznaczone, nigdy na wszystkie kopie pliku (co najmniej jedna zawsze zostaje), trafia
+  do dziennika i można je cofnąć ⌘Z.
+- **Checksums…** (*Szczegóły* w menu kontekstowym plików, przycisk w oknie *Info* albo akcja `checksums`): MD5, SHA-1,
+  SHA-256 i SHA-512 zaznaczonych plików, liczone w jednym przebiegu z postępem i Anuluj. Wklej otrzymaną sumę kontrolną
+  w polu *Porównaj z*, a program powie, który plik i który algorytm pasują; *Kopiuj listę* wkłada do schowka wiersze
+  `hash  nazwa` (format, który czyta `shasum -c`).
 - **Flat View** (menu kontekstowe na pustym miejscu, menu paska tytułu albo akcja `flatView` jako przycisk): pokazuje
   wszystkie pliki z folderu i ze wszystkich podfolderów jako jedną listę (bez folderów; paczki jak `.app` zostają).
   Sortowanie, filtr, zaznaczanie i kopiowanie działają jak zwykle, *Where* pokazuje folder każdego pliku. To samo
@@ -414,6 +277,12 @@ operacji…**. Obie czynności proszą o potwierdzenie i nie ruszają plików an
 - **Make Alias** i **Make Symbolic Link** (menu kontekstowe): tworzone obok oryginałów albo w folderze listera
   docelowego, jeśli jest.
 - **Open With** (menu kontekstowe na plikach): aplikacje, które mogą otworzyć plik, domyślna pierwsza, albo *Other…*.
+
+- **New Text File** (domyślny przycisk, menu kontekstowe na pustym miejscu albo *Ten lister*): tworzy pusty
+  `untitled.txt` w folderze, zaznacza go i otwiera w **TextEdit**. **Ustawienia → Ogólne → Nowy plik tekstowy** pozwala
+  wybrać inny edytor (Visual Studio Code, Sublime Text, BBEdit, CotEditor, Nova, Zed, TextMate, MacVim, Xcode, jeśli są
+  zainstalowane, albo *Inna aplikacja…* dla dowolnej). Nowe instalacje mają ten przycisk; przy starszym `buttons.json`
+  dodaj akcję `newTextFile` w *Edit Buttons…* albo użyj *Przywróć…*.
 
 ### Zakładki i historia
 
@@ -449,6 +318,25 @@ sortowanie, pliki ukryte, filtr); **Restore Layout** otwiera je z powrotem. Auto
 ```bash
 defaults write com.example.MacLister restoreLayoutAtLaunch -bool true
 ```
+
+### Migawka
+
+*Zrób migawkę tego folderu* (menu paska tytułu, *Ten lister* albo akcja `snapshot`) zapamiętuje **rozmiar i pozycję okna
+oraz kolejność sortowania** dla folderu, który lister pokazuje. Wejście do tego folderu w dowolnym listerze przywraca
+jego sortowanie; lister otwarty na nim dostaje jego rozmiar, a nowy lister ustawiony kaskadowo obok innego także
+pozycję. Foldery bez migawki używają sortowania, które ostatnio wybrałeś klikając nagłówek kolumny. *Zapomnij migawkę*
+ją usuwa. Migawki są w `snapshots.json`.
+
+### Przeglądanie archiwów
+
+Dwuklik na pliku zip, tar, tar.gz, 7z, rar … pokazuje jego zawartość jak folder. Archiwum jest raz rozpakowywane do
+`~/Library/Caches/MacLister/Archives` (w trakcie widać komunikat) i pokazywane **tylko do odczytu**: pasek ścieżki
+i tytuł podają archiwum (`…/pack.zip/folder`), *Parent* z góry archiwum wraca do folderu, w którym ono leży, a Back,
+Quick Look, Info, Open i **Copy** (także przeciąganiem) działają jak w każdym folderze. Polecenia zmieniające archiwum
+(Kosz, zmiana nazwy, nowy folder, przenoszenie z niego, upuszczanie do niego …) nie są oferowane albo mówią dlaczego.
+Rozpakowane archiwa, których nikt nie otwierał od dwóch dni, są usuwane przy starcie programu. **Ustawienia → Listery →
+Otwieraj archiwa jak foldery** to wyłącza (wtedy archiwum otwiera system); *Extract* rozpakowuje do folderu tak czy
+inaczej, a reguła typu pliku dla rozszerzenia nadal ma pierwszeństwo przed dwuklikiem.
 
 ## Serwery: FTP, FTPS i SFTP
 
@@ -666,7 +554,7 @@ Pliki w `~/Library/Application Support/MacLister/`:
 ### Przyciski
 
 **Ustawienia → Listery → Edit Buttons…**; po ręcznej edycji pliku użyj obok **Wczytaj ponownie** (odświeża wszystkie otwarte listery). **Przywróć…** nadpisuje plik ustawieniami domyślnymi (użyj po aktualizacji, żeby dostać nowe przyciski;
-działa też `MacLister --reset-buttons`). Domyślny zestaw jest krótki: New Folder, Terminal Here, Copy, Move,
+działa też `MacLister --reset-buttons`). Domyślny zestaw jest krótki: New Folder, New Text File, Terminal Here, Copy, Move,
 Extract, Compare, Info, Delete. Resztę (zaznaczanie, filtr, rozmiary, duplikowanie listera, swap …) masz w menu
 i skrótach albo dodajesz jako przycisk.
 
@@ -777,8 +665,8 @@ miejsce pulpitu?), `ListerWindowController` / `ListerManager` (okna, role), `Lis
 ## Znane ograniczenia
 
 Serwery obsługują tylko przeglądanie, kopiowanie i podstawowe operacje na folderach (zob. *Serwery*).
-Brak widoku drzewa, podglądu hex i wyszukiwania na serwerach; archiwów nie da się przeglądać jak folderów (są
-rozpakowywane). Przeciąganie stosuje reguły Findera, a otwieranie folderów po najechaniu nie jest zaimplementowane.
+Brak podglądu hex oraz wyszukiwania, duplikatów, sum kontrolnych i migawek na serwerach; archiwa są przeglądane tylko
+do odczytu (nie da się ich zmieniać od środka). Przeciąganie stosuje reguły Findera, a otwieranie folderów po najechaniu nie jest zaimplementowane.
 Archiwa z hasłem kończą się komunikatem o błędzie.
 
 ## Licencja

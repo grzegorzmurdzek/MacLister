@@ -243,8 +243,9 @@ final class UpdateManager {
         NSApp.bringToFront()
         let alert = NSAlert()
         alert.messageText = tr("MacLister %@ is available", release.version)
-        let notes = String(release.notes.prefix(700)) + (release.notes.count > 700 ? "…" : "")
-        alert.informativeText = tr("You have version %@.", UpdateChecker.currentVersion) + (notes.isEmpty ? "" : "\n\n" + notes)
+        alert.informativeText = tr("You have version %@.", UpdateChecker.currentVersion)
+        let notes = ReleaseNotes.excerpt(from: release.notes, polish: (Bundle.main.preferredLocalizations.first ?? "en").hasPrefix("pl"))
+        if !notes.isEmpty { alert.accessoryView = ReleaseNotes.accessoryView(for: notes) }
         let canInstall = release.zipURL != nil && UpdateChecker.canReplaceRunningApp
         if canInstall { alert.addButton(withTitle: tr("Install and Restart")) }
         alert.addButton(withTitle: tr("View Release"))

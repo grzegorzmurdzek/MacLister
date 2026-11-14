@@ -41,6 +41,7 @@ enum DesktopTrigger: String, CaseIterable {
 ///   showStatusItem   (bool,   default true)  – menu bar icon
 ///   startDirectory   (string, default ~)     – folder a desktop double-click opens
 ///   terminalBundleID (string, default com.apple.Terminal) – app used by "Terminal Here"
+///   textEditorBundleID (string, default com.apple.TextEdit) – app that opens a file made by "New Text File"
 ///   debugHitTest     (bool,   default false) – log every desktop hit-test decision (Console.app)
 enum Settings {
     private static var defaults: UserDefaults { .standard }
@@ -55,6 +56,8 @@ enum Settings {
             "buttonBarPosition": ButtonBarPosition.abovePath.rawValue,
             "desktopTrigger": DesktopTrigger.doubleClick.rawValue,
             "terminalBundleID": "com.apple.Terminal",
+            "textEditorBundleID": "com.apple.TextEdit",
+            "browseArchives": true,
             "relativeDates": true,
             "dragSelectFromNames": true,
             "showDockIcon": true,
@@ -154,6 +157,30 @@ enum Settings {
 
     static var showStatusItem: Bool { defaults.bool(forKey: "showStatusItem") }
     static var debugHitTest: Bool { defaults.bool(forKey: "debugHitTest") }
+    /// The app that opens a file made by New Text File.
+    static var textEditorBundleID: String {
+        get { defaults.string(forKey: "textEditorBundleID") ?? "com.apple.TextEdit" }
+        set { defaults.set(newValue, forKey: "textEditorBundleID") }
+    }
+
+    /// The directory tree beside the file list; new listers start with the state you last chose.
+    static var showFolderTree: Bool {
+        get { defaults.bool(forKey: "showFolderTree") }
+        set { defaults.set(newValue, forKey: "showFolderTree") }
+    }
+
+    /// Width of the directory tree (points).
+    static var folderTreeWidth: CGFloat {
+        get { let value = defaults.double(forKey: "folderTreeWidth"); return value >= 120 ? CGFloat(value) : 200 }
+        set { defaults.set(Double(newValue), forKey: "folderTreeWidth") }
+    }
+
+    /// A double-click on an archive shows its contents like a folder (read-only) instead of handing it to the system.
+    static var browseArchives: Bool {
+        get { defaults.bool(forKey: "browseArchives") }
+        set { defaults.set(newValue, forKey: "browseArchives") }
+    }
+
     static var terminalBundleID: String {
         get { defaults.string(forKey: "terminalBundleID") ?? "com.apple.Terminal" }
         set { defaults.set(newValue, forKey: "terminalBundleID") }

@@ -182,7 +182,7 @@ enum BuiltInShortcuts {
         e(96, .shift, "⇧F5", tr("Copy As")), e(97, .shift, "⇧F6", tr("Move As")),
         e(14, .command, "E", tr("Extract")), e(34, .command, "I", tr("Info")), e(34, [.command, .option], "I", tr("Attributes")),
         e(2, .command, "D", tr("Duplicate files")), e(2, [.command, .option], "D", tr("Duplicate lister")),
-        e(3, .command, "F", tr("Filter")), e(3, [.command, .shift], "F", tr("Find")), e(11, .command, "B", tr("Bookmark")), e(37, [.command, .shift], "L", tr("Bring all listers to front")),
+        e(3, .command, "F", tr("Filter")), e(3, [.command, .shift], "F", tr("Find")), e(17, [.command, .option], "T", tr("Folder tree")), e(11, .command, "B", tr("Bookmark")), e(37, [.command, .shift], "L", tr("Bring all listers to front")),
         e(37, .command, "L", tr("Type a path")), e(40, .command, "K", tr("Connect to Server")),
         e(48, [], "Tab", tr("Next lister")), e(48, .shift, "⇧Tab", tr("Previous lister")),
     ]
@@ -190,7 +190,7 @@ enum BuiltInShortcuts {
     /// Built-in key of an action, for display next to the custom one.
     static let byAction: [ListerAction: String] = [
         .copy: "F5", .move: "F6", .copyAs: "⇧F5", .moveAs: "⇧F6", .extract: "⌘E", .info: "⌘I", .attributes: "⌥⌘I", .duplicateFile: "⌘D", .duplicateLister: "⌥⌘D",
-        .filter: "⌘F", .find: "⇧⌘F", .addBookmark: "⌘B", .bringAllToFront: "⇧⌘L", .connectToServer: "⌘K", .parent: "Delete", .open: "Return",
+        .filter: "⌘F", .find: "⇧⌘F", .toggleTree: "⌥⌘T", .addBookmark: "⌘B", .bringAllToFront: "⇧⌘L", .connectToServer: "⌘K", .parent: "Delete", .open: "Return",
         .nextLister: "Tab", .previousLister: "⇧Tab", .undo: "⌘Z", .toggleHidden: "⇧⌘.", .delete: "⌘Delete", .selectPattern: "+", .deselectPattern: "-", .invertSelection: "*",
     ]
 

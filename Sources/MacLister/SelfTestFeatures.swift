@@ -30,6 +30,7 @@ enum SelfTestFeatures {
         let root = fm.temporaryDirectory.appendingPathComponent("maclister-features-\(UUID().uuidString)")
         let support = root.appendingPathComponent("support")
         AppSupport.override = support
+        SnapshotStore.shared.reload()
         let dirA = root.appendingPathComponent("A"), dirB = root.appendingPathComponent("B")
         for dir in [support, dirA.appendingPathComponent("big"), dirB] {
             try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -92,6 +93,56 @@ enum SelfTestFeatures {
         check((try? JSONDecoder().decode([ListerButton].self, from: oldJSON))?.first?.iconFile == nil, "an older buttons.json without pictures still loads")
         ButtonIcons.remove(iconName)
         check(ButtonIcons.image(named: iconName) == nil && ButtonIcons.image(named: "../x") == nil, "a removed or odd picture name gives nothing")
+
+        // release notes in the update window: the right language, no install steps, formatted instead of raw Markdown
+        let sampleNotes = "## MacLister 9.9\n\nIntro line.\n\n### What's new\n\n- **Bold** feature with `code` and a [link](https://example.org).\n- Second item\n\n### Upgrading\n\nReplace the app.\n\n### Install\n\n1. Download it\n\n---\n\n## Po polsku\n\n### Co nowego\n\n- **Pogrubione** na polsku\n\n### Aktualizacja\n\nPodmień."
+        let english = ReleaseNotes.excerpt(from: sampleNotes, polish: false)
+        let polishNotes = ReleaseNotes.excerpt(from: sampleNotes, polish: true)
+        check(english.hasPrefix("### What's new") && english.contains("### Upgrading") && !english.contains("Install") && !english.contains("Intro line") && !english.contains("Pogrubione"), "release notes: English part from What's new, without the install steps: \(english.prefix(40))")
+        check(polishNotes.hasPrefix("### Co nowego") && polishNotes.contains("Podmień") && !polishNotes.contains("Bold") && !polishNotes.contains("Po polsku"), "release notes: the Polish part for the Polish interface")
+        let formatted = ReleaseNotes.attributed(english).string
+        check(!formatted.contains("#") && !formatted.contains("**") && !formatted.contains("`") && !formatted.contains("](") && formatted.contains("•\tBold feature with code and a link."),
+              "release notes are formatted, not raw Markdown: \(formatted.debugDescription)")
+        let formattedAttributed = ReleaseNotes.attributed(english)
+        var linkFound = false
+        formattedAttributed.enumerateAttribute(.link, in: NSRange(location: 0, length: formattedAttributed.length)) { value, _, _ in if value != nil { linkFound = true } }
+        check(linkFound, "a link in the notes stays clickable")
+        check(ReleaseNotes.excerpt(from: "Just a plain note.", polish: false) == "Just a plain note.", "notes without the usual headings are shown as they are")
+
+        // New Text File: a default button, TextEdit as the default editor, and a choice of installed editors
+        check(ListerButton.defaults.contains { $0.action == .newTextFile }, "the default button bar has New Text File")
+        check(Settings.textEditorBundleID == "com.apple.TextEdit" || UserDefaults.standard.string(forKey: "textEditorBundleID") != nil, "TextEdit is the default text editor")
+        check(AppDelegate.editorChoices().contains { $0.id == "com.apple.TextEdit" }, "the installed editors include TextEdit")
+        check(ListerAction.newTextFile.title == "New text file" && ListerAction.newTextFile.category == .files, "the action can be put on a button")
+
+        // checksums and duplicates
+        let hashDir = root.appendingPathComponent("Hash")
+        try? fm.createDirectory(at: hashDir.appendingPathComponent("sub"), withIntermediateDirectories: true)
+        try? Data("abc".utf8).write(to: hashDir.appendingPathComponent("abc.txt"))
+        let abc = FileHash.digests(of: hashDir.appendingPathComponent("abc.txt"))
+        check(abc?[.md5] == "900150983cd24fb0d6963f7d28e17f72" && abc?[.sha1] == "a9993e364706816aba3e25717850c26c9cd0d89d"
+              && abc?[.sha256] == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", "MD5, SHA-1 and SHA-256 of \"abc\" are the known values")
+        check(abc?[.sha512]?.hasPrefix("ddaf35a193617aba") == true, "SHA-512 of \"abc\" is the known value")
+        check(FileHash.digests(of: hashDir.appendingPathComponent("abc.txt"), cancel: { let t = CancelToken(); t.cancel(); return t }()) == nil, "a cancelled checksum gives nothing")
+        check(FileHash.digests(of: hashDir.appendingPathComponent("missing")) == nil, "a missing file gives nothing")
+        check(FileHash.normalized("SHA256: BA78 16BF:8F01") == "ba7816bf8f01" && FileHash.normalized("  ba7816bf  ") == "ba7816bf", "a pasted checksum is cleaned up before the comparison")
+        check(FileHash.sha256(of: hashDir.appendingPathComponent("abc.txt")) == abc?[.sha256], "the streaming SHA-256 equals the one of the combined pass")
+        let big1 = Data((0..<200_000).map { UInt8($0 % 251) })
+        var big2 = big1; big2[199_999] ^= 0xFF                              // same size and same first 64 KB, other end
+        for (name, data) in [("one.bin", big1), ("two.bin", big1), ("odd.bin", big2), ("sub/three.bin", big1), ("tiny1.txt", Data("same".utf8)), ("sub/tiny2.txt", Data("same".utf8)), ("other.txt", Data("diff".utf8)), ("empty1", Data()), ("empty2", Data())] {
+            try? data.write(to: hashDir.appendingPathComponent(name))
+        }
+        try? fm.linkItem(at: hashDir.appendingPathComponent("one.bin"), to: hashDir.appendingPathComponent("hardlink.bin"))     // the same file twice
+        let dupes = DuplicateFinder.find(.init(scope: hashDir), cancel: CancelToken()) { _ in } ?? []
+        let dupeNames = dupes.map { Set($0.files.map(\.lastPathComponent)) }
+        let bigGroup = dupeNames.first { $0.contains("two.bin") } ?? []
+        check(dupes.count == 2 && bigGroup.count == 3 && bigGroup.contains("two.bin") && bigGroup.contains("three.bin")
+              && bigGroup.isSubset(of: ["one.bin", "hardlink.bin", "two.bin", "three.bin"]) && dupeNames.contains(["tiny1.txt", "tiny2.txt"]),
+              "duplicates are found by content, not by name or size alone: \(dupeNames)")
+        check(!dupes.flatMap(\.files).contains { $0.lastPathComponent == "odd.bin" || $0.lastPathComponent.hasPrefix("empty") }, "a file that differs at the end, and empty files, are not duplicates")
+        check(dupes.first.map { Set($0.files.map(\.lastPathComponent)).count == 3 } == true && dupes.first?.wasted == 2 * 200_000, "a hard link counts once, and the biggest waste comes first: \(dupes.first?.wasted ?? -1)")
+        check(DuplicateFinder.find(.init(scope: hashDir, minBytes: 1_000), cancel: CancelToken()) { _ in }?.count == 1, "the minimum size leaves out small duplicates")
+        check(DuplicateFinder.find(.init(scope: hashDir), cancel: { let t = CancelToken(); t.cancel(); return t }()) { _ in } == nil, "a cancelled duplicate search gives nothing")
 
         // Copy As / Move As: top-level items get the new names, what is inside keeps its own
         let asSource = root.appendingPathComponent("AsSource"), asTarget = root.appendingPathComponent("AsTarget")
@@ -290,6 +341,120 @@ enum SelfTestFeatures {
             })
         }
         later(6.0) { check(spotlightAnswered, "a one-condition Spotlight query starts and answers without an exception") }
+        // snapshot: sort order comes back per folder, window size per lister, and a folder without one uses the user's choice
+        later {
+            SnapshotStore.shared.set(FolderSnapshot(width: 777, height: 333, x: 120, y: 140, sort: "size", ascending: false), for: dirB)
+            let snapModel = ListerModel(url: dirA)
+            check(snapModel.sortKey == .name && snapModel.ascending, "a folder without a snapshot starts with the usual sort")
+            snapModel.navigate(to: dirB)
+            check(snapModel.sortKey == .size && !snapModel.ascending, "entering a folder with a snapshot brings its sort order: \(snapModel.sortKey) \(snapModel.ascending)")
+            snapModel.navigate(to: dirA)
+            check(snapModel.sortKey == .name && snapModel.ascending, "leaving it brings back the usual sort")
+            snapModel.setSort(.date, ascending: false)
+            snapModel.navigate(to: dirB)
+            snapModel.navigate(to: dirA)
+            check(snapModel.sortKey == .date && !snapModel.ascending, "the sort the user chose by hand is what folders without a snapshot get")
+            let snapController = ListerManager.shared.openLister(directory: dirB, anchor: .cascade(from: nil))
+            let snapSize = snapController.window?.contentLayoutRect.size ?? .zero
+            check(abs(snapSize.width - 777) < 1 && abs(snapSize.height - 333) < 1, "a lister opened on the folder gets the saved size: \(snapSize)")
+            check(snapController.listerViewController?.hasSnapshot == true && snapController.model.sortKey == .size, "the new lister shows the snapshot's sort order")
+            snapController.window?.setContentSize(NSSize(width: 650, height: 410))
+            snapController.listerViewController?.snapshotFolder()
+            let saved = SnapshotStore.shared.snapshot(for: dirB)
+            check(saved.map { abs($0.width - 650) < 1 && abs($0.height - 410) < 1 && $0.sort == "size" } == true, "Snapshot saves the current size and sort: \(String(describing: saved))")
+            SnapshotStore.shared.reload()
+            check(SnapshotStore.shared.contains(dirB), "snapshots are kept in snapshots.json")
+            snapController.listerViewController?.forgetSnapshot()
+            check(!SnapshotStore.shared.contains(dirB) && snapController.listerViewController?.hasSnapshot == false, "Forget Snapshot removes it")
+            snapController.window?.close()
+        }
+        // directory tree: follows the lister, navigates the lister, shows new folders
+        let treeController = ListerManager.shared.openLister(directory: dirA, anchor: .cascade(from: nil))
+        later {
+            guard let tvc = treeController.listerViewController else { check(false, "tree: lister available"); return }
+            let wasVisible = tvc.treeVisible
+            if wasVisible { tvc.toggleTree() }
+            tvc.toggleTree()
+            check(tvc.treeVisible && !tvc.treeController.scrollView.isHidden, "the directory tree can be shown")
+            check(tvc.treeController.selectedURL?.standardizedFileURL == dirA.standardizedFileURL, "the tree selects the lister's folder: \(String(describing: tvc.treeController.selectedURL))")
+            check(tvc.treeController.knownChildren(of: dirA).contains("big"), "the tree lists the sub-folders (not the files): \(tvc.treeController.knownChildren(of: dirA))")
+            check(!tvc.treeController.knownChildren(of: dirA).contains("a.txt"), "files are not in the tree")
+            treeController.model.navigate(to: dirA.appendingPathComponent("big"))
+        }
+        later(0.5) {
+            guard let tvc = treeController.listerViewController else { return }
+            check(tvc.treeController.selectedURL?.standardizedFileURL == dirA.appendingPathComponent("big").standardizedFileURL, "the tree follows the lister into a sub-folder")
+            tvc.treeController.onSelect?(dirA)
+        }
+        later(0.5) {
+            guard let tvc = treeController.listerViewController else { return }
+            check(treeController.model.url.standardizedFileURL == dirA.standardizedFileURL, "choosing a folder in the tree shows it in the lister")
+            try? fm.createDirectory(at: dirA.appendingPathComponent("zz-new-folder"), withIntermediateDirectories: false)
+            treeController.model.reload()
+        }
+        later(0.8) {
+            guard let tvc = treeController.listerViewController else { return }
+            check(tvc.treeController.knownChildren(of: dirA).contains("zz-new-folder"), "a folder made in the lister appears in the tree")
+            try? fm.removeItem(at: dirA.appendingPathComponent("zz-new-folder"))
+            treeController.model.reload()
+            tvc.toggleTree()
+            check(!tvc.treeVisible && tvc.treeController.scrollView.isHidden, "the tree can be hidden again")
+            Settings.showFolderTree = false
+            treeController.window?.close()
+        }
+        // archives browsed like folders: unpacked into a cache, shown as the archive, read-only
+        let zipSource = root.appendingPathComponent("ZipSource"), zipHome = root.appendingPathComponent("ZipHome")
+        let zipCache = root.appendingPathComponent("ArchiveCache")
+        for dir in [zipSource.appendingPathComponent("folderX"), zipHome, zipCache] { try? fm.createDirectory(at: dir, withIntermediateDirectories: true) }
+        try? "top".write(to: zipSource.appendingPathComponent("root.txt"), atomically: true, encoding: .utf8)
+        try? "inside".write(to: zipSource.appendingPathComponent("folderX/inner.txt"), atomically: true, encoding: .utf8)
+        let zipFile = zipHome.appendingPathComponent("pack.zip")
+        do {
+            let tar = Process()
+            tar.executableURL = URL(fileURLWithPath: "/usr/bin/bsdtar")
+            tar.arguments = ["-a", "-cf", zipFile.path, "-C", zipSource.path, "root.txt", "folderX"]
+            try? tar.run(); tar.waitUntilExit()
+        }
+        ArchiveBrowser.cacheDirectory = zipCache
+        check(ArchiveExtractor.isBrowsable(zipFile) && !ArchiveExtractor.isBrowsable(URL(fileURLWithPath: "/x/file.gz")) && ArchiveExtractor.isArchive(URL(fileURLWithPath: "/x/file.gz")), "zip and tar archives can be browsed, a single .gz cannot")
+        check(ArchiveBrowser.key(for: zipFile) == ArchiveBrowser.key(for: zipFile) && ArchiveBrowser.key(for: zipFile).count == 24, "an archive always gets the same cache folder")
+        let archiveLister = ListerManager.shared.openLister(directory: zipHome, anchor: .cascade(from: nil))
+        later {
+            archiveLister.listerViewController?.browseArchive(zipFile)
+        }
+        later(2.0) {
+            let model = archiveLister.model
+            check(model.isInArchive && Set(model.items.map(\.name)) == ["root.txt", "folderX"], "double-clicking an archive shows its contents: \(model.items.map(\.name))")
+            check(ListerModel.displayPath(model.url) == zipFile.standardizedFileURL.path, "the path bar names the archive, not the cache: \(ListerModel.displayPath(model.url))")
+            check(PathSegments.make(for: model.url).last?.title == "pack.zip" && model.displayName == "pack.zip", "the last path segment is the archive")
+            model.navigate(to: model.url.appendingPathComponent("folderX"))
+            check(model.items.map(\.name) == ["inner.txt"] && ListerModel.displayPath(model.url).hasSuffix("pack.zip/folderX"), "folders inside the archive open: \(ListerModel.displayPath(model.url))")
+            let vc = archiveLister.listerViewController
+            vc?.createTextFile()
+            check(model.statusMessage?.contains("read-only") == true && !fm.fileExists(atPath: model.url.appendingPathComponent("untitled.txt").path), "nothing can be created inside an archive: \(model.statusMessage ?? "nil")")
+            let inner = model.url.appendingPathComponent("inner.txt")
+            check(vc?.archiveBlocksTransfer(.move, items: [inner], destination: dirB) == true, "files cannot be moved out of an archive")
+            check(vc?.archiveBlocksTransfer(.copy, items: [inner], destination: dirB) == false, "files can be copied out of an archive")
+            check(vc?.archiveBlocksTransfer(.copy, items: [dirA.appendingPathComponent("a.txt")], destination: model.url) == true, "nothing can be copied into an archive")
+            let menu = NSMenu()
+            vc?.populate(menu, selection: model.items)
+            let titles = menu.flatTitles
+            check(!titles.contains("Move to Trash") && !titles.contains("Rename…") && !titles.contains("Duplicate") && titles.contains("Copy"), "the menu inside an archive offers no changes: \(titles.filter { !$0.isEmpty })")
+            model.goParent()
+            check(ListerModel.displayPath(model.url) == zipFile.standardizedFileURL.path, "Parent goes up inside the archive")
+            model.goParent()
+            check(!model.isInArchive && model.url.standardizedFileURL == zipHome.standardizedFileURL && model.selectedURLs.isEmpty == false || model.url.standardizedFileURL == zipHome.standardizedFileURL,
+                  "Parent from the top of the archive returns to the folder it lies in: \(model.url.path)")
+            archiveLister.window?.close()
+        }
+        later {
+            let stale = zipCache.appendingPathComponent("stale-entry")
+            try? fm.createDirectory(at: stale, withIntermediateDirectories: true)
+            try? fm.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -5 * 86_400)], ofItemAtPath: stale.path)
+            ArchiveBrowser.cleanOldCaches()
+            check(!fm.fileExists(atPath: stale.path), "old unpacked archives are cleaned up")
+            check(fm.fileExists(atPath: zipCache.appendingPathComponent(ArchiveBrowser.key(for: zipFile)).path), "an archive used today stays in the cache")
+        }
         // compare
         later {
             manager.toggleRole(.source, for: one)
@@ -420,7 +585,7 @@ enum SelfTestFeatures {
         // button bar position, default buttons, remembered window size
         later {
             let real = ListerButton.defaults.filter { $0.action != .separator }
-            check(real.count == 8 && real.allSatisfy { $0.symbol != nil }, "default button bar is short and every button has an icon (\(real.count))")
+            check(real.count == 9 && real.allSatisfy { $0.symbol != nil }, "default button bar is short and every button has an icon (\(real.count))")
             let missing = real.compactMap(\.symbol).filter { NSImage(systemSymbolName: $0, accessibilityDescription: nil) == nil }
             check(missing.isEmpty, "every default icon exists as an SF Symbol on this macOS (missing: \(missing))")
             check(real.allSatisfy { $0.color.map(ListerButton.knownColors.contains) ?? true }, "default icon colours are known names")
@@ -431,7 +596,7 @@ enum SelfTestFeatures {
                 root.layoutSubtreeIfNeeded()
                 guard let button = root.subviews.first(where: { abs($0.frame.height - 44) < 1 }),
                       let path = root.subviews.first(where: { abs($0.frame.height - 48) < 1 }),
-                      let scroll = root.subviews.first(where: { $0 is NSScrollView }) else { return nil }
+                      let scroll = root.subviews.first(where: { $0 is NSSplitView }) else { return nil }
                 return (button, path, scroll)
             }
             let original = Settings.buttonBarPosition

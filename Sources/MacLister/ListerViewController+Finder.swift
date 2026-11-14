@@ -213,6 +213,7 @@ extension ListerViewController {
 
     func compressSelection() {
         if remoteUnavailable(tr("Compress")) { return }
+        if refuseInArchive(tr("Compress")) { return }
         let urls = model.selectedURLs
         guard !urls.isEmpty else { NSSound.beep(); return }
         let folder = model.url

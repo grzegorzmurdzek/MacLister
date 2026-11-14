@@ -6,6 +6,7 @@ extension ListerViewController {
     /// Copies or moves dropped files into `folder`.
     func transfer(_ kind: TransferKind, items: [URL], into folder: URL) {
         if kind == .move, refuseIfBusy(items) { return }
+        if archiveBlocksTransfer(kind, items: items, destination: folder) { return }
         if RemoteURL.isRemote(folder) || items.contains(where: RemoteURL.isRemote) {
             beginRemoteTransfer(kind, items: items, into: folder, showingIn: [model])
             return

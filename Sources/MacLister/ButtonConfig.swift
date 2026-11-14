@@ -2,7 +2,7 @@ import AppKit
 
 /// What a bottom-bar button does.
 enum ListerAction: String, Codable, CaseIterable, Identifiable {
-    case newFolder, terminalHere, delete, parent, back, refresh
+    case newFolder, newTextFile, terminalHere, delete, parent, back, refresh
     case revealInFinder, open, newLister, toggleHidden
     /// Source → destination lister (see the SRC / DST toggles in the path bar).
     case copy, move, copyAs, moveAs, setSource, setDestination, swapSourceDestination
@@ -19,6 +19,14 @@ enum ListerAction: String, Codable, CaseIterable, Identifiable {
     case synchronize
     /// Searches the folder and everything below it (Spotlight, or the folders themselves); the results are a list.
     case find
+    /// Shows or hides the directory tree beside the file list.
+    case toggleTree
+    /// Remembers this window's size and position and the sort order for the folder it shows; forgetSnapshot removes it.
+    case snapshot, forgetSnapshot
+    /// MD5, SHA-1, SHA-256 and SHA-512 of the selected files, with a field to compare with a checksum you were given.
+    case checksums
+    /// Looks for files with the same content below a folder; you choose which copies go to the Trash.
+    case findDuplicates
     /// Shows every file below this folder as one list; the same action leaves it again.
     case flatView
     case showInDestination, destinationHere, addBookmark
@@ -97,6 +105,7 @@ struct ListerButton: Codable, Hashable {
     /// title-bar menus and in keyboard shortcuts, and can be added back through buttons.json.
     static let defaults: [ListerButton] = [
         ListerButton(title: "New Folder", symbol: "folder.fill.badge.plus", action: .newFolder, help: "Create a folder here", color: "blue"),
+        ListerButton(title: "New Text File", symbol: "doc.badge.plus", action: .newTextFile, help: "Create a text file here and open it in your text editor", color: "green"),
         ListerButton(title: "Terminal Here", symbol: "terminal.fill", action: .terminalHere, help: "Open a terminal in this folder", color: "gray"),
         ListerButton(title: "", symbol: nil, action: .separator),
         ListerButton(title: "Copy", symbol: "doc.on.doc.fill", action: .copy, help: "Copy the source selection to the destination lister (F5)", color: "blue"),
@@ -179,6 +188,7 @@ extension ListerAction {
     var suggestedSymbol: String {
         switch self {
         case .newFolder: return "folder.fill.badge.plus"
+        case .newTextFile: return "doc.badge.plus"
         case .terminalHere, .shell: return "terminal.fill"
         case .delete: return "trash.fill"
         case .parent: return "arrow.up.circle.fill"
@@ -200,6 +210,10 @@ extension ListerAction {
         case .synchronize: return "arrow.triangle.2.circlepath.circle.fill"
         case .info: return "info.circle.fill"
         case .find: return "magnifyingglass"
+        case .toggleTree: return "sidebar.left"
+        case .snapshot, .forgetSnapshot: return "camera.fill"
+        case .checksums: return "number.circle.fill"
+        case .findDuplicates: return "square.on.square"
         case .flatView: return "list.bullet.indent"
         case .addBookmark: return "bookmark.fill"
         case .makeAlias, .makeSymlink: return "link.circle.fill"
@@ -235,14 +249,14 @@ enum ActionCategory: CaseIterable {
 extension ListerAction {
     var category: ActionCategory {
         switch self {
-        case .newFolder, .delete, .open, .revealInFinder, .duplicateFile, .makeAlias, .makeSymlink, .batchRename, .attributes, .info, .extract, .calcSizes:
+        case .newFolder, .newTextFile, .delete, .open, .revealInFinder, .duplicateFile, .makeAlias, .makeSymlink, .batchRename, .attributes, .info, .checksums, .extract, .calcSizes:
             return .files
         case .copy, .move, .copyAs, .moveAs, .compare, .synchronize, .showInDestination, .destinationHere, .undo, .showLog:
             return .transfer
         case .selectPattern, .deselectPattern, .selectAll, .selectNone, .invertSelection, .selectByAttributes,
-             .filter, .clearFilter, .find, .flatView, .toggleHidden, .refresh:
+             .filter, .clearFilter, .find, .findDuplicates, .flatView, .toggleHidden, .refresh:
             return .selecting
-        case .parent, .back, .addBookmark, .showRecents, .showShared, .connectToServer:
+        case .parent, .back, .toggleTree, .addBookmark, .snapshot, .forgetSnapshot, .showRecents, .showShared, .connectToServer:
             return .navigation
         case .newLister, .duplicateLister, .setSource, .setDestination, .swapSourceDestination, .toggleRoleLock, .nameLister,
              .nextLister, .previousLister, .bringAllToFront, .gatherListers:

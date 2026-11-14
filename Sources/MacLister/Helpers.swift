@@ -131,6 +131,17 @@ enum PathSegments {
     /// "/Users/me/Docs" → [Macintosh HD, Users, me, Docs], each with the URL it leads to.
     static func make(for url: URL) -> [PathSegment] {
         if let title = VirtualPlace.title(for: url) { return [PathSegment(title: title, url: url)] }
+        if let location = ArchiveBrowser.shared.location(of: url) {
+            // the archive's own path; its last segment opens the top of the archive; then the folders inside
+            var segments = make(for: location.archive)
+            if let last = segments.popLast() { segments.append(PathSegment(title: last.title, url: location.root)) }
+            var current = location.root
+            for component in location.inner {
+                current.appendPathComponent(component, isDirectory: true)
+                segments.append(PathSegment(title: component, url: current))
+            }
+            return segments
+        }
         if RemoteURL.isRemote(url) {
             // server first ("me@host"), then every folder of the path
             let root = RemoteURL.with(path: "/", on: url)
