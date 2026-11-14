@@ -4,7 +4,7 @@ A lister-based file manager for macOS in the spirit of **Directory Opus Magellan
 desktop and a file lister opens right where you clicked. Native Swift (AppKit + SwiftUI), runs as a
 menu-bar app with an optional Dock icon.
 
-**Language:** English · [Polski](README.pl.md) · **Website:** [grzegorzmurdzek.github.io/MacLister](https://grzegorzmurdzek.github.io/MacLister/)
+**Language:** English · [Polski](README.pl.md) · **Website:** [maclister.github.io](https://maclister.github.io/)
 
 <p align="center">
   <picture>
