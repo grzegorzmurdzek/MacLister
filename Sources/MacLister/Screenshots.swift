@@ -199,7 +199,7 @@ enum Screenshots {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { capture(to: name); finishScene() }
     }
 
-    /// A selection rectangle across four rows, as drawn while the mouse button is held.
+    /// Four rows selected by dragging over them.
     private static func dragSelect(named name: String) {
         let area = screen()
         let origin = NSPoint(x: area.minX + 100, y: area.maxY - 500)
@@ -216,7 +216,12 @@ enum Screenshots {
             let from = NSPoint(x: table.bounds.maxX - 90, y: table.rect(ofRow: 2).midY + 3)
             let to = NSPoint(x: table.bounds.midX - 60, y: table.rect(ofRow: 5).midY - 3)
             table.applyLasso(from: from, to: to, extending: nil)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { capture(to: name); finishScene() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                NSApp.activate(ignoringOtherApps: true)
+                controller.window?.makeKeyAndOrderFront(nil)
+                controller.window?.makeFirstResponder(table)          // the selection is blue only in the active window
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { capture(to: name); finishScene() }
+            }
         }
     }
 

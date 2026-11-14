@@ -71,6 +71,45 @@ final class PathHistory: ObservableObject {
         if recent.count > 15 { recent.removeLast(recent.count - 15) }
         if AppSupport.override == nil { UserDefaults.standard.set(recent, forKey: Self.key) }
     }
+
+    /// Forgets every recent folder.
+    func clear() {
+        recent = []
+        if AppSupport.override == nil { UserDefaults.standard.removeObject(forKey: Self.key) }
+    }
+}
+
+/// "Clear …" commands that first ask the user.
+enum HistoryClearing {
+    enum Kind { case recentFolders, operationLog }
+
+    /// Tests replace the question.
+    static var confirm: (_ title: String, _ detail: String) -> Bool = { title, detail in
+        NSApp.bringToFront()
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = title
+        alert.informativeText = detail
+        alert.addButton(withTitle: tr("Clear")).hasDestructiveAction = true
+        alert.addButton(withTitle: tr("Cancel"))
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    /// Asks, then clears. Returns whether anything was cleared.
+    @discardableResult
+    static func confirmAndClear(_ kind: Kind) -> Bool {
+        switch kind {
+        case .recentFolders:
+            guard !PathHistory.shared.recent.isEmpty else { return false }
+            guard confirm(tr("Clear the list of recent folders?"), tr("The Go menu forgets the folders you visited. Bookmarks and files are not affected.")) else { return false }
+            PathHistory.shared.clear()
+        case .operationLog:
+            guard !OperationLog.shared.records.isEmpty else { return false }
+            guard confirm(tr("Clear the operation log?"), tr("Files are not affected, but Undo will no longer be possible.")) else { return false }
+            OperationLog.shared.clear()
+        }
+        return true
+    }
 }
 
 // MARK: - Filetypes (what a double-click does)

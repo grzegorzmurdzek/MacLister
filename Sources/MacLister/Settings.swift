@@ -57,6 +57,8 @@ enum Settings {
             "terminalBundleID": "com.apple.Terminal",
             "relativeDates": true,
             "dragSelectFromNames": true,
+            "showDockIcon": true,
+            "listersOnAllDesktops": false,
         ])
     }
 
@@ -106,7 +108,7 @@ enum Settings {
         set { defaults.set(newValue, forKey: "relativeDates") }
     }
 
-    /// Dragging from an unselected file name draws a selection rectangle (Directory Opus); off: it drags the file.
+    /// Dragging from an unselected file name selects the rows it passes over (Directory Opus); off: it drags the file.
     static var dragSelectFromNames: Bool {
         get { defaults.bool(forKey: "dragSelectFromNames") }
         set { defaults.set(newValue, forKey: "dragSelectFromNames") }
@@ -129,6 +131,18 @@ enum Settings {
     static var skippedUpdate: String? {
         get { defaults.string(forKey: "skippedUpdate") }
         set { defaults.set(newValue, forKey: "skippedUpdate") }
+    }
+
+    /// A Dock icon (right-click it for the open listers and New Lister). The menu-bar icon stays either way.
+    static var showDockIcon: Bool {
+        get { defaults.bool(forKey: "showDockIcon") }
+        set { defaults.set(newValue, forKey: "showDockIcon") }
+    }
+
+    /// Listers stay visible on every macOS desktop (Space) instead of only the one they were opened on.
+    static var listersOnAllDesktops: Bool {
+        get { defaults.bool(forKey: "listersOnAllDesktops") }
+        set { defaults.set(newValue, forKey: "listersOnAllDesktops") }
     }
 
     static var showStatusItem: Bool { defaults.bool(forKey: "showStatusItem") }

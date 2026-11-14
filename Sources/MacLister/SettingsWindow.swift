@@ -8,6 +8,8 @@ private struct GeneralSettingsView: View {
     @AppStorage("centerOnCursor") private var center = false
     @AppStorage("startDirectory") private var startDirectory = ""
     @AppStorage("restoreLayoutAtLaunch") private var restoreLayout = false
+    @AppStorage("showDockIcon") private var showDockIcon = true
+    @AppStorage("listersOnAllDesktops") private var allDesktops = false
     @AppStorage("terminalBundleID") private var terminal = "com.apple.Terminal"
     @State private var language = AppLanguage.current
 
@@ -37,6 +39,18 @@ private struct GeneralSettingsView: View {
                     }
                 }
                 Toggle("Reopen the saved layout when MacLister starts", isOn: $restoreLayout)
+                Toggle("Show listers on all desktops", isOn: $allDesktops)
+                    .onChange(of: allDesktops) { _ in ListerManager.shared.applyDesktopBehavior() }
+                Text("To keep your listers on a desktop of their own, switch to that desktop and choose Move All Listers to This Desktop (menu-bar icon, Dock icon or a shortcut). Or Control-click the Dock icon → Options → Assign To → This Desktop.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section {
+                Toggle("Show MacLister in the Dock", isOn: $showDockIcon)
+                    .onChange(of: showDockIcon) { _ in (NSApp.delegate as? AppDelegate)?.applyDockIconPreference() }
+            } header: {
+                Text("Dock")
+            } footer: {
+                Text("Right-click the Dock icon for the open listers and New Lister. The menu-bar icon stays either way.")
             }
             Section("Terminal Here") {
                 Picker("Terminal app", selection: $terminal) {
@@ -96,7 +110,7 @@ private struct ListersSettingsView: View {
             Section("File list") {
                 Toggle("Show dates as Today and Yesterday", isOn: $relativeDates)
                     .onChange(of: relativeDates) { _ in NotificationCenter.default.post(name: .columnsChanged, object: nil) }
-                Toggle("Drag a selection rectangle from file names", isOn: $dragSelect)
+                Toggle("Select by dragging from file names", isOn: $dragSelect)
                 Text("Dragging from empty space of a row always selects. With this on, an unselected file name does too; a selected file is always dragged as a file.")
                     .font(.caption).foregroundStyle(.secondary)
                 LabeledContent("Window title") {
@@ -141,6 +155,18 @@ private struct OperationsSettingsView: View {
                 Text("Operation log")
             } footer: {
                 Text("Every copy, move, upload, download, duplicate and Move to Trash is listed. Older entries are removed automatically, and the log never holds more than 1000.")
+            }
+            Section {
+                LabeledContent("Recent folders in the Go menu") {
+                    Button("Clear Recent Folders…") { HistoryClearing.confirmAndClear(.recentFolders) }
+                }
+                LabeledContent("Operation log") {
+                    Button("Clear Operation Log…") { HistoryClearing.confirmAndClear(.operationLog) }
+                }
+            } header: {
+                Text("History")
+            } footer: {
+                Text("Each asks for confirmation first. Files and bookmarks are never touched.")
             }
             Section {
                 Text("⌘Z takes back the last copy, move, duplicate or Move to Trash done on your disk in this session. Nothing is ever deleted for good.")

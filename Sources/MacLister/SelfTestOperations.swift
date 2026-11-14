@@ -248,7 +248,7 @@ enum SelfTestOperations {
             let below = NSPoint(x: 100, y: table.bounds.maxY - 3)
             table.lassoFromNames = { true }
             table.deselectAll(nil)
-            check(table.startsLasso(at: sizePoint), "a press on the size column starts a selection rectangle")
+            check(table.startsLasso(at: sizePoint), "a press on the size column starts a drag-selection")
             check(table.startsLasso(at: farRightOfName), "a press on the blank part of the name column does too")
             check(table.startsLasso(at: below) && table.row(at: below) == -1, "and so does a press below the rows")
             check(table.startsLasso(at: namePoint), "a press on an unselected name starts one when drag-select from names is on")
@@ -261,11 +261,11 @@ enum SelfTestOperations {
 
             // the rectangle itself
             table.applyLasso(from: NSPoint(x: 100, y: table.rect(ofRow: 2).midY), to: NSPoint(x: 140, y: table.rect(ofRow: 5).midY), extending: nil)
-            check(table.selectedRowIndexes == IndexSet(2...5), "the rectangle selects the rows it touches: \(Array(table.selectedRowIndexes))")
+            check(table.selectedRowIndexes == IndexSet(2...5), "dragging selects the rows it passes over: \(Array(table.selectedRowIndexes))")
             table.applyLasso(from: NSPoint(x: 100, y: table.rect(ofRow: 7).midY), to: NSPoint(x: 100, y: table.rect(ofRow: 6).midY), extending: IndexSet([0]))
             check(table.selectedRowIndexes == IndexSet([0, 6, 7]), "⌘/⇧ adds to the selection: \(Array(table.selectedRowIndexes))")
             table.applyLasso(from: NSPoint(x: 100, y: table.bounds.maxY - 2), to: NSPoint(x: 100, y: table.bounds.maxY - 40), extending: nil)
-            check(table.selectedRowIndexes.isEmpty || table.selectedRowIndexes.allSatisfy { $0 >= 6 }, "a rectangle in the empty area selects nothing new: \(Array(table.selectedRowIndexes))")
+            check(table.selectedRowIndexes.isEmpty || table.selectedRowIndexes.allSatisfy { $0 >= 6 }, "dragging in the empty area selects nothing new: \(Array(table.selectedRowIndexes))")
 
             // a real press-drag-release
             table.deselectAll(nil)
@@ -288,6 +288,58 @@ enum SelfTestOperations {
 
             // ⌘Z reaches undo
             check(table.keyHandler?(key(6, .command, "z")!) == true, "⌘Z is handled by the lister")
+
+            // --- Dock icon and its menu
+            if let delegate = NSApp.delegate as? AppDelegate {
+                let dock = delegate.makeDockMenu()
+                let dockTitles = dock.items.map(\.title)
+                check(manager.allControllers.allSatisfy { dockTitles.contains($0.menuTitle) }, "the Dock menu lists every open lister: \(dockTitles.prefix(4))")
+                check(["New Lister", "Duplicate Frontmost Lister", "Connect to Server…", "Bring All to Front", "Close All Listers", "Operation Log…", "Settings…"].allSatisfy(dockTitles.contains), "the Dock menu has the common commands")
+                check(dock.items.first { $0.title.hasPrefix("Undo") }?.isEnabled == false, "Undo is disabled in the Dock menu when there is nothing to undo")
+                if case .cascade = delegate.dockAnchor() { check(true, "a lister opened from the Dock goes beside the frontmost one") } else { check(false, "dock anchor with a lister open") }
+                check(delegate.applicationShouldHandleReopen(NSApp, hasVisibleWindows: true) == false && manager.openCount == 3, "clicking the Dock icon with listers open opens nothing new")
+                let before = Settings.showDockIcon
+                UserDefaults.standard.set(false, forKey: "showDockIcon")
+                delegate.applyDockIconPreference()
+                check(NSApp.activationPolicy() == .accessory, "with the Dock icon off MacLister stays an agent")
+                UserDefaults.standard.set(true, forKey: "showDockIcon")
+                delegate.applyDockIconPreference()
+                check(NSApp.activationPolicy() == .regular, "with the Dock icon on MacLister gets one")
+                UserDefaults.standard.set(before, forKey: "showDockIcon")
+                NSApp.setActivationPolicy(.accessory)                      // the test run itself stays an agent
+            }
+
+            // --- all listers on this desktop
+            check(GlobalShortcutActions.all.contains { $0.id == GlobalShortcutActions.gatherListers }, "the move-to-this-desktop command can get a global shortcut")
+            check(ListerAction.gatherListers.title == "Gather listers", "and is an action for buttons and keys")
+            UserDefaults.standard.set(false, forKey: "listersOnAllDesktops")
+            manager.gatherOnThisDesktop()
+            check(manager.allControllers.allSatisfy { $0.window?.collectionBehavior.contains(.moveToActiveSpace) == true }, "gathering lets the listers join the desktop in view")
+            check(manager.allControllers.allSatisfy { $0.window?.isVisible == true }, "and shows them")
+            UserDefaults.standard.set(true, forKey: "listersOnAllDesktops")
+            manager.applyDesktopBehavior()
+            check(manager.allControllers.allSatisfy { $0.window?.collectionBehavior.contains(.canJoinAllSpaces) == true }, "the all-desktops setting puts every lister on every desktop")
+            UserDefaults.standard.set(false, forKey: "listersOnAllDesktops")
+            manager.applyDesktopBehavior()
+            check(manager.allControllers.allSatisfy { $0.window?.collectionBehavior.isEmpty == true }, "turning it off returns them to their own desktop")
+
+            // --- clearing history asks first
+            PathHistory.shared.add(dirA); PathHistory.shared.add(dirB)
+            var asked = 0
+            let recentCount = PathHistory.shared.recent.count
+            HistoryClearing.confirm = { _, _ in asked += 1; return false }
+            check(HistoryClearing.confirmAndClear(.recentFolders) == false && recentCount >= 2 && PathHistory.shared.recent.count == recentCount && asked == 1, "declining keeps the recent folders")
+            HistoryClearing.confirm = { _, _ in asked += 1; return true }
+            check(HistoryClearing.confirmAndClear(.recentFolders) && PathHistory.shared.recent.isEmpty, "confirming clears the recent folders")
+            check(HistoryClearing.confirmAndClear(.recentFolders) == false && asked == 2, "an empty list is not asked about")
+            log.record(kind: .copy, items: [dirA], result: TransferResult(), from: "A", to: "B")
+            HistoryClearing.confirm = { _, _ in false }
+            check(HistoryClearing.confirmAndClear(.operationLog) == false && !log.records.isEmpty, "declining keeps the operation log")
+            HistoryClearing.confirm = { _, _ in true }
+            check(HistoryClearing.confirmAndClear(.operationLog) && log.records.isEmpty, "confirming clears the operation log")
+            HistoryClearing.confirm = { title, detail in
+                DebugLog.write("ops FAIL an unexpected confirmation was asked: \(title)"); return false
+            }
 
             buttonClickChecks(one, realMouse: CommandLine.arguments.contains("--real-mouse")) {
                 manager.closeAll()

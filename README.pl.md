@@ -26,7 +26,7 @@ działa jako agent w pasku menu, bez ikony w Docku.
 - **Prawy przycisk na belce okna** otwiera polecenia listera (duplikuj, źródło/cel, zamknij wszystkie …).
 - **Cofnij** ostatnie kopiowanie, przeniesienie, duplikowanie lub wyrzucenie do Kosza (⌘Z) oraz **dziennik operacji**
   z limitem przechowywania.
-- **Zaznaczanie ramką** (przytrzymaj przycisk na pustym miejscu lub na nazwie pliku i ciągnij), **Tab** między
+- **Zaznaczanie przeciąganiem** (naciśnij wiersz i ciągnij w dół lub w górę, żeby zaznaczyć wiersze pomiędzy), **Tab** między
   listerami, **menu historii** pod prawym przyciskiem na przycisku Wstecz.
 - **Lewy, prawy i środkowy przycisk** każdego przycisku mogą robić co innego; **edytor przycisków** i **format tytułu**
   ze zmiennymi `%`.
@@ -182,11 +182,35 @@ W wielu laptopach klawisze F wymagają **fn**.
 **Ikona w pasku menu → Ustawienia…** (⌘,) otwiera zwykłe macowe okno ustawień z czterema zakładkami:
 
 - **Ogólne** — co otwiera lister (dwuklik, środkowy przycisk albo oba), wyśrodkowanie na kursorze, folder, który się
-  otwiera, otwieranie zapisanego układu przy starcie, aplikacja terminala dla *Terminal Here*, język interfejsu.
+  otwiera, otwieranie zapisanego układu przy starcie, listery na wszystkich pulpitach, ikona w Docku, aplikacja
+  terminala dla *Terminal Here*, język interfejsu.
 - **Listery** — położenie paska przycisków i etykiety, **Edit Buttons…** / *Wczytaj ponownie* / *Przywróć…*, daty
-  względne, zaznaczanie ramką od nazw plików, **Tytuł listera…**, **Keyboard Shortcuts…**, **Edit Filetypes…**.
-- **Operacje** — jak długo przechowywany jest dziennik operacji, **Otwórz dziennik operacji…**.
+  względne, zaznaczanie przeciąganiem od nazw plików, **Tytuł listera…**, **Keyboard Shortcuts…**, **Edit Filetypes…**.
+- **Operacje** — jak długo przechowywany jest dziennik operacji, **Otwórz dziennik operacji…** oraz **Wyczyść ostatnie
+  foldery…** / **Wyczyść dziennik operacji…** (każde najpierw prosi o potwierdzenie).
 - **Aktualizacje** — wersja, ostatnie sprawdzenie, automatyczne sprawdzanie (domyślnie wyłączone), *Sprawdź aktualizacje…*.
+
+### Ikona w Docku i pulpity
+
+MacLister domyślnie pokazuje ikonę w **Docku** (**Ustawienia → Ogólne → Pokazuj MacListera w Docku** ją wyłącza; ikona w
+pasku menu zostaje w obu przypadkach). **Prawy przycisk na ikonie w Docku** pokazuje otwarte listery (kliknięcie wynosi
+lister na wierzch), New Lister, Duplicate Frontmost Lister, Connect to Server…, Bring All to Front, Close All Listers,
+**Przenieś wszystkie listery na ten pulpit**, Cofnij, Dziennik operacji… i Ustawienia…. Kliknięcie ikony, gdy nie ma
+żadnego listera, otwiera jeden; gdy są, wynosi je wszystkie na wierzch. Przy włączonej ikonie ⌘N (menu Plik) otwiera
+lister, a ⌘Tab znajduje MacListera.
+
+**Listery na własnym pulpicie.** macOS pozwala aplikacji przenieść okna tylko na pulpit, który jest akurat widoczny.
+Zatem: przejdź na wybrany pulpit (np. nowy, pusty, z Mission Control) i wybierz **Przenieś wszystkie listery na ten
+pulpit** — w menu paska menu, w menu Docka, w menu listera albo globalnym skrótem ustawionym w *Keyboard Shortcuts*
+(to także akcja `gatherListers` dla przycisków i klawiszy). **Ustawienia → Ogólne → Pokazuj listery na wszystkich
+pulpitach** sprawia, że chodzą za Tobą wszędzie. Działa też sposób macOS: kliknij ikonę w Docku z Control → Opcje →
+Przypisz do → Ten pulpit.
+
+### Czyszczenie historii
+
+**Ustawienia → Operacje → Historia** ma **Wyczyść ostatnie foldery…** (*Recent Folders* w menu Go) i **Wyczyść dziennik
+operacji…**. Obie czynności proszą o potwierdzenie i nie ruszają plików ani zakładek. Te same polecenia są na dole menu
+*Recent Folders* (**Go** i menu listera) oraz w oknie dziennika operacji.
 
 ### Zaznaczanie, filtr, rozmiary
 
@@ -354,15 +378,16 @@ pokazują *Oczekiwanie w kolejce…* i obok paska postępu mały przycisk **W ko
 Operacje na różne dyski nadal idą równolegle. Pliki, które są kopiowane lub przenoszone (albo czekają na to), nie dadzą
 się przenieść do Kosza, zmienić nazwy ani przenieść spod trwającej operacji; MacLister mówi o tym zamiast to robić.
 
-### Zaznaczanie ramką
+### Zaznaczanie przeciąganiem
 
-<p align="center"><img src="docs/screenshots/drag-select.jpg" alt="Prostokąt zaznaczenia narysowany przez cztery wiersze listera" width="560"></p>
+<p align="center"><img src="docs/screenshots/drag-select.jpg" alt="Cztery wiersze listera zaznaczone przeciąganiem" width="560"></p>
 
-Naciśnij przycisk na pustym miejscu — pod wierszami, w kolumnach Rozmiar / Data zmian albo na prawo od nazwy — i
-ciągnij: prostokąt zaznacza wszystkie wiersze, których dotyka (⌘ lub ⇧ dodaje do zaznaczenia; lista przewija się, gdy
-dojdziesz do krawędzi). Domyślnie działa to także od **niezaznaczonej nazwy pliku**, jak w Directory Opus;
-*zaznaczony* plik jest zawsze przeciągany jako plik, więc nadal można wyciągać pliki z listera. Wolisz zachowanie
-Findera (naciśnięcie nazwy zawsze przeciąga plik)? **Ustawienia → Listery → Zaznaczaj ramką, ciągnąc od nazw plików** — wyłącz.
+Naciśnij wiersz — na jego pustej części w kolumnach Rozmiar / Data zmian albo na prawo od nazwy, albo pod ostatnim
+wierszem — i ciągnij: zaznaczają się wszystkie wiersze między miejscem naciśnięcia a kursorem, jak w Directory Opus
+(⌘ lub ⇧ dodaje do zaznaczenia; lista przewija się, gdy dojdziesz do krawędzi). Domyślnie działa to także od
+**niezaznaczonej nazwy pliku**; *zaznaczony* plik jest zawsze przeciągany jako plik, więc nadal można wyciągać pliki
+z listera. Wolisz zachowanie
+Findera (naciśnięcie nazwy zawsze przeciąga plik)? **Ustawienia → Listery → Zaznaczaj przeciąganiem od nazw plików** — wyłącz.
 
 ### Tab między listerami
 
@@ -489,6 +514,8 @@ Ustawiane przez `defaults write com.example.MacLister <klucz> <wartość>`:
 | Klucz | Domyślnie | Znaczenie |
 |---|---|---|
 | `centerOnCursor` | false | wyśrodkuj nowe listery na kliknięciu zamiast kotwiczyć róg |
+| `showDockIcon` | true | ikona w Docku (także: Ustawienia → Ogólne) |
+| `listersOnAllDesktops` | false | listery na każdym pulpicie (także: Ustawienia → Ogólne) |
 | `showStatusItem` | true | pokaż ikonę w pasku menu (po ukryciu zamykasz aplikację z Monitora aktywności) |
 | `startDirectory` | `~` | folder otwierany dwuklikiem na pulpicie |
 | `terminalBundleID` | `com.apple.Terminal` | terminal dla *Terminal Here* (także: Ustawienia → Ogólne) |

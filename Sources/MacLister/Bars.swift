@@ -198,6 +198,8 @@ extension PathBarView {
                     ForEach(history.recent, id: \.self) { path in
                         Button { model.navigate(to: BookmarkStore.url(forKey: path)) } label: { Text(Self.short(path)) }
                     }
+                    Divider()
+                    Button("Clear Recent Folders…") { HistoryClearing.confirmAndClear(.recentFolders) }
                 }
             }
         } label: {

@@ -328,10 +328,12 @@ final class GlobalHotKeys {
 enum GlobalShortcutActions {
     static let openLister = "global.openLister"
     static let bringAllToFront = "global.bringAllToFront"
+    static let gatherListers = "global.gatherListers"
 
     static let all: [(id: String, title: String)] = [
         (openLister, tr("Open a lister (in any application)")),
         (bringAllToFront, tr("Bring all listers to the front (in any application)")),
+        (gatherListers, tr("Move all listers to the desktop you are on (in any application)")),
     ]
 
     /// Registers whatever is assigned; called at launch and whenever the assignments change.
@@ -345,6 +347,8 @@ enum GlobalShortcutActions {
                     ListerManager.shared.openLister(directory: Settings.startDirectory,
                                                     anchor: .cursor(NSEvent.mouseLocation, centered: Settings.centerOnCursor))
                 }
+            case gatherListers:
+                action = { ListerManager.shared.gatherOnThisDesktop() }
             default:
                 action = { ListerManager.shared.bringAllToFront() }
             }

@@ -25,13 +25,13 @@ final class ListerTableView: NSTableView, NSServicesMenuRequestor {
 
     // MARK: Drag-select (Directory Opus style)
 
-    /// Press on empty space of a row, or below the rows, and drag: a rectangle selects every row it touches.
+    /// Press on empty space of a row, or below the rows, and drag: every row between the press and the pointer is
+    /// selected (only the vertical span counts, so nothing is drawn over the list).
     /// A press on a file name drags the file itself, unless "Drag-select from file names" is on and the file
     /// is not selected yet (a selected file is always dragged as a file).
     var lassoFromNames: () -> Bool = { Settings.dragSelectFromNames }
-    private var lassoView: NSView?
 
-    /// Does a press at `point` (table coordinates) start a selection rectangle?
+    /// Does a press at `point` (table coordinates) start a drag-selection?
     func startsLasso(at point: NSPoint) -> Bool {
         let row = self.row(at: point)
         guard row >= 0 else { return true }
@@ -46,33 +46,17 @@ final class ListerTableView: NSTableView, NSServicesMenuRequestor {
         return lassoFromNames() && !selectedRowIndexes.contains(row)
     }
 
-    /// The rows a rectangle (table coordinates) touches.
+    /// The rows a vertical span (table coordinates) touches.
     func rowsTouched(by rect: NSRect) -> IndexSet {
         let range = rows(in: NSRect(x: rect.minX, y: rect.minY, width: max(rect.width, 1), height: max(rect.height, 1)))
         return range.length > 0 ? IndexSet(integersIn: range.location..<(range.location + range.length)) : IndexSet()
     }
 
-    /// Selection after the rectangle from `start` to `end`: replaces the selection, or adds to `base` with ⌘ / ⇧.
+    /// Selection after dragging from `start` to `end`: replaces the selection, or adds to `base` with ⌘ / ⇧.
     func applyLasso(from start: NSPoint, to end: NSPoint, extending base: IndexSet?) {
         let rect = NSRect(x: min(start.x, end.x), y: min(start.y, end.y), width: abs(end.x - start.x), height: abs(end.y - start.y))
         let hit = rowsTouched(by: rect)
         selectRowIndexes(base.map { $0.union(hit) } ?? hit, byExtendingSelection: false)
-        showLasso(rect.intersection(bounds))
-    }
-
-    private func showLasso(_ rect: NSRect?) {
-        guard let rect else { lassoView?.removeFromSuperview(); lassoView = nil; return }
-        if lassoView == nil {
-            let overlay = NSView()
-            overlay.wantsLayer = true
-            overlay.layer?.borderWidth = 1
-            overlay.layer?.cornerRadius = 2
-            addSubview(overlay, positioned: .above, relativeTo: nil)
-            lassoView = overlay
-        }
-        lassoView?.layer?.borderColor = NSColor.controlAccentColor.cgColor
-        lassoView?.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.15).cgColor
-        lassoView?.frame = rect
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -97,7 +81,6 @@ final class ListerTableView: NSTableView, NSServicesMenuRequestor {
             autoscroll(with: next)
             applyLasso(from: point, to: convert(next.locationInWindow, from: nil), extending: base)
         }
-        showLasso(nil)
     }
 
     /// A plain click on the blank part of a row (the press did not turn into a drag).
@@ -705,6 +688,7 @@ extension ListerViewController {
         case .undo:           undoLastOperation()
         case .showLog:        OperationLogWindow.show()
         case .nextLister:     ListerManager.shared.focusNeighbour(of: view.window?.windowController as? ListerWindowController, forward: true)
+        case .gatherListers:  ListerManager.shared.gatherOnThisDesktop()
         case .previousLister: ListerManager.shared.focusNeighbour(of: view.window?.windowController as? ListerWindowController, forward: false)
         case .duplicateFile:  duplicateSelection()
         case .selectPattern:  promptPattern(select: true)
@@ -1226,17 +1210,22 @@ extension ListerViewController {
                 BookmarkStore.shared.remove(self.model.url.standardizedFileURL.path)
             }
         }
-        addSubmenu(tr("Recent Folders"), to: menu) { _, addItem in
+        addSubmenu(tr("Recent Folders"), to: menu) { sub, addItem in
             let recent = PathHistory.shared.recent
             if recent.isEmpty { addItem(tr("No recent folders"), false) { } }
             for path in recent {
                 addItem(PathText.short(path), true) { [weak self] in self?.model.navigate(to: URL(fileURLWithPath: path)) }
+            }
+            if !recent.isEmpty {
+                sub.addItem(.separator())
+                addItem(tr("Clear Recent Folders…"), true) { HistoryClearing.confirmAndClear(.recentFolders) }
             }
         }
         add(tr("Terminal Here"), enabled: !isRemote) { [weak self] in self?.openTerminal() }
         menu.addItem(.separator())
 
         add(tr("Bring All Listers to Front"), enabled: manager.openCount > 1) { manager.bringAllToFront() }
+        add(tr("Move All Listers to This Desktop")) { manager.gatherOnThisDesktop() }
         add(tr("Close Lister"), key: "w") { [weak self] in self?.view.window?.performClose(nil) }
         add(tr("Close All Listers"), enabled: manager.openCount > 1) { manager.closeAll() }
         menu.addItem(.separator())

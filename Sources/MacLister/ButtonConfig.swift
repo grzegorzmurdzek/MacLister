@@ -25,6 +25,8 @@ enum ListerAction: String, Codable, CaseIterable, Identifiable {
     case undo, showLog
     /// Moves the keyboard focus to the next / previous lister (Tab / Shift-Tab).
     case nextLister, previousLister
+    /// Brings every lister to the macOS desktop (Space) you are on.
+    case gatherListers
     /// A thin divider between groups of buttons (no action).
     case separator
     /// Runs `command` with /bin/zsh in the current folder.

@@ -38,6 +38,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
             defer: false
         )
         window.isReleasedWhenClosed = false      // lifetime is owned by ListerManager
+        window.collectionBehavior = ListerManager.desktopBehavior
         window.minSize = Settings.minListerSize
         super.init(window: window)
 
@@ -143,6 +144,31 @@ final class ListerManager {
         guard visible.count > 1 else { return nil }
         let index = current.flatMap { c in visible.firstIndex { $0 === c } } ?? 0
         return visible[(index + (forward ? 1 : visible.count - 1)) % visible.count]
+    }
+
+    /// How lister windows behave across macOS desktops (Spaces): follow the setting.
+    static var desktopBehavior: NSWindow.CollectionBehavior {
+        Settings.listersOnAllDesktops ? [.canJoinAllSpaces] : []
+    }
+
+    /// Applies the "all desktops" setting to the windows that are open.
+    func applyDesktopBehavior() {
+        for controller in controllers { controller.window?.collectionBehavior = Self.desktopBehavior }
+    }
+
+    /// Brings every lister to the desktop (Space) that is showing now, raises them and gives the first the keyboard.
+    /// macOS has no way to send windows to a particular desktop, so the usual routine is: switch to the desktop you want
+    /// (a new, empty one for a "lister desktop"), then run this.
+    func gatherOnThisDesktop() {
+        guard !controllers.isEmpty else { return }
+        for controller in controllers {
+            guard let window = controller.window else { continue }
+            if window.isMiniaturized { window.deminiaturize(nil) }
+            if !Settings.listersOnAllDesktops { window.collectionBehavior = [.moveToActiveSpace] }   // ordered front, it joins the desktop in view
+        }
+        bringAllToFront()
+        // the flag is only for the move: afterwards a lister stays on its desktop like any window
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.applyDesktopBehavior() }
     }
 
     /// Tab / Shift-Tab: the keyboard moves to the next (or previous) lister.

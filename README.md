@@ -24,7 +24,7 @@ menu-bar agent, no Dock icon.
   (zip, tar.\*, 7z, rar, gz, bz2 …).
 - **Right-click the title bar** for lister commands (duplicate, source/destination, close all …).
 - **Undo** for the last copy, move, duplicate or Trash (⌘Z) and an **operation log** with a retention limit.
-- **Drag-select** (press on empty space or on a file name and drag a rectangle), **Tab** between listers, a **history
+- **Drag-select** (press on a row and drag down or up to select the rows in between), **Tab** between listers, a **history
   menu** under right-click on Back.
 - **Left, right and middle click** of every button can do something different; a **button editor** and a
   **title format** with `%` variables.
@@ -179,11 +179,35 @@ On many laptops F-keys need **fn**.
 **Menu-bar icon → Settings…** (⌘,) opens a regular Mac settings window with four tabs:
 
 - **General** — what opens a lister (double-click, middle button or both), centre it on the pointer, the folder it
-  opens, reopen the saved layout at launch, the terminal app for *Terminal Here*, the interface language.
+  opens, reopen the saved layout at launch, listers on all desktops, the Dock icon, the terminal app for
+  *Terminal Here*, the interface language.
 - **Listers** — button bar position and labels, **Edit Buttons…** / *Reload* / *Reset…*, relative dates,
   drag-select from file names, **Lister Title…**, **Keyboard Shortcuts…**, **Edit Filetypes…**.
-- **Operations** — how long the operation log is kept, **Open Operation Log…**.
+- **Operations** — how long the operation log is kept, **Open Operation Log…**, and **Clear Recent Folders…** /
+  **Clear Operation Log…** (each asks for confirmation first).
 - **Updates** — version, last check, automatic checks (off by default), *Check for Updates…*.
+
+### Dock icon and desktops
+
+MacLister shows an icon in the **Dock** by default (**Settings → General → Show MacLister in the Dock** turns it off;
+the menu-bar icon stays either way). **Right-click the Dock icon** for the open listers (click one to bring it
+forward), New Lister, Duplicate Frontmost Lister, Connect to Server…, Bring All to Front, Close All Listers,
+**Move All Listers to This Desktop**, Undo, Operation Log… and Settings…. Clicking the icon with no lister open opens
+one; with listers open it brings them all forward. With the icon on, ⌘N (File menu) opens a lister and ⌘Tab finds
+MacLister.
+
+**Listers on a desktop of their own.** macOS lets an app move its windows only to the desktop that is in view. So:
+switch to the desktop you want (a new empty one from Mission Control, say) and choose **Move All Listers to This
+Desktop** — in the menu-bar menu, the Dock menu, a lister's context menu, or with a global shortcut you set in
+*Keyboard Shortcuts* (it is also an action, `gatherListers`, for buttons and keys). **Settings → General → Show listers
+on all desktops** makes them follow you everywhere instead. The macOS way works too: Control-click the Dock icon →
+Options → Assign To → This Desktop.
+
+### Clearing the history
+
+**Settings → Operations → History** has **Clear Recent Folders…** (the *Recent Folders* in the Go menu) and **Clear
+Operation Log…**. Both ask for confirmation, and neither touches files or bookmarks. The same commands are at the
+bottom of the *Recent Folders* menu (**Go** and the context menu) and in the Operation Log window.
 
 ### Selecting, filtering, sizes
 
@@ -351,12 +375,13 @@ renamed or moved from under the job; MacLister says so instead.
 
 ### Drag-select
 
-<p align="center"><img src="docs/screenshots/drag-select.jpg" alt="A selection rectangle drawn across four rows of a lister" width="560"></p>
+<p align="center"><img src="docs/screenshots/drag-select.jpg" alt="Four rows of a lister selected by dragging over them" width="560"></p>
 
-Press on empty space — below the rows, in the Size / Modified columns or right of a name — and drag: a rectangle
-selects every row it touches (⌘ or ⇧ adds to the selection; the list scrolls when you reach the edge). By default
-this also works from an **unselected file name**, as in Directory Opus; a *selected* file is always dragged as a
-file, so you can still drag files out. Prefer the Finder behaviour (a name press always drags the file)? **Settings → Listers → Drag a selection rectangle from file names** off.
+Press on a row — on its empty part in the Size / Modified columns or right of a name, or below the last row — and
+drag: every row between the press and the pointer is selected, as in Directory Opus (⌘ or ⇧ adds to the selection;
+the list scrolls when you reach the edge). By default this also works from an **unselected file name**; a *selected*
+file is always dragged as a file, so you can still drag files out. Prefer the Finder behaviour (a name press always
+drags the file)? **Settings → Listers → Select by dragging from file names** off.
 
 ### Tab between listers
 
@@ -486,6 +511,8 @@ Set with `defaults write com.example.MacLister <key> <value>`:
 |---|---|---|
 | `centerOnCursor` | false | centre new listers on the click instead of anchoring the corner |
 | `showStatusItem` | true | show the menu-bar icon (if you hide it, quit via Activity Monitor) |
+| `showDockIcon` | true | the Dock icon (also: Settings → General) |
+| `listersOnAllDesktops` | false | show listers on every desktop (also: Settings → General) |
 | `startDirectory` | `~` | folder a desktop double-click opens |
 | `terminalBundleID` | `com.apple.Terminal` | terminal used by *Terminal Here* (also: Settings → General) |
 | `restoreLayoutAtLaunch` | false | reopen the saved layout at start |

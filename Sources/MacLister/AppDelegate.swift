@@ -92,6 +92,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
 
+        // The Dock icon follows the setting, now and whenever it changes (the self-test modes above stay agents).
+        applyDockIconPreference()
+        NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.applyDockIconPreference()
+            ListerManager.shared.applyDesktopBehavior()
+        }
+
         // Ask once about automatic update checks; check daily when the user agreed.
         DispatchQueue.main.asyncAfter(deadline: .now() + 4) { UpdateManager.shared.launchCheck() }
 
@@ -106,6 +113,73 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Closing the last lister must not quit the agent.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    // MARK: - Dock icon
+
+    /// Shows or hides the Dock icon. A hidden one makes MacLister an agent again (menu-bar icon only).
+    func applyDockIconPreference() {
+        let wanted: NSApplication.ActivationPolicy = Settings.showDockIcon ? .regular : .accessory
+        if NSApp.activationPolicy() != wanted {
+            let done = NSApp.setActivationPolicy(wanted)
+            if Settings.debugHitTest { DebugLog.write("dock icon \(wanted == .regular ? "shown" : "hidden"): \(done)") }
+        }
+    }
+
+    /// Where a lister opened from the Dock or the File menu appears: beside the frontmost one, else centred on the screen.
+    func dockAnchor() -> ListerManager.Anchor {
+        if let front = ListerManager.shared.frontmost, let window = front.window { return .cascade(from: window) }
+        let area = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let size = Settings.listerContentSize
+        return .origin(NSPoint(x: area.midX - size.width / 2, y: area.midY - size.height / 2))
+    }
+
+    /// Clicking the Dock icon: bring the listers back, or open one when there is none.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if ListerManager.shared.openCount == 0 {
+            ListerManager.shared.openLister(directory: Settings.startDirectory, anchor: dockAnchor())
+        } else {
+            ListerManager.shared.bringAllToFront()
+        }
+        return false
+    }
+
+    /// The menu under a right-click on the Dock icon: the open listers, then the common commands.
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? { makeDockMenu() }
+
+    func makeDockMenu() -> NSMenu {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        func add(_ title: String, _ action: Selector, enabled: Bool = true) {
+            let item = menu.addItem(withTitle: title, action: action, keyEquivalent: "")
+            item.target = self
+            item.isEnabled = enabled
+        }
+        let controllers = ListerManager.shared.allControllers
+        if controllers.isEmpty {
+            let none = menu.addItem(withTitle: tr("No open listers"), action: nil, keyEquivalent: "")
+            none.isEnabled = false
+        }
+        for item in listerMenuItems() { menu.addItem(item) }
+        menu.addItem(.separator())
+        add(tr("New Lister"), #selector(newListerFromDock))
+        add(tr("Duplicate Frontmost Lister"), #selector(duplicateFrontmost), enabled: !controllers.isEmpty)
+        add(tr("Connect to Server…"), #selector(connectFromMenu))
+        if controllers.count > 1 {
+            menu.addItem(.separator())
+            add(tr("Bring All to Front"), #selector(bringAllListers))
+            add(tr("Close All Listers"), #selector(closeAllListers))
+        }
+        if !controllers.isEmpty { add(tr("Move All Listers to This Desktop"), #selector(gatherListers)) }
+        menu.addItem(.separator())
+        add(OperationLog.shared.undoMenuTitle, #selector(undoFromMenu), enabled: OperationLog.shared.lastUndoable != nil)
+        add(tr("Operation Log…"), #selector(showOperationLog))
+        add(tr("Settings…"), #selector(showSettings))
+        return menu
+    }
+
+    @objc private func newListerFromDock() {
+        ListerManager.shared.openLister(directory: Settings.startDirectory, anchor: dockAnchor())
+    }
 
     // MARK: - Accessibility gate
 
@@ -201,7 +275,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             insert(none)
             return
         }
-        for controller in controllers {
+        for item in listerMenuItems() { insert(item) }
+        if controllers.count > 1 {
+            insert(.separator())
+            let all = NSMenuItem(title: tr("Bring All to Front"), action: #selector(bringAllListers), keyEquivalent: "")
+            all.target = self
+            insert(all)
+            let close = NSMenuItem(title: tr("Close All Listers"), action: #selector(closeAllListers), keyEquivalent: "")
+            close.target = self
+            insert(close)
+        }
+        let gather = NSMenuItem(title: tr("Move All Listers to This Desktop"), action: #selector(gatherListers), keyEquivalent: "")
+        gather.target = self
+        insert(gather)
+    }
+
+    /// One item per open lister (click: bring it to the front), shared by the menu-bar and the Dock menus.
+    private func listerMenuItems() -> [NSMenuItem] {
+        ListerManager.shared.allControllers.map { controller in
             let item = NSMenuItem(title: controller.menuTitle, action: #selector(focusLister(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = controller
@@ -211,16 +302,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 icon.size = NSSize(width: 16, height: 16)
                 item.image = icon
             }
-            insert(item)
-        }
-        if controllers.count > 1 {
-            insert(.separator())
-            let all = NSMenuItem(title: tr("Bring All to Front"), action: #selector(bringAllListers), keyEquivalent: "")
-            all.target = self
-            insert(all)
-            let close = NSMenuItem(title: tr("Close All Listers"), action: #selector(closeAllListers), keyEquivalent: "")
-            close.target = self
-            insert(close)
+            return item
         }
     }
 
@@ -232,6 +314,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func bringAllListers() { ListerManager.shared.bringAllToFront() }
 
     @objc private func closeAllListers() { ListerManager.shared.closeAll() }
+
+    @objc private func gatherListers() { ListerManager.shared.gatherOnThisDesktop() }
 
     // MARK: - Terminal app used by "Terminal Here"
 
@@ -381,6 +465,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         appMenu.addItem(withTitle: tr("Quit MacLister"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appMenuItem.submenu = appMenu
 
+        let fileMenuItem = NSMenuItem()
+        main.addItem(fileMenuItem)
+        let file = NSMenu(title: tr("File"))
+        let newItem = file.addItem(withTitle: tr("New Lister"), action: #selector(newListerFromDock), keyEquivalent: "n")
+        newItem.target = self
+        fileMenuItem.submenu = file
+
         let editMenuItem = NSMenuItem()
         main.addItem(editMenuItem)
         let edit = NSMenu(title: "Edit")
@@ -395,6 +486,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let window = NSMenu(title: "Window")
         window.addItem(withTitle: tr("Close"), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         window.addItem(withTitle: tr("Minimize"), action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        let front = window.addItem(withTitle: tr("Bring All to Front"), action: #selector(bringAllListers), keyEquivalent: "")
+        front.target = self
         windowMenuItem.submenu = window
         NSApp.windowsMenu = window
 

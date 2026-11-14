@@ -5,7 +5,6 @@ import AppKit
 struct OperationLogView: View {
     @ObservedObject var log: OperationLog = .shared
     @State private var retention = OperationLog.retentionDays
-    @State private var confirmClear = false
 
     private static let formatter: DateFormatter = {
         let f = DateFormatter()
@@ -44,17 +43,12 @@ struct OperationLogView: View {
                     }
                 }
                 .disabled(log.lastUndoable == nil)
-                Button("Clear Log…") { confirmClear = true }
+                Button("Clear Log…") { HistoryClearing.confirmAndClear(.operationLog) }
                     .disabled(log.records.isEmpty)
             }
             .padding(10)
         }
         .frame(minWidth: 560, minHeight: 320)
-        .confirmationDialog("Clear the operation log?", isPresented: $confirmClear) {
-            Button("Clear Log", role: .destructive) { log.clear() }
-        } message: {
-            Text("Files are not affected, but Undo will no longer be possible.")
-        }
     }
 
     private func row(_ record: OperationRecord) -> some View {
