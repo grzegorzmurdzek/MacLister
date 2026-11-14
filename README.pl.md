@@ -4,7 +4,7 @@ Menedżer plików oparty na listerach dla macOS, w duchu **Directory Opus Magell
 pulpitu otwiera lister dokładnie tam, gdzie kliknąłeś. Natywna aplikacja w Swift (AppKit + SwiftUI),
 działa jako agent w pasku menu, bez ikony w Docku.
 
-**Język:** [English](README.md) · Polski
+**Strona:** [grzegorzmurdzek.github.io/MacLister](https://grzegorzmurdzek.github.io/MacLister/) · **Język:** [English](README.md) · Polski
 
 <p align="center">
   <picture>
@@ -42,7 +42,7 @@ uruchamiana na prawdziwym sprzęcie Intel).
 1. Pobierz `MacLister-<wersja>-macos.zip` ze strony **Releases** tego repozytorium. Opcjonalnie sprawdź sumę:
    `shasum -a 256 -c MacLister-<wersja>-macos.zip.sha256`.
 2. Rozpakuj i przeciągnij **MacLister.app** do `/Applications`.
-3. **Pierwsze uruchomienie.** Aplikacja jest podpisana ad-hoc i nie ma notaryzacji, więc Gatekeeper z początku ją
+3. **Pierwsze uruchomienie.** Aplikacja jest podpisana ad-hoc i nie przeszła notaryzacji Apple (płatnego programu dla programistów), więc Gatekeeper z początku ją
    blokuje:
    - kliknij aplikację z klawiszem Control → **Otwórz** → **Otwórz**, albo
    - Ustawienia systemowe → Prywatność i ochrona → **Otwórz mimo to** (macOS 15 i nowsze), albo
@@ -589,7 +589,7 @@ miejsce pulpitu?), `ListerWindowController` / `ListerManager` (okna, role), `Lis
 - Dostępność służy tylko do sprawdzenia, jaki element jest pod kursorem.
 - Brak dostępu do sieci i telemetrii. Jedyny log to `~/Library/Logs/MacLister.log` (stan startu; kliknięcia tylko
   przy `debugHitTest`).
-- Aplikacja **nie działa w sandboxie** (musi przeglądać dowolne foldery), jest podpisana ad-hoc i **bez notaryzacji**.
+- Aplikacja **nie działa w sandboxie** (musi przeglądać dowolne foldery), jest podpisana ad-hoc i **bez notaryzacji Apple** (płatnej weryfikacji dla programistów).
   Dlatego nie można jej dystrybuować przez Mac App Store.
 - Foldery takie jak Desktop, Documents i Downloads wywołują zwykłe pytania macOS o dostęp do plików.
 

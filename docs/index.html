@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MacLister - a lister file manager for macOS</title>
+<meta name="description" content="MacLister is a lister-based file manager for macOS in the spirit of Directory Opus Magellan: double-click the empty desktop and a lister opens where you clicked.">
+<meta property="og:title" content="MacLister - a lister file manager for macOS">
+<meta property="og:description" content="Source and destination listers, Finder-style menus, FTP/FTPS/SFTP, undo, operation log and more. Free and open source.">
+<meta property="og:image" content="https://grzegorzmurdzek.github.io/MacLister/screenshots/lister-pair.jpg">
+<meta name="theme-color" content="#eef2fb" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14161f" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<style>
+:root {
+  --bg: #eef2fb; --bg2: #f6eefa; --card: #ffffffcc; --ink: #1d2030; --soft: #5b6178; --line: #d9deee;
+  --accent: #0a6cf0; --accent-ink: #fff; --shadow: 0 18px 50px rgba(40, 40, 90, .16);
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #14161f; --bg2: #1c1830; --card: #1e2130cc; --ink: #eceef7; --soft: #a2a8c0; --line: #2d3248;
+          --accent: #3d8bff; --accent-ink: #fff; --shadow: 0 18px 50px rgba(0, 0, 0, .5); }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font: 17px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+       color: var(--ink); background: linear-gradient(160deg, var(--bg), var(--bg2)) fixed; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.wrap { width: min(1120px, 100% - 40px); margin: 0 auto; }
+header.nav { position: sticky; top: 0; z-index: 5; backdrop-filter: blur(16px); background: color-mix(in srgb, var(--bg) 78%, transparent);
+             border-bottom: 1px solid var(--line); }
+.nav .wrap { display: flex; align-items: center; gap: 22px; height: 58px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 650; color: var(--ink); }
+.brand img { width: 30px; height: 30px; }
+.nav nav { margin-left: auto; display: flex; gap: 20px; align-items: center; font-size: 15px; }
+.nav nav a { color: var(--soft); }
+.nav nav a:hover { color: var(--ink); text-decoration: none; }
+.lang { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.lang button { all: unset; cursor: pointer; padding: 4px 11px; font-size: 13px; color: var(--soft); }
+.lang button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+@media (max-width: 720px) { .nav nav a.hide-s { display: none; } }
+
+.hero { text-align: center; padding: 70px 0 30px; }
+.hero img.icon { width: 112px; height: 112px; filter: drop-shadow(0 10px 22px rgba(30, 40, 90, .35)); }
+.hero h1 { font-size: clamp(40px, 7vw, 68px); letter-spacing: -.02em; line-height: 1.05; margin: 18px 0 12px; }
+.hero p.lead { font-size: clamp(18px, 2.4vw, 23px); color: var(--soft); max-width: 760px; margin: 0 auto 28px; }
+.cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 13px 24px; border-radius: 12px; font-weight: 600; font-size: 17px;
+       border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 40%, transparent); }
+.btn:hover { text-decoration: none; transform: translateY(-1px); }
+.meta { margin-top: 14px; font-size: 14px; color: var(--soft); }
+.shot { margin: 46px auto 0; }
+.shot img { width: 100%; height: auto; border-radius: 22px; box-shadow: var(--shadow); display: block; }
+
+section { padding: 64px 0 8px; }
+h2 { font-size: clamp(28px, 4vw, 40px); letter-spacing: -.01em; margin: 0 0 8px; text-align: center; }
+.sub { text-align: center; color: var(--soft); max-width: 700px; margin: 0 auto 34px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(255px, 1fr)); gap: 18px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 22px; backdrop-filter: blur(10px); }
+.card h3 { margin: 12px 0 6px; font-size: 18px; }
+.card p { margin: 0; color: var(--soft); font-size: 15.5px; }
+.ico { width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center; color: #fff;
+       background: linear-gradient(145deg, color-mix(in srgb, var(--c) 85%, #fff), var(--c)); }
+.ico svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 18px; }
+.gallery figure { margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; cursor: zoom-in;
+                  transition: transform .15s, box-shadow .15s; }
+.gallery figure:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+.gallery .thumb { aspect-ratio: 4 / 3; display: grid; place-items: center; padding: 10px; background: color-mix(in srgb, var(--line) 35%, transparent); }
+.gallery img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; }
+.gallery figcaption { padding: 12px 16px 14px; font-size: 15px; }
+.gallery figure.wide { grid-column: span 2; }
+.gallery figure.wide .thumb { aspect-ratio: 8 / 3; }
+@media (max-width: 620px) { .gallery figure.wide { grid-column: auto; } .gallery figure.wide .thumb { aspect-ratio: 4 / 3; } }
+
+.steps { counter-reset: s; list-style: none; padding: 0; margin: 0 auto; max-width: 820px; display: grid; gap: 14px; }
+.steps li { counter-increment: s; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px 18px 66px; position: relative; }
+.steps li::before { content: counter(s); position: absolute; left: 20px; top: 16px; width: 32px; height: 32px; border-radius: 50%;
+                    display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+code { font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; background: color-mix(in srgb, var(--line) 60%, transparent); padding: 2px 6px; border-radius: 6px; }
+.req { max-width: 820px; margin: 26px auto 0; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.pill { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 7px 16px; font-size: 15px; color: var(--soft); }
+footer { padding: 54px 0 60px; text-align: center; color: var(--soft); font-size: 15px; }
+footer a { margin: 0 8px; }
+
+.lb { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 12px;
+      background: rgba(10, 12, 22, .86); padding: 28px; }
+.lb.open { display: flex; }
+.lb img { max-width: min(1400px, 94vw); max-height: 80vh; border-radius: 14px; box-shadow: 0 24px 80px rgba(0, 0, 0, .6); }
+.lb .cap { color: #eef; font-size: 17px; }
+.lb button { all: unset; position: absolute; color: #fff; font-size: 34px; cursor: pointer; padding: 10px 18px; opacity: .8; }
+.lb button:hover { opacity: 1; }
+.lb .x { top: 10px; right: 14px; } .lb .p { left: 10px; top: 50%; } .lb .n { right: 10px; top: 50%; }
+[data-l] { display: none; }
+html[lang="en"] [data-l="en"], html[lang="pl"] [data-l="pl"] { display: revert; }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="assets/icon.png" alt="" width="30" height="30"> MacLister</a>
+    <nav>
+      <a class="hide-s" href="#features"><span data-l="en">Features</span><span data-l="pl">Funkcje</span></a>
+      <a class="hide-s" href="#gallery"><span data-l="en">Gallery</span><span data-l="pl">Galeria</span></a>
+      <a class="hide-s" href="#install"><span data-l="en">Install</span><span data-l="pl">Instalacja</span></a>
+      <a href="https://github.com/grzegorzmurdzek/MacLister">GitHub</a>
+      <span class="lang" role="group" aria-label="Language"><button data-set="en" aria-pressed="true">EN</button><button data-set="pl" aria-pressed="false">PL</button></span>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+<div class="wrap hero">
+  <img class="icon" src="assets/icon.png" alt="MacLister icon" width="112" height="112">
+  <h1>MacLister</h1>
+  <p class="lead">
+    <span data-l="en">A lister-based file manager for macOS in the spirit of Directory Opus Magellan. Double-click the empty desktop and a lister opens right where you clicked.</span>
+    <span data-l="pl">Menedżer plików z listerami dla macOS w duchu Directory Opus Magellan. Dwuklik na pustym pulpicie otwiera lister dokładnie tam, gdzie kliknąłeś.</span>
+  </p>
+  <div class="cta">
+    <a class="btn primary" id="dl" href="https://github.com/grzegorzmurdzek/MacLister/releases/latest">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 21h14"/></svg>
+      <span data-l="en">Download for macOS</span><span data-l="pl">Pobierz dla macOS</span> <span id="ver"></span>
+    </a>
+    <a class="btn" href="https://github.com/grzegorzmurdzek/MacLister"><span data-l="en">View on GitHub</span><span data-l="pl">Zobacz na GitHubie</span></a>
+  </div>
+  <div class="meta">
+    <span data-l="en">Free and open source · macOS 13 or later · Apple Silicon and Intel · English and Polish interface</span>
+    <span data-l="pl">Darmowy i otwarty · macOS 13 lub nowszy · Apple Silicon i Intel · interfejs po polsku i angielsku</span>
+  </div>
+  <div class="shot">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="screenshots/lister-pair-dark.jpg">
+      <img src="screenshots/lister-pair.jpg" alt="Two MacLister listers: Projects as the source with three files selected, a NAS as the destination, a copy in progress">
+    </picture>
+  </div>
+</div>
+
+<section id="features"><div class="wrap">
+  <h2><span data-l="en">Everything a lister needs</span><span data-l="pl">Wszystko, czego potrzebuje lister</span></h2>
+  <p class="sub"><span data-l="en">Built for people who move a lot of files between places: any number of listers, one marked source and one destination.</span>
+  <span data-l="pl">Dla ludzi, którzy dużo przenoszą między miejscami: dowolna liczba listerów, jeden jako źródło, drugi jako cel.</span></p>
+  <div class="grid" id="cards"></div>
+</div></section>
+
+<section id="gallery"><div class="wrap">
+  <h2><span data-l="en">Gallery</span><span data-l="pl">Galeria</span></h2>
+  <p class="sub"><span data-l="en">Click a picture to enlarge it. Every file in the pictures is made up.</span><span data-l="pl">Kliknij obrazek, żeby go powiększyć. Wszystkie pliki na obrazkach są zmyślone.</span></p>
+  <div class="gallery" id="gal"></div>
+</div></section>
+
+<section id="install"><div class="wrap">
+  <h2><span data-l="en">Install in a minute</span><span data-l="pl">Instalacja w minutę</span></h2>
+  <p class="sub"><span data-l="en">MacLister is ad-hoc signed, not notarized by Apple (that needs a paid developer account), so macOS asks you once.</span>
+  <span data-l="pl">MacLister jest podpisany lokalnie i nie przeszedł notaryzacji Apple (wymaga płatnego konta programisty), więc macOS zapyta Cię raz.</span></p>
+  <ol class="steps">
+    <li><span data-l="en">Download <code>MacLister-&lt;version&gt;-macos.zip</code> from the <a href="https://github.com/grzegorzmurdzek/MacLister/releases/latest">latest release</a>, unzip it and drag <b>MacLister.app</b> to <code>/Applications</code>.</span>
+        <span data-l="pl">Pobierz <code>MacLister-&lt;wersja&gt;-macos.zip</code> z <a href="https://github.com/grzegorzmurdzek/MacLister/releases/latest">najnowszego wydania</a>, rozpakuj i przeciągnij <b>MacLister.app</b> do <code>/Applications</code>.</span></li>
+    <li><span data-l="en">First launch: Control-click the app and choose <b>Open</b>, then <b>Open</b> again.</span>
+        <span data-l="pl">Pierwsze uruchomienie: kliknij aplikację z Control i wybierz <b>Otwórz</b>, potem jeszcze raz <b>Otwórz</b>.</span></li>
+    <li><span data-l="en">In System Settings → Privacy &amp; Security allow <b>Accessibility</b> and <b>Input Monitoring</b> (needed to notice a double-click on the desktop), then quit and start MacLister again.</span>
+        <span data-l="pl">W Ustawieniach systemowych → Prywatność i ochrona zezwól na <b>Dostępność</b> i <b>Monitorowanie wprowadzania</b> (potrzebne do wykrycia dwukliku na pulpicie), potem zamknij MacListera i uruchom go ponownie.</span></li>
+    <li><span data-l="en">Double-click an empty spot on the desktop. Updates: <i>Check for Updates…</i> in the menu-bar menu (automatic checks are off unless you turn them on).</span>
+        <span data-l="pl">Kliknij dwukrotnie puste miejsce na pulpicie. Aktualizacje: <i>Sprawdź aktualizacje…</i> w menu paska menu (sprawdzanie automatyczne jest domyślnie wyłączone).</span></li>
+  </ol>
+  <div class="req">
+    <span class="pill">macOS 13 Ventura+</span><span class="pill">Apple Silicon · Intel</span>
+    <span class="pill"><span data-l="en">Universal binary</span><span data-l="pl">Binarka uniwersalna</span></span>
+    <span class="pill"><span data-l="en">The Intel half has not been run on real Intel hardware</span><span data-l="pl">Wersja na Intela nie była uruchamiana na prawdziwym sprzęcie</span></span>
+  </div>
+</div></section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>
+      <a href="https://github.com/grzegorzmurdzek/MacLister">GitHub</a>·
+      <a href="https://github.com/grzegorzmurdzek/MacLister/releases">Releases</a>·
+      <a href="https://github.com/grzegorzmurdzek/MacLister#readme">README (EN)</a>·
+      <a href="https://github.com/grzegorzmurdzek/MacLister/blob/main/README.pl.md">README (PL)</a>
+    </p>
+    <p><span data-l="en">MacLister is an independent project and is not affiliated with GPSoftware or Directory Opus.</span>
+       <span data-l="pl">MacLister jest niezależnym projektem i nie jest związany z GPSoftware ani Directory Opus.</span></p>
+  </div>
+</footer>
+
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Picture">
+  <button class="x" aria-label="Close">×</button><button class="p" aria-label="Previous">‹</button><button class="n" aria-label="Next">›</button>
+  <img id="lbimg" alt=""><div class="cap" id="lbcap"></div>
+</div>
+
+<script>
+const ICON = {
+  copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
+  menu: '<path d="M4 6h16M4 12h16M4 18h10"/>',
+  undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
+  cursor: '<path d="m5 3 14 7-6 2-2 6z"/>',
+  server: '<rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9 7 7M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/>',
+  dock: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M7 20h10"/>',
+  key: '<rect x="2" y="6" width="20" height="12" rx="3"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
+  tag: '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.2"/>',
+  chart: '<path d="M4 20V4M4 20h16"/><path d="m7 15 4-5 3 3 5-7"/>',
+  title: '<path d="M4 6h16M12 6v13M8 19h8"/>',
+  tabs: '<path d="M3 9h18V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/><rect x="3" y="9" width="18" height="11" rx="2"/>'
+};
+const CARDS = [
+  ['copy', '#0a84ff', 'Source and destination', 'Źródło i cel', 'Mark one lister as the source and one as the destination, then Copy (F5), Move (F6), Extract, Compare and Swap between them. Drag and drop works with Finder too.', 'Oznacz jeden lister jako źródło, drugi jako cel i używaj Kopiuj (F5), Przenieś (F6), Rozpakuj, Porównaj i Zamień. Przeciąganie działa też z Finderem.'],
+  ['menu', '#8e5cf0', 'Finder-style menus', 'Menu jak w Finderze', 'Compress, Share, colored tags, Quick Actions and Services in the right-click menu, plus MacLister\'s own commands.', 'Kompresuj, Udostępnij, kolorowe tagi, Szybkie czynności i Usługi pod prawym przyciskiem, plus własne polecenia MacListera.'],
+  ['undo', '#ff7a1a', 'Undo and operation log', 'Cofanie i dziennik operacji', 'Take back the last copy, move, duplicate or trash with ⌘Z. A log with retention keeps the history, and you can clear it.', 'Cofnij ostatnie kopiowanie, przeniesienie, duplikat lub Kosz przez ⌘Z. Dziennik z retencją trzyma historię i można go wyczyścić.'],
+  ['cursor', '#2fb67c', 'Drag-select and Tab', 'Zaznaczanie i Tab', 'Press a row and drag to select the rows in between, like in Opus. Tab jumps between listers, and Back has a history menu.', 'Naciśnij wiersz i ciągnij, żeby zaznaczyć wiersze pomiędzy, jak w Opusie. Tab przeskakuje między listerami, a Wstecz ma menu historii.'],
+  ['server', '#00a7b5', 'FTP, FTPS and SFTP', 'FTP, FTPS i SFTP', 'Browse servers like folders and copy to and from them with the same progress, pause and conflict questions.', 'Przeglądaj serwery jak foldery i kopiuj z nich i na nie z tym samym postępem, pauzą i pytaniami o konflikty.'],
+  ['chart', '#e5484d', 'Transfer details', 'Szczegóły postępu', 'Click the progress bar for a speed graph, average and peak speed, remaining time, Pause and a queue per disk.', 'Kliknij pasek postępu, by zobaczyć wykres prędkości, prędkość średnią i szczytową, pozostały czas, Pauzę i kolejkę na dysk.'],
+  ['tag', '#d9a000', 'Named, colored listers', 'Nazwy i kolory listerów', 'Give listers names and colors so you can tell them apart; they show in menus such as Copy to "NAS".', 'Nadawaj listerom nazwy i kolory, żeby je rozróżniać; widać je w menu, np. Kopiuj do "NAS".'],
+  ['key', '#5b6bd6', 'Your own shortcuts', 'Własne skróty', 'Assign any key to any action, including a global shortcut that opens a lister from any application.', 'Przypisz dowolny klawisz do dowolnej akcji, także globalny skrót otwierający lister w każdej aplikacji.'],
+  ['gear', '#6b7280', 'Buttons, clicks, titles', 'Przyciski, kliknięcia, tytuły', 'Edit the button bar, give each button separate left, right and middle click actions, and format the title with variables.', 'Edytuj belkę przycisków, daj każdemu przyciskowi osobne akcje lewego, prawego i środkowego przycisku i formatuj tytuł zmiennymi.'],
+  ['dock', '#3b82f6', 'Dock and desktops', 'Dock i pulpity', 'A Dock icon with a menu of your listers (optional), and one command to move all listers to the desktop you are on.', 'Ikona w Docku z menu listerów (opcjonalna) i jedno polecenie przenoszące wszystkie listery na bieżący pulpit.'],
+  ['title', '#c026d3', 'Batch rename and filters', 'Zbiorcza zmiana nazw i filtry', 'Batch rename with live preview, select by pattern or attributes, filter, folder sizes and an attributes editor.', 'Zbiorcza zmiana nazw z podglądem, zaznaczanie wzorcem lub atrybutami, filtr, rozmiary folderów i edytor atrybutów.'],
+  ['tabs', '#16a34a', 'A proper Mac app', 'Prawdziwa aplikacja na Maca', 'A normal Settings window, English and Polish interface, light and dark mode, and optional update checks (off by default).', 'Zwykłe okno Ustawień, interfejs po polsku i angielsku, tryb jasny i ciemny oraz opcjonalne sprawdzanie aktualizacji (domyślnie wyłączone).']
+];
+const SHOTS = [
+  ['lister-pair', 'Source and destination listers', 'Listery źródłowy i docelowy', true, true],
+  ['context-menu', 'Finder-style context menu', 'Menu jak w Finderze', false, true],
+  ['drag-select', 'Select by dragging', 'Zaznaczanie przeciąganiem'],
+  ['transfer-details', 'Transfer details with a speed graph', 'Szczegóły postępu z wykresem prędkości', false, true],
+  ['back-history', 'History under Back', 'Historia pod przyciskiem Wstecz'],
+  ['operation-log', 'Operation log and undo', 'Dziennik operacji i cofanie'],
+  ['button-editor', 'Button editor with left, right and middle click', 'Edytor przycisków: lewy, prawy i środkowy przycisk'],
+  ['lister-title', 'Lister title format', 'Format tytułu listera'],
+  ['batch-rename', 'Batch rename with a live preview', 'Zbiorcza zmiana nazw z podglądem'],
+  ['name-lister', 'Names and colors for listers', 'Nazwy i kolory listerów'],
+  ['connect-to-server', 'FTP, FTPS and SFTP servers', 'Serwery FTP, FTPS i SFTP'],
+  ['keyboard-shortcuts', 'Your own keyboard shortcuts', 'Własne skróty klawiszowe'],
+  ['title-bar-menu', 'Lister menu on the title bar', 'Menu listera na belce okna'],
+  ['settings-general', 'Settings: General', 'Ustawienia: Ogólne'],
+  ['settings-listers', 'Settings: Listers', 'Ustawienia: Listery'],
+  ['settings-operations', 'Settings: Operations', 'Ustawienia: Operacje'],
+  ['settings-updates', 'Settings: Updates', 'Ustawienia: Aktualizacje']
+];
+const html = document.documentElement;
+const T = (en, pl) => '<span data-l="en">' + en + '</span><span data-l="pl">' + pl + '</span>';
+document.getElementById('cards').innerHTML = CARDS.map(c =>
+  '<div class="card"><div class="ico" style="--c:' + c[1] + '"><svg viewBox="0 0 24 24">' + ICON[c[0]] + '</svg></div><h3>' + T(c[2], c[3]) + '</h3><p>' + T(c[4], c[5]) + '</p></div>').join('');
+const gal = document.getElementById('gal');
+gal.innerHTML = SHOTS.filter(s => !s[3]).map((s, i) => {
+  const dark = s[4] ? '<source media="(prefers-color-scheme: dark)" srcset="screenshots/' + s[0] + '-dark.jpg">' : '';
+  return '<figure data-i="' + i + '"><div class="thumb"><picture>' + dark + '<img loading="lazy" src="screenshots/' + s[0] + '.jpg" alt="' + s[1] + '"></picture></div>' +
+         '<figcaption>' + T(s[1], s[2]) + '</figcaption></figure>';
+}).join('');
+const list = SHOTS.filter(s => !s[3]);
+
+// language
+function setLang(l) {
+  html.lang = l;
+  document.querySelectorAll('.lang button').forEach(b => b.setAttribute('aria-pressed', b.dataset.set === l));
+  try { localStorage.setItem('lang', l); } catch (e) {}
+}
+let saved = null; try { saved = localStorage.getItem('lang'); } catch (e) {}
+setLang(saved || ((navigator.language || '').toLowerCase().startsWith('pl') ? 'pl' : 'en'));
+document.querySelectorAll('.lang button').forEach(b => b.addEventListener('click', () => setLang(b.dataset.set)));
+
+// latest version
+fetch('https://api.github.com/repos/grzegorzmurdzek/MacLister/releases/latest').then(r => r.ok ? r.json() : null).then(d => {
+  if (!d) return;
+  document.getElementById('ver').textContent = d.tag_name;
+  const zip = (d.assets || []).find(a => a.name.endsWith('.zip'));
+  if (zip) document.getElementById('dl').href = zip.browser_download_url;
+}).catch(() => {});
+
+// lightbox
+const lb = document.getElementById('lb'), img = document.getElementById('lbimg'), cap = document.getElementById('lbcap');
+let cur = 0;
+function show(i) {
+  cur = (i + list.length) % list.length;
+  const fig = gal.children[cur], src = fig.querySelector('img').currentSrc || fig.querySelector('img').src;
+  img.src = src; img.alt = list[cur][1];
+  cap.textContent = html.lang === 'pl' ? list[cur][2] : list[cur][1];
+  lb.classList.add('open');
+}
+gal.addEventListener('click', e => { const f = e.target.closest('figure'); if (f) show(+f.dataset.i); });
+lb.addEventListener('click', e => {
+  if (e.target.classList.contains('p')) show(cur - 1);
+  else if (e.target.classList.contains('n')) show(cur + 1);
+  else lb.classList.remove('open');
+});
+document.addEventListener('keydown', e => {
+  if (!lb.classList.contains('open')) return;
+  if (e.key === 'Escape') lb.classList.remove('open');
+  if (e.key === 'ArrowLeft') show(cur - 1);
+  if (e.key === 'ArrowRight') show(cur + 1);
+});
+</script>
+</body>
+</html>
