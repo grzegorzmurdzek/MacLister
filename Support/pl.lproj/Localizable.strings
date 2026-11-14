@@ -763,3 +763,17 @@
 "License" = "Licencja";
 "Website" = "Strona";
 "Source code" = "Kod źródłowy";
+"Files and folders" = "Pliki i foldery";
+"Copy, move and compare" = "Kopiowanie, przenoszenie i porównanie";
+"Select, filter and find" = "Zaznaczanie, filtr i szukanie";
+"Navigation" = "Nawigacja";
+"Listers" = "Listery";
+"Other" = "Inne";
+"Search actions" = "Szukaj akcji";
+"No action matches" = "Żadna akcja nie pasuje";
+"Your own picture" = "Własny obrazek";
+"Choose Image…" = "Wybierz obraz…";
+"Change Image…" = "Zmień obraz…";
+"A picture (PNG, JPEG, PDF, icns …) replaces the symbol and is shown as it is, without the colour." = "Obraz (PNG, JPEG, PDF, icns …) zastępuje symbol i jest pokazywany taki, jaki jest, bez koloru.";
+"Choose a picture for the button" = "Wybierz obraz dla przycisku";
+"This file is not a picture macOS can read" = "Ten plik nie jest obrazem, który macOS potrafi odczytać";

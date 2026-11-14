@@ -297,9 +297,20 @@ struct ButtonBarView: View {
         return button.hasExtraClicks ? base + "\n" + button.clickHelp : base
     }
 
+    /// Your own picture, shown as it is (no tint) at the size of the symbols.
+    private func pictureView(_ picture: NSImage) -> some View {
+        Image(nsImage: picture).resizable().scaledToFit().frame(width: 18, height: 18)
+    }
+
     @ViewBuilder
     private func label(for button: ListerButton) -> some View {
-        if let symbol = button.symbol, !symbol.isEmpty {
+        if let picture = ButtonIcons.image(named: button.iconFile) {
+            if showLabels {
+                HStack(spacing: 5) { pictureView(picture); Text(tr(button.title)) }
+            } else {
+                pictureView(picture)
+            }
+        } else if let symbol = button.symbol, !symbol.isEmpty {
             if showLabels { Label(tr(button.title), systemImage: symbol) } else { Image(systemName: symbol) }
         } else {
             Text(tr(button.title))

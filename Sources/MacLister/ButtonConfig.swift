@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 
 /// What a bottom-bar button does.
 enum ListerAction: String, Codable, CaseIterable, Identifiable {
@@ -63,6 +63,8 @@ struct ListerButton: Codable, Hashable {
     var rightCommand: String?      // only for rightAction == .shell
     var middleAction: ListerAction?
     var middleCommand: String?     // only for middleAction == .shell
+    /// Your own picture instead of the SF Symbol: the name of a file in ~/Library/Application Support/MacLister/ButtonIcons.
+    var iconFile: String?
 
     enum Click { case left, right, middle }
 
@@ -211,5 +213,87 @@ extension ListerAction {
         case .previousLister: return "arrow.left.circle.fill"
         case .separator: return "minus"
         }
+    }
+}
+
+/// Groups for the action chooser of the button editor.
+enum ActionCategory: CaseIterable {
+    case files, transfer, selecting, navigation, listers, other
+
+    var title: String {
+        switch self {
+        case .files: return tr("Files and folders")
+        case .transfer: return tr("Copy, move and compare")
+        case .selecting: return tr("Select, filter and find")
+        case .navigation: return tr("Navigation")
+        case .listers: return tr("Listers")
+        case .other: return tr("Other")
+        }
+    }
+}
+
+extension ListerAction {
+    var category: ActionCategory {
+        switch self {
+        case .newFolder, .delete, .open, .revealInFinder, .duplicateFile, .makeAlias, .makeSymlink, .batchRename, .attributes, .info, .extract, .calcSizes:
+            return .files
+        case .copy, .move, .copyAs, .moveAs, .compare, .synchronize, .showInDestination, .destinationHere, .undo, .showLog:
+            return .transfer
+        case .selectPattern, .deselectPattern, .selectAll, .selectNone, .invertSelection, .selectByAttributes,
+             .filter, .clearFilter, .find, .flatView, .toggleHidden, .refresh:
+            return .selecting
+        case .parent, .back, .addBookmark, .showRecents, .showShared, .connectToServer:
+            return .navigation
+        case .newLister, .duplicateLister, .setSource, .setDestination, .swapSourceDestination, .toggleRoleLock, .nameLister,
+             .nextLister, .previousLister, .bringAllToFront, .gatherListers:
+            return .listers
+        case .terminalHere, .shell, .separator:
+            return .other
+        }
+    }
+}
+
+/// Pictures chosen as button icons. They are copied (scaled down to at most 128 points, as PNG) into the
+/// ButtonIcons folder, so a button keeps its icon when the original is moved or deleted.
+enum ButtonIcons {
+    static var directory: URL { AppSupport.directory.appendingPathComponent("ButtonIcons", isDirectory: true) }
+    private static var cache: [String: NSImage] = [:]
+
+    /// The picture of a file name, or nil when there is none or it cannot be read.
+    static func image(named name: String?) -> NSImage? {
+        guard let name, !name.isEmpty, !name.contains("/") else { return nil }
+        if let cached = cache[name] { return cached }
+        guard let image = NSImage(contentsOf: directory.appendingPathComponent(name)) else { return nil }
+        cache[name] = image
+        return image
+    }
+
+    /// Copies `source` into the folder and returns the new file name; nil when it is not a readable picture.
+    static func importImage(from source: URL) -> String? {
+        guard let image = NSImage(contentsOf: source), image.size.width > 0, image.size.height > 0 else { return nil }
+        let scale = min(1, 128 / max(image.size.width, image.size.height))
+        let target = NSSize(width: max(1, (image.size.width * scale).rounded()), height: max(1, (image.size.height * scale).rounded()))
+        // twice the points: sharp on Retina displays
+        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(target.width * 2), pixelsHigh: Int(target.height * 2),
+                                         bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                                         colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return nil }
+        rep.size = target
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        image.draw(in: NSRect(origin: .zero, size: target), from: .zero, operation: .copy, fraction: 1)
+        NSGraphicsContext.restoreGraphicsState()
+        guard let png = rep.representation(using: .png, properties: [:]) else { return nil }
+        let name = UUID().uuidString + ".png"
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try png.write(to: directory.appendingPathComponent(name), options: .atomic)
+        } catch { return nil }
+        return name
+    }
+
+    static func remove(_ name: String?) {
+        guard let name, !name.contains("/") else { return }
+        cache[name] = nil
+        try? FileManager.default.removeItem(at: directory.appendingPathComponent(name))
     }
 }

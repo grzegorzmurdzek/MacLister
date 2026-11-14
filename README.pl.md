@@ -596,7 +596,11 @@ i najwyżej 1000 wpisów, więc nigdy nie rośnie bez końca. Samo cofanie jest 
 Jak w Directory Opus 5, każdy przycisk może robić co innego po kliknięciu **lewym, prawym i środkowym przyciskiem myszy**.
 Ikona w pasku menu → **Edytuj przyciski…**: wybierz przycisk, ustal akcję dla każdego przycisku myszy (albo polecenie
 powłoki), zmień kolejność, dodaj, usuń, zmień ikonę, kolor i podpowiedź, **Zapisz**. Przyciski z dodatkowymi
-kliknięciami mają znacznik w edytorze i wymieniają je w podpowiedzi. W `buttons.json` klucze to `rightAction` /
+kliknięciami mają znacznik w edytorze i wymieniają je w podpowiedzi. Akcję wybiera się w okienku z polem wyszukiwania,
+pogrupowaną i posortowaną po nazwie. Ikona to **SF Symbol** (jedna z ikon dostarczanych z macOS; wybierz z siatki albo
+wpisz dowolną nazwę) lub **własny obrazek**: *Wybierz obraz…* przyjmuje PNG, JPEG, PDF lub icns, kopiuje go (zmniejszony
+do najwyżej 128 punktów) do `~/Library/Application Support/MacLister/ButtonIcons` i pokazuje taki, jaki jest, bez
+koloru; nazwę pliku trzyma `iconFile` w `buttons.json`. W `buttons.json` klucze to `rightAction` /
 `rightCommand` oraz `middleAction` / `middleCommand`. *Otwórz buttons.json* w edytorze otwiera surowy plik.
 
 ### Format tytułu listera

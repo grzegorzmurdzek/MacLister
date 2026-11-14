@@ -52,7 +52,11 @@ struct ButtonEditorView: View {
                             Image(systemName: "minus").frame(width: 18).foregroundStyle(.secondary)
                             Text("Separator").foregroundStyle(.secondary)
                         } else {
-                            Image(systemName: button.symbol ?? "square").frame(width: 18).foregroundStyle(button.tint)
+                            if let picture = ButtonIcons.image(named: button.iconFile) {
+                                Image(nsImage: picture).resizable().scaledToFit().frame(width: 18, height: 18)
+                            } else {
+                                Image(systemName: button.symbol ?? "square").frame(width: 18).foregroundStyle(button.tint)
+                            }
                             Text(tr(button.title.isEmpty ? button.action.title : button.title))
                         }
                         Spacer(minLength: 0)
@@ -116,6 +120,30 @@ struct ButtonEditorView: View {
     }
 
     @State private var choosingIcon = false
+    @State private var imageProblem: String?
+
+    /// Asks for a picture and makes it the icon of the button.
+    private func chooseImage(for button: Binding<ListerButton>) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.message = tr("Choose a picture for the button")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard let name = ButtonIcons.importImage(from: url) else {
+            imageProblem = tr("This file is not a picture macOS can read")
+            return
+        }
+        imageProblem = nil
+        replaceImage(of: button, with: name)
+    }
+
+    /// Sets (or clears) the picture; the old file goes away unless another button still uses it.
+    private func replaceImage(of button: Binding<ListerButton>, with name: String?) {
+        let old = button.wrappedValue.iconFile
+        button.wrappedValue.iconFile = name
+        if let old, old != name, !buttons.contains(where: { $0.iconFile == old }) { ButtonIcons.remove(old) }
+    }
 
     private func form(for index: Int) -> some View {
         // SwiftUI may still call these once after the row is gone (Remove, Reset): never index blindly.
@@ -152,6 +180,20 @@ struct ButtonEditorView: View {
                 }
                 Text("The icon is an SF Symbol, one of the icons that come with macOS. Choose one from the list, or type the name of any symbol (the free SF Symbols app from Apple shows them all).")
                     .font(.caption).foregroundStyle(.secondary)
+                HStack {
+                    Text("Your own picture")
+                    if let picture = ButtonIcons.image(named: button.wrappedValue.iconFile) {
+                        Image(nsImage: picture).resizable().scaledToFit().frame(width: 22, height: 22)
+                    }
+                    Spacer()
+                    Button(button.wrappedValue.iconFile == nil ? "Choose Image…" : "Change Image…") { chooseImage(for: button) }
+                    if button.wrappedValue.iconFile != nil {
+                        Button("Remove") { replaceImage(of: button, with: nil) }
+                    }
+                }
+                if let problem = imageProblem { Text(problem).font(.caption).foregroundStyle(.red) }
+                Text("A picture (PNG, JPEG, PDF, icns …) replaces the symbol and is shown as it is, without the colour.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Picker("Color", selection: Binding(get: { button.wrappedValue.color ?? "" }, set: { button.wrappedValue.color = $0.isEmpty ? nil : $0 })) {
                     ForEach(Self.colors, id: \.self) { name in
                         if name.isEmpty { Text("Neutral").tag(name) } else { Label(name.capitalized, systemImage: "circle.fill").foregroundStyle(LabelPalette.color(name) ?? .primary).tag(name) }
@@ -165,8 +207,8 @@ struct ButtonEditorView: View {
 
     private func actionRow(_ title: LocalizedStringKey, action: Binding<ListerAction>, command: Binding<String?>, optional: Bool) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Picker(title, selection: action) {
-                ForEach(ListerAction.allCases.filter { $0 != .separator }) { Text($0.title).tag($0) }
+            LabeledContent(title) {
+                ActionPicker(selection: Binding(get: { action.wrappedValue }, set: { if let value = $0 { action.wrappedValue = value } }), allowNone: false)
             }
             if action.wrappedValue == .shell { commandField(command) }
         }
@@ -174,10 +216,7 @@ struct ButtonEditorView: View {
 
     private func actionRow(_ title: LocalizedStringKey, action: Binding<ListerAction?>, command: Binding<String?>, optional: Bool) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Picker(title, selection: action) {
-                Text("Nothing").tag(ListerAction?.none)
-                ForEach(ListerAction.allCases.filter { $0 != .separator }) { Text($0.title).tag(ListerAction?.some($0)) }
-            }
+            LabeledContent(title) { ActionPicker(selection: action, allowNone: true) }
             if action.wrappedValue == .shell { commandField(command) }
         }
     }
@@ -246,5 +285,88 @@ struct SymbolGrid: View {
             .padding(10)
         }
         .frame(width: 8 * 38 + 24, height: 260)
+    }
+}
+
+/// Chooses an action: the current one on a button; a popover with a search field and the actions grouped and sorted
+/// by name (there are too many for a plain pop-up menu).
+struct ActionPicker: View {
+    @Binding var selection: ListerAction?
+    var allowNone: Bool
+
+    @State private var open = false
+    @State private var query = ""
+    @FocusState private var searching: Bool
+
+    /// Actions shown for `query`, by group, sorted by (translated) name inside each group.
+    static func groups(matching query: String) -> [(category: ActionCategory, actions: [ListerAction])] {
+        let words = query.split(separator: " ").map(String.init)
+        func matches(_ action: ListerAction) -> Bool {
+            let haystack = [action.title, action.rawValue, action.category.title].joined(separator: " ")
+            return words.allSatisfy { haystack.range(of: $0, options: [.caseInsensitive, .diacriticInsensitive]) != nil }
+        }
+        return ActionCategory.allCases.compactMap { category in
+            let actions = ListerAction.allCases
+                .filter { $0 != .separator && $0.category == category && matches($0) }
+                .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+            return actions.isEmpty ? nil : (category, actions)
+        }
+    }
+
+    var body: some View {
+        Button { query = ""; open = true } label: {
+            HStack(spacing: 6) {
+                if let current = selection { Image(systemName: current.suggestedSymbol).frame(width: 16) }
+                Text(selection?.title ?? tr("Nothing"))
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.up.chevron.down").font(.caption2).foregroundStyle(.secondary)
+            }
+            .frame(minWidth: 200, alignment: .leading)
+        }
+        .popover(isPresented: $open, arrowEdge: .bottom) { chooser }
+    }
+
+    private func pick(_ action: ListerAction?) {
+        selection = action
+        open = false
+    }
+
+    private var chooser: some View {
+        let groups = Self.groups(matching: query)
+        return VStack(spacing: 0) {
+            TextField("Search actions", text: $query)
+                .textFieldStyle(.roundedBorder)
+                .focused($searching)
+                .padding(8)
+                .onSubmit { if let first = groups.first?.actions.first { pick(first) } }
+            Divider()
+            List {
+                if allowNone, query.isEmpty {
+                    row(nil)
+                }
+                ForEach(groups, id: \.category) { group in
+                    Section(group.category.title) {
+                        ForEach(group.actions) { row($0) }
+                    }
+                }
+                if groups.isEmpty { Text("No action matches").foregroundStyle(.secondary) }
+            }
+            .listStyle(.plain)
+        }
+        .frame(width: 300, height: 380)
+        .onAppear { searching = true }
+    }
+
+    private func row(_ action: ListerAction?) -> some View {
+        Button { pick(action) } label: {
+            HStack(spacing: 8) {
+                Image(systemName: action?.suggestedSymbol ?? "nosign").frame(width: 18).foregroundStyle(.secondary)
+                Text(action?.title ?? tr("Nothing"))
+                Spacer()
+                if selection == action { Image(systemName: "checkmark").foregroundStyle(.tint) }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }

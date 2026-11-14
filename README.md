@@ -585,7 +585,11 @@ never grows without limit. Undo itself is available only for the current session
 As in Directory Opus 5, every button can do a different thing for the **left, right and middle mouse button**. Menu-bar
 icon → **Edit Buttons…**: pick a button, choose the action for each mouse button (or a shell command), reorder,
 add, remove, change the icon, color and tooltip, **Save**. Buttons that have extra clicks show a small marker in the
-editor and list them in their tooltip. In `buttons.json` the keys are `rightAction` / `rightCommand` and
+editor and list them in their tooltip. The action is chosen in a popover with a search field, grouped and sorted by
+name. The icon is an **SF Symbol** (one of the icons that come with macOS; pick one from the grid or type any name) or
+**your own picture**: *Choose Image…* takes a PNG, JPEG, PDF or icns, copies it (scaled to at most 128 points) into
+`~/Library/Application Support/MacLister/ButtonIcons` and shows it as it is, without the colour; `iconFile` in
+`buttons.json` holds its name. In `buttons.json` the keys are `rightAction` / `rightCommand` and
 `middleAction` / `middleCommand`. *Open buttons.json* in the editor opens the raw file for text-editor people.
 
 ### Lister title format

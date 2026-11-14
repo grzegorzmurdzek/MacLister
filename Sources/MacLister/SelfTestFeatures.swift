@@ -63,6 +63,36 @@ enum SelfTestFeatures {
         let bigTree = dirA.appendingPathComponent("big")
         check(FolderSize.measure(bigTree, cancel: stopped) == nil, "a cancelled folder measure returns nil")
 
+        // the action chooser of the button editor: every action once, grouped, sorted and searchable
+        let allGroups = ActionPicker.groups(matching: "")
+        let listed = allGroups.flatMap(\.actions)
+        check(Set(listed) == Set(ListerAction.allCases.filter { $0 != .separator }) && listed.count == Set(listed).count, "the action chooser lists every action exactly once (\(listed.count))")
+        check(allGroups.allSatisfy { group in group.actions.map(\.title) == group.actions.map(\.title).sorted { $0.localizedStandardCompare($1) == .orderedAscending } }, "the actions are sorted by name inside each group")
+        check(ActionPicker.groups(matching: "sync").flatMap(\.actions) == [.synchronize], "searching finds an action by its name")
+        check(ActionPicker.groups(matching: "copy as").flatMap(\.actions).contains(.copyAs), "several words must all match")
+        check(ActionPicker.groups(matching: "zzzz").isEmpty, "a search without a match lists nothing")
+
+        // custom button icons: a picture is copied in (scaled down), used by the button, and old buttons.json files still load
+        let pictureURL = root.appendingPathComponent("picture.png")
+        do {
+            let big = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 400, pixelsHigh: 200, bitsPerSample: 8, samplesPerPixel: 4,
+                                       hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)
+            try? big?.representation(using: .png, properties: [:])?.write(to: pictureURL)
+        }
+        let iconName = ButtonIcons.importImage(from: pictureURL)
+        let iconImage = ButtonIcons.image(named: iconName)
+        check(iconName != nil && iconImage != nil && max(iconImage!.size.width, iconImage!.size.height) <= 128 && iconImage!.size.width == 2 * iconImage!.size.height,
+              "a picture becomes a button icon, scaled down with its proportions: \(String(describing: iconImage?.size))")
+        check(ButtonIcons.importImage(from: root.appendingPathComponent("A/a.txt")) == nil, "a file that is no picture is refused")
+        var pictureButton = ListerButton(title: "X", symbol: "star.fill", action: .refresh)
+        pictureButton.iconFile = iconName
+        let encoded = (try? JSONEncoder().encode([pictureButton])) ?? Data()
+        check((try? JSONDecoder().decode([ListerButton].self, from: encoded))?.first?.iconFile == iconName, "the picture name is saved in buttons.json")
+        let oldJSON = Data(#"[{"title":"Old","symbol":"star","action":"refresh"}]"#.utf8)
+        check((try? JSONDecoder().decode([ListerButton].self, from: oldJSON))?.first?.iconFile == nil, "an older buttons.json without pictures still loads")
+        ButtonIcons.remove(iconName)
+        check(ButtonIcons.image(named: iconName) == nil && ButtonIcons.image(named: "../x") == nil, "a removed or odd picture name gives nothing")
+
         // Copy As / Move As: top-level items get the new names, what is inside keeps its own
         let asSource = root.appendingPathComponent("AsSource"), asTarget = root.appendingPathComponent("AsTarget")
         for dir in [asSource.appendingPathComponent("folder"), asTarget] { try? fm.createDirectory(at: dir, withIntermediateDirectories: true) }
