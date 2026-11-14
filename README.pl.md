@@ -2,7 +2,7 @@
 
 Menedżer plików oparty na listerach dla macOS, w duchu **Directory Opus Magellan**: dwuklik w puste miejsce
 pulpitu otwiera lister dokładnie tam, gdzie kliknąłeś. Natywna aplikacja w Swift (AppKit + SwiftUI),
-działa jako agent w pasku menu, bez ikony w Docku.
+działa w pasku menu, z opcjonalną ikoną w Docku.
 
 **Strona:** [grzegorzmurdzek.github.io/MacLister](https://grzegorzmurdzek.github.io/MacLister/) · **Język:** [English](README.md) · Polski
 
