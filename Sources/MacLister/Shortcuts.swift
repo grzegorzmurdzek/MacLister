@@ -197,6 +197,8 @@ enum BuiltInShortcuts {
     static let reserved: [(combo: KeyCombo, name: String)] = [
         (KeyCombo(keyCode: 12, modifiers: .command, label: "Q"), tr("Quit")),
         (KeyCombo(keyCode: 13, modifiers: .command, label: "W"), tr("Close window")),
+        (KeyCombo(keyCode: 45, modifiers: .command, label: "N"), tr("New Lister")),
+        (KeyCombo(keyCode: 43, modifiers: .command, label: ","), tr("Settings…")),
         (KeyCombo(keyCode: 46, modifiers: .command, label: "M"), tr("Minimize")),
         (KeyCombo(keyCode: 4, modifiers: .command, label: "H"), tr("Hide")),
         (KeyCombo(keyCode: 0, modifiers: .command, label: "A"), tr("Select all")),

@@ -115,6 +115,8 @@ final class ListerViewController: NSViewController {
     private var layouts: [ButtonBarPosition: [NSLayoutConstraint]] = [:]
     private var currentPosition: ButtonBarPosition?
     private var didFitColumns = false
+    var downloadGeneration = 0                      // the newest download to the cache owns the progress display
+    var quickLookDownloadCancel: (() -> Void)?      // the download that feeds the open Quick Look panel
     private var columnsShowListLayout = false
     private let columnMenu = NSMenu(title: "Columns")
 
@@ -779,6 +781,15 @@ extension ListerViewController {
         let manager = ListerManager.shared
         model.errorMessage = nil
         let targetModel = manager.destinationController?.model ?? sourceModel
+        // Archives are unpacked with local tools into a local folder: not from or onto a server, nor into a list.
+        if sourceModel.isRemote || targetModel.isRemote {
+            flash(tr("Not available on a server yet: %@", tr("Extract")))
+            return
+        }
+        if let place = targetModel.virtualPlace {
+            flash(tr("%@ is not available in “%@”: open a folder first", tr("Extract"), place.title))
+            return
+        }
         let target = targetModel.url
         let message = archives.count == 1 ? tr("Extracting 1 archive…") : trCount("Extracting %d archives…", archives.count)
         sourceModel.statusMessage = message
@@ -902,6 +913,7 @@ extension ListerViewController {
 
     func runShell(_ command: String?) {
         if remoteUnavailable(tr("Shell commands")) { return }
+        if refuseInList(tr("Shell commands")) { return }          // a list has no folder to run in
         guard let command, !command.isEmpty else {
             model.errorMessage = tr("Button has no \"command\"")
             return
@@ -1201,20 +1213,20 @@ extension ListerViewController {
             let bookmarks = BookmarkStore.shared.paths
             if bookmarks.isEmpty { addItem(tr("No bookmarks"), false) { } }
             for path in bookmarks {
-                addItem(PathText.short(path), true) { [weak self] in self?.model.navigate(to: URL(fileURLWithPath: path)) }
+                addItem(PathText.short(path), true) { [weak self] in self?.model.navigate(to: BookmarkStore.url(forKey: path)) }
             }
             sub.addItem(.separator())
             addItem(tr("Add This Folder"), !BookmarkStore.shared.contains(model.url)) { [weak self] in self?.addBookmark() }
             addItem(tr("Remove This Folder"), BookmarkStore.shared.contains(model.url)) { [weak self] in
                 guard let self else { return }
-                BookmarkStore.shared.remove(self.model.url.standardizedFileURL.path)
+                BookmarkStore.shared.remove(BookmarkStore.key(for: self.model.url))
             }
         }
         addSubmenu(tr("Recent Folders"), to: menu) { sub, addItem in
             let recent = PathHistory.shared.recent
             if recent.isEmpty { addItem(tr("No recent folders"), false) { } }
             for path in recent {
-                addItem(PathText.short(path), true) { [weak self] in self?.model.navigate(to: URL(fileURLWithPath: path)) }
+                addItem(PathText.short(path), true) { [weak self] in self?.model.navigate(to: BookmarkStore.url(forKey: path)) }
             }
             if !recent.isEmpty {
                 sub.addItem(.separator())

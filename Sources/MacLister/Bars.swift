@@ -321,7 +321,7 @@ struct StatusBarView: View {
                     Button { if let details = progress.details { TransferDetailsWindows.show(details) } } label: {
                         HStack(spacing: 10) {
                             if let fraction = progress.fraction {
-                                ProgressView(value: fraction).frame(width: 150)
+                                ProgressView(value: min(max(fraction, 0), 1)).frame(width: 150)
                             } else {
                                 ProgressView().controlSize(.small)
                             }

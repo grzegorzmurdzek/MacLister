@@ -250,7 +250,9 @@ extension ListerViewController {
             let action = choices.indices.contains(index) ? choices[index].action : .cancel
             completion(ConflictDecision(action: action, applyToAll: alert.suppressionButton?.state == .on))
         }
-        if let window {
+        // A sheet on a window that is closed or hidden never shows and may never answer, which would leave
+        // the worker (and the whole transfer queue) waiting for good: ask in a dialog of its own instead.
+        if let window, window.isVisible {
             alert.beginSheetModal(for: window, completionHandler: finish)
         } else {
             finish(alert.runModal())

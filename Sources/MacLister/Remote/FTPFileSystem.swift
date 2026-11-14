@@ -85,6 +85,10 @@ final class FTPFileSystem: RemoteFileSystem {
 
     /// Commands are sent before curl changes directory, so paths are relative to the login folder.
     private func quoteCommands(_ commands: [String]) throws {
+        // A line break in a name would end the command and start another one on the server.
+        for command in commands where command.contains("\n") || command.contains("\r") {
+            throw RemoteError(message: tr("Invalid character in a file name"))
+        }
         var extra = ["-o", "/dev/null"]
         for command in commands { extra += ["-Q", command] }
         try run(path: "/", directory: true, extra: extra)

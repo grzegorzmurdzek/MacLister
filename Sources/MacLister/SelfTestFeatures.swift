@@ -305,6 +305,8 @@ enum SelfTestFeatures {
             check(problem(KeyCombo(keyCode: 100, modifiers: [], label: "F8"), "action.copy") == nil, "rules: a function key may stand alone in listers")
             check(problem(KeyCombo(keyCode: 100, modifiers: [], label: "F8"), "global.openLister") != nil, "rules: a global shortcut always needs ⌘, ⌥ or ⌃")
             check(problem(KeyCombo(keyCode: 12, modifiers: .command, label: "Q"), "action.copy") == .reserved("Quit"), "rules: ⌘Q is reserved")
+            check(problem(KeyCombo(keyCode: 45, modifiers: .command, label: "N"), "action.copy") == .reserved("New Lister"), "rules: ⌘N is reserved")
+            check(problem(KeyCombo(keyCode: 43, modifiers: .command, label: ","), "action.copy") == .reserved("Settings…"), "rules: ⌘, is reserved")
             check(problem(KeyCombo(keyCode: 14, modifiers: .command, label: "E"), "action.move") == .builtIn("Extract"), "rules: a key MacLister already uses is refused")
             check(problem(KeyCombo(keyCode: 96, modifiers: [], label: "F5"), "action.move") == .builtIn("Copy"), "rules: F5 belongs to Copy")
             check(problem(KeyCombo(keyCode: 49, modifiers: .command, label: "Space"), "global.openLister", system: [spotlight]) == .system("Spotlight"), "rules: a macOS shortcut is refused")

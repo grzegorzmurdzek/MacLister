@@ -32,10 +32,17 @@ extension ListerViewController {
                 return
             }
             switch type {
-            case "_smb._tcp":
-                NSWorkspace.shared.open(URL(string: "smb://\(host)")!)           // Finder mounts it and asks for the login
-            case "_afpovertcp._tcp":
-                NSWorkspace.shared.open(URL(string: "afp://\(host)")!)
+            case "_smb._tcp", "_afpovertcp._tcp":
+                // Finder mounts the share and asks for the login
+                let scheme = type == "_smb._tcp" ? "smb" : "afp"
+                var components = URLComponents()
+                components.scheme = scheme
+                components.host = host
+                guard let url = components.url else {
+                    self.model.errorMessage = tr("Cannot find the server “%@”", name)
+                    return
+                }
+                NSWorkspace.shared.open(url)
             default:
                 var profile = ServerProfile()
                 profile.host = host

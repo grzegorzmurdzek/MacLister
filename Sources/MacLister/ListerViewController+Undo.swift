@@ -15,6 +15,7 @@ extension ListerViewController {
             flash(tr("Nothing to undo"))
             return
         }
+        if OperationLog.shared.isUndoing { return }      // the previous ⌘Z is still running
         flash(tr("Undoing…"))
         OperationLog.shared.undoLast { [weak self] outcome in
             guard let outcome else { return }

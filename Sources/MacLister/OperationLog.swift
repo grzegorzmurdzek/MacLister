@@ -79,6 +79,7 @@ final class OperationLog: ObservableObject {
     /// Newest first.
     @Published private(set) var records: [OperationRecord] = []
     private(set) var undoStack: [UndoStep] = []
+    private(set) var isUndoing = false
 
     static let maxRecords = 1000
     static let maxUndoSteps = 20
@@ -151,11 +152,15 @@ final class OperationLog: ObservableObject {
     var lastUndoable: UndoStep? { undoStack.last(where: \.isUndoable) }
 
     /// Takes back the most recent operation that can be taken back. `completion` runs on the main queue.
+    /// A second call while one is still running gets `nil`: the step leaves the stack only when it finishes,
+    /// so without this guard a quick double ⌘Z would take the same operation back twice.
     func undoLast(completion: @escaping (UndoOutcome?) -> Void) {
-        guard let step = lastUndoable else { completion(nil); return }
+        guard !isUndoing, let step = lastUndoable else { completion(nil); return }
+        isUndoing = true
         DispatchQueue.global(qos: .userInitiated).async {
             let outcome = OperationUndo.run(step)
             DispatchQueue.main.async {
+                self.isUndoing = false
                 self.finishUndo(step, outcome)
                 completion(outcome)
             }

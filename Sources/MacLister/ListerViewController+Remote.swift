@@ -105,7 +105,7 @@ extension ListerViewController {
             model.statusMessage = tr("Opening…")
             let path = RemoteURL.path(of: item.url)
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                let isFolder = (try? session.fs.list(path)) != nil
+                let isFolder = RemoteOps.isFolder(session.fs, path: path)
                 DispatchQueue.main.async {
                     self?.model.statusMessage = nil
                     if isFolder { self?.model.navigate(to: item.url) } else { self?.downloadAndOpen([item]) }
@@ -123,17 +123,22 @@ extension ListerViewController {
     private static func cacheIsFresh(_ local: URL, for item: FileItem) -> Bool {
         guard let values = try? local.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]),
               Int64(values.fileSize ?? -1) == (item.size ?? -2) else { return false }
-        if let remote = item.modified, let cached = values.contentModificationDate { return cached >= remote }
-        return true
+        // The cache file carries the server's own date (set after the download), so the two compare
+        // without involving this Mac's clock. No date on either side: cannot tell, fetch again.
+        guard let remote = item.modified, let cached = values.contentModificationDate else { return false }
+        return abs(cached.timeIntervalSince(remote)) < 1
     }
 
     /// Downloads files into the cache (skipping fresh copies) with progress and Cancel, then calls
     /// `completion` with their local URLs on the main queue.
-    func downloadToCache(_ items: [FileItem], completion: @escaping ([URL]) -> Void) {
+    @discardableResult
+    func downloadToCache(_ items: [FileItem], completion: @escaping ([URL]) -> Void) -> (() -> Void)? {
         let files = items.filter { !$0.isDirectory }
-        guard !files.isEmpty else { return }
+        guard !files.isEmpty else { return nil }
         let token = CancelToken()
         let cancel: () -> Void = { token.cancel() }
+        downloadGeneration += 1
+        let generation = downloadGeneration
         model.progress = TransferStatus(text: tr("Downloading…"), fraction: nil, cancel: cancel)
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -151,6 +156,7 @@ extension ListerViewController {
                 }
                 do {
                     try session.fs.download(RemoteURL.path(of: item.url), to: target, cancel: token)
+                    if let modified = item.modified { try? FileManager.default.setAttributes([.modificationDate: modified], ofItemAtPath: target.path) }
                     local.append(target)
                 } catch {
                     if (error as? RemoteError)?.message != RemoteError.cancelled.message { failure = error.localizedDescription }
@@ -158,11 +164,13 @@ extension ListerViewController {
                 }
             }
             DispatchQueue.main.async {
-                self?.model.progress = nil
+                // A newer download owns the progress display now: leave it alone.
+                if let self, self.downloadGeneration == generation { self.model.progress = nil }
                 if let failure { self?.model.errorMessage = failure }
                 else if !token.isCancelled { completion(local) }
             }
         }
+        return cancel
     }
 
     /// Local copies of the selected server files that are already downloaded.
@@ -179,7 +187,8 @@ extension ListerViewController {
         let files = selectedItems.filter { !$0.isDirectory }
         guard !files.isEmpty, let panel = QLPreviewPanel.shared() else { NSSound.beep(); return }
         if QLPreviewPanel.sharedPreviewPanelExists(), panel.isVisible { panel.orderOut(nil); return }
-        downloadToCache(files) { _ in
+        quickLookDownloadCancel?()
+        quickLookDownloadCancel = downloadToCache(files) { _ in
             guard let panel = QLPreviewPanel.shared() else { return }
             panel.makeKeyAndOrderFront(nil)
             panel.reloadData()
@@ -190,7 +199,8 @@ extension ListerViewController {
     func refreshRemoteQuickLook() {
         let files = selectedItems.filter { !$0.isDirectory }
         guard !files.isEmpty else { QLPreviewPanel.shared()?.reloadData(); return }
-        downloadToCache(files) { _ in QLPreviewPanel.shared()?.reloadData() }
+        quickLookDownloadCancel?()          // the selection moved on: stop fetching the previous one
+        quickLookDownloadCancel = downloadToCache(files) { _ in QLPreviewPanel.shared()?.reloadData() }
     }
 
     // MARK: - Folder operations
@@ -220,7 +230,11 @@ extension ListerViewController {
 
     func remoteRename(_ item: FileItem, to newName: String) {
         let name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty, !name.contains("/"), name != item.name else { return }
+        if name == item.name { return }
+        guard !name.isEmpty, !name.contains("/") else {
+            model.errorMessage = tr("Invalid name")
+            return
+        }
         guard let session = RemoteSessions.shared.session(for: item.url) else { return }
         let from = RemoteURL.path(of: item.url)
         let to = RemoteURL.join(RemoteURL.parentPath(of: from), name)

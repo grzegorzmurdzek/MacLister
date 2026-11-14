@@ -116,7 +116,9 @@ struct ButtonEditorView: View {
     }
 
     private func form(for index: Int) -> some View {
-        let button = Binding(get: { buttons[index] }, set: { buttons[index] = $0 })
+        // SwiftUI may still call these once after the row is gone (Remove, Reset): never index blindly.
+        let button = Binding(get: { buttons.indices.contains(index) ? buttons[index] : ListerButton(title: "", symbol: nil, action: .separator) },
+                             set: { if buttons.indices.contains(index) { buttons[index] = $0 } })
         return Form {
             Section("Look") {
                 TextField("Title", text: button.title)

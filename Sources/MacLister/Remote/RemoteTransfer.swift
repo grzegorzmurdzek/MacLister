@@ -2,6 +2,12 @@ import Foundation
 
 /// Operations that need a walk through a server folder.
 enum RemoteOps {
+    /// Does `path` (a symbolic link, say) lead to a folder? Listing a plain file succeeds on SFTP, so the
+    /// path is listed with a trailing slash, which only a folder accepts.
+    static func isFolder(_ fs: RemoteFileSystem, path: String) -> Bool {
+        (try? fs.list(path.hasSuffix("/") ? path : path + "/")) != nil
+    }
+
     /// Deletes a file, or a folder with everything inside (servers have no Trash).
     static func deleteRecursively(_ fs: RemoteFileSystem, path: String, isDirectory: Bool, cancel: CancelToken?) throws {
         if cancel?.isCancelled == true { throw RemoteError.cancelled }
@@ -144,7 +150,7 @@ final class RemoteTransferJob {
         let existing = entries(directory, fs)
         if let current = existing[name] {
             let conflict = TransferConflict(
-                source: source, target: RemoteURL.child(of: destination, named: name),
+                source: source, target: RemoteURL.child(of: RemoteURL.with(path: directory, on: destination), named: name),
                 sourceIsDirectory: info.isDirectory, targetIsDirectory: current.isDirectory,
                 sourceModified: info.modified, targetModified: current.modified,
                 sourceSize: info.isDirectory ? nil : info.size, targetSize: current.size)
@@ -177,7 +183,14 @@ final class RemoteTransferJob {
             if info.isDirectory {
                 if !merging { try fs.makeDirectory(target); forget(directory) }
                 var complete = true
-                let children = (try? fm.contentsOfDirectory(at: source, includingPropertiesForKeys: nil, options: [])) ?? []
+                var children: [URL] = []
+                do {
+                    children = try fm.contentsOfDirectory(at: source, includingPropertiesForKeys: nil, options: [])
+                } catch {
+                    // An unreadable folder is not an empty one: never report it as moved, never remove it.
+                    fail(source.lastPathComponent, error)
+                    complete = false
+                }
                 for child in children {
                     if isCancelled { complete = false; break }
                     if !uploadNode(child, fs: fs, intoDirectory: target, topLevel: false) { complete = false }
@@ -316,7 +329,7 @@ final class RemoteTransferJob {
         var merging = false
         if let current = existing[name] {
             let conflict = TransferConflict(
-                source: source, target: RemoteURL.child(of: destination, named: name),
+                source: source, target: RemoteURL.child(of: RemoteURL.with(path: directory, on: destination), named: name),
                 sourceIsDirectory: sourceEntry?.isDirectory ?? false, targetIsDirectory: current.isDirectory,
                 sourceModified: sourceEntry?.modified, targetModified: current.modified,
                 sourceSize: sourceEntry?.size, targetSize: current.size)

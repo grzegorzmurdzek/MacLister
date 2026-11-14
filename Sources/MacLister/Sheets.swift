@@ -90,12 +90,19 @@ struct SelectByAttributesView: View {
 
     private static let units: [(name: String, bytes: Int64)] = [("KB", 1_000), ("MB", 1_000_000), ("GB", 1_000_000_000)]
 
+    /// `value` × the unit, clamped: a huge, infinite or NaN entry must not trap in the Int64 conversion.
+    static func bytes(_ value: Double, unit: Int) -> Int64 {
+        guard value.isFinite else { return value > 0 ? Int64.max : 0 }
+        let total = max(0, value) * Double(units[unit].bytes)
+        return total >= Double(Int64.max) ? Int64.max : Int64(total)
+    }
+
     private var filter: AttributeFilter {
         var f = AttributeFilter()
         f.namePattern = pattern.trimmingCharacters(in: .whitespaces)
         f.category = category
-        if useMin, let v = Double(minValue.replacingOccurrences(of: ",", with: ".")) { f.minBytes = Int64(v * Double(Self.units[minUnit].bytes)) }
-        if useMax, let v = Double(maxValue.replacingOccurrences(of: ",", with: ".")) { f.maxBytes = Int64(v * Double(Self.units[maxUnit].bytes)) }
+        if useMin, let v = Double(minValue.replacingOccurrences(of: ",", with: ".")) { f.minBytes = Self.bytes(v, unit: minUnit) }
+        if useMax, let v = Double(maxValue.replacingOccurrences(of: ",", with: ".")) { f.maxBytes = Self.bytes(v, unit: maxUnit) }
         if let d = Int(days) {
             if dateMode == 1 { f.modifiedWithinDays = d }
             if dateMode == 2 { f.modifiedOlderThanDays = d }

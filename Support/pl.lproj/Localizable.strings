@@ -184,6 +184,7 @@
 "Images" = "Obrazy";
 "In listers" = "W listerach";
 "In listers a shortcut needs ⌘, ⌥ or ⌃ (function keys may stand alone)." = "W listerach skrót wymaga ⌘, ⌥ lub ⌃ (klawisze funkcyjne mogą występować samodzielnie).";
+"Cannot create “%@”" = "Nie można utworzyć „%@”";
 "Info" = "Informacje";
 "Invalid character in a file name" = "Nieprawidłowy znak w nazwie pliku";
 "Invalid character in the server settings" = "Nieprawidłowy znak w ustawieniach serwera";

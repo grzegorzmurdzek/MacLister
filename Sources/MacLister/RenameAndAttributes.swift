@@ -82,12 +82,16 @@ enum BatchRename {
         }
 
         // Duplicates among the new names, and clashes with files that stay where they are.
+        // Counted per folder: the same new name in two different folders is no clash.
+        func duplicateKey(_ entry: RenameEntry) -> String {
+            entry.url.deletingLastPathComponent().standardizedFileURL.path + "\n" + entry.newName.lowercased()
+        }
         var counts: [String: Int] = [:]
-        for entry in entries { counts[entry.newName.lowercased(), default: 0] += 1 }
+        for entry in entries { counts[duplicateKey(entry), default: 0] += 1 }
         let renaming = Set(entries.map { $0.url.standardizedFileURL.path })
         var existingByFolder: [String: Set<String>] = [:]
         for i in entries.indices where entries[i].problem == nil {
-            if counts[entries[i].newName.lowercased()] ?? 0 > 1 { entries[i].problem = tr("Duplicate name"); continue }
+            if counts[duplicateKey(entries[i])] ?? 0 > 1 { entries[i].problem = tr("Duplicate name"); continue }
             guard entries[i].changes else { continue }
             let folder = entries[i].url.deletingLastPathComponent()
             if existingByFolder[folder.path] == nil {

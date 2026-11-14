@@ -198,11 +198,9 @@ private struct UpdatesSettingsView: View {
                 LabeledContent("Last checked") {
                     Text(lastCheck.map { Self.formatter.string(from: $0) } ?? tr("Never")).foregroundStyle(.secondary)
                 }
+                .onReceive(NotificationCenter.default.publisher(for: .updateCheckFinished)) { _ in lastCheck = Settings.lastUpdateCheck }
                 LabeledContent("Check now") {
-                    Button("Check for Updates…") {
-                        UpdateManager.shared.check(userInitiated: true)
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { lastCheck = Settings.lastUpdateCheck }
-                    }
+                    Button("Check for Updates…") { UpdateManager.shared.check(userInitiated: true) }
                 }
             } header: {
                 Text("MacLister")

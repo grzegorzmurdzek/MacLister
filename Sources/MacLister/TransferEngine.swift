@@ -252,7 +252,14 @@ final class TransferJob {
         }
 
         var complete = true
-        let children = (try? fm.contentsOfDirectory(at: source, includingPropertiesForKeys: nil, options: [])) ?? []
+        var children: [URL] = []
+        do {
+            children = try fm.contentsOfDirectory(at: source, includingPropertiesForKeys: nil, options: [])
+        } catch {
+            // An unreadable folder is not an empty one: never report it as moved, never remove it.
+            result.failures.append("\(source.lastPathComponent): \(error.localizedDescription)")
+            complete = false
+        }
         for child in children {
             if isCancelled { complete = false; break }
             if !transferNode(child, into: target, topLevel: false) { complete = false }

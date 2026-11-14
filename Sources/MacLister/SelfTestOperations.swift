@@ -5,6 +5,7 @@ import SwiftUI
 /// and the update check. Results go to ~/Library/Logs/MacLister.log.
 enum SelfTestOperations {
     private static var failures = 0
+    private static var doubleUndoCopy: URL?
 
     private static func check(_ condition: Bool, _ message: String) {
         if !condition { failures += 1 }
@@ -199,6 +200,44 @@ enum SelfTestOperations {
         UserDefaults.standard.set(true, forKey: "foldersFirst")
         sortModel.reload()
         check(sortModel.items.map(\.name).prefix(2) == ["b_dir", "d_dir"], "and back")
+
+        // --- regressions from the code review
+        // the size filter must not trap on absurd input
+        check(SelectByAttributesView.bytes(1e30, unit: 2) == Int64.max, "size filter: a huge number is clamped")
+        check(SelectByAttributesView.bytes(.infinity, unit: 0) == Int64.max, "size filter: infinity is clamped")
+        check(SelectByAttributesView.bytes(.nan, unit: 1) == 0 && SelectByAttributesView.bytes(-5, unit: 1) == 0, "size filter: NaN and negatives give 0")
+        check(SelectByAttributesView.bytes(1.5, unit: 0) == 1_500, "size filter: normal values are exact")
+
+        // a folder that cannot be read is neither moved nor removed (merge: no atomic rename)
+        let locked = dirA.appendingPathComponent("opstest_locked")
+        try? fm.createDirectory(at: locked, withIntermediateDirectories: true)
+        write("inside.txt", "keep me", in: locked)
+        try? fm.createDirectory(at: dirB.appendingPathComponent("opstest_locked"), withIntermediateDirectories: true)
+        try? fm.setAttributes([.posixPermissions: 0o000], ofItemAtPath: locked.path)
+        let lockedResult = transfer(.move, ["opstest_locked"], action: .merge)
+        try? fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: locked.path)
+        check(!lockedResult.failures.isEmpty, "move: an unreadable folder is reported as a failure")
+        check(exists(locked.appendingPathComponent("inside.txt")), "move: an unreadable folder stays where it was")
+        try? fm.removeItem(at: locked)
+        try? fm.removeItem(at: dirB.appendingPathComponent("opstest_locked"))
+
+        // a quick second ⌘Z must not take the same operation back again
+        write("opstest_double.txt", "x", in: dirA)
+        _ = transfer(.copy, ["opstest_double.txt"])
+        var secondUndo: UndoOutcome? = UndoOutcome()
+        log.undoLast { _ in }
+        log.undoLast { secondUndo = $0 }
+        check(secondUndo == nil && log.isUndoing, "undo: a second call while one runs is refused")
+        doubleUndoCopy = dirB.appendingPathComponent("opstest_double.txt")     // checked in finish(): the main queue is busy with this very function
+
+        // the same new name in two different folders is no duplicate
+        let folderOne = dirA.appendingPathComponent("r1"), folderTwo = dirA.appendingPathComponent("r2")
+        for folder in [folderOne, folderTwo] { try? fm.createDirectory(at: folder, withIntermediateDirectories: true) }
+        write("a.txt", "1", in: folderOne); write("a.txt", "2", in: folderTwo)
+        var renameOptions = BatchRenameOptions(); renameOptions.find = "a"; renameOptions.replace = "same"
+        let crossFolder = BatchRename.plan(for: [folderOne.appendingPathComponent("a.txt"), folderTwo.appendingPathComponent("a.txt")], options: renameOptions)
+        check(crossFolder.allSatisfy { $0.problem == nil }, "rename: equal new names in different folders are fine")
+        try? fm.removeItem(at: folderOne); try? fm.removeItem(at: folderTwo)
 
         // --- title format
         var ctx = TitleFormat.Context()
@@ -523,6 +562,9 @@ enum SelfTestOperations {
     }
 
     private static func finish(_ root: URL, _ log: OperationLog) {
+        if let copy = doubleUndoCopy {
+            check(!log.isUndoing && !FileManager.default.fileExists(atPath: copy.path), "undo: the first of two quick calls finishes and takes the copy back")
+        }
         log.clear()
         AppSupport.override = nil
         try? FileManager.default.removeItem(at: root)

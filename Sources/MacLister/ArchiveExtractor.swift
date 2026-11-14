@@ -103,9 +103,13 @@ enum ArchiveExtractor {
 
         var outputHandle: FileHandle?
         if let file {
-            FileManager.default.createFile(atPath: file.path, contents: nil)
-            outputHandle = try? FileHandle(forWritingTo: file)
-            process.standardOutput = outputHandle
+            // Without a file to write to, the tool would print the data into this app's own stdout.
+            guard FileManager.default.createFile(atPath: file.path, contents: nil),
+                  let handle = try? FileHandle(forWritingTo: file) else {
+                return (-1, tr("Cannot create “%@”", file.lastPathComponent))
+            }
+            outputHandle = handle
+            process.standardOutput = handle
         } else {
             process.standardOutput = FileHandle.nullDevice
         }

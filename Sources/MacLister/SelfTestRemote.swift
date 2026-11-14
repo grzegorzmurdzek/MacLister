@@ -327,6 +327,13 @@ enum SelfTestRemote {
             check(listing.first { $0.name == "sub dir" }?.isDirectory == true && listing.first { $0.name == "link" }?.isSymlink == true, "\(tag): folders and links are recognised")
             check(listing.first { $0.name == "plain.txt" }?.size == Int64("content of plain.txt".utf8.count) && listing.first { $0.name == "plain.txt" }?.permissions == 0o644, "\(tag): size and permissions")
 
+            // a link to a file lists fine on SFTP, so folders are told apart by listing with a trailing slash
+            try? fm.createSymbolicLink(at: directory.appendingPathComponent("dirlink"), withDestinationURL: directory.appendingPathComponent("sub dir"))
+            check(RemoteOps.isFolder(fs, path: path("dirlink")), "\(tag): a link to a folder counts as a folder")
+            check(!RemoteOps.isFolder(fs, path: path("link")), "\(tag): a link to a file does not")
+            check(!RemoteOps.isFolder(fs, path: path("plain.txt")) && RemoteOps.isFolder(fs, path: path("sub dir")), "\(tag): plain files and folders are told apart")
+            try? fm.removeItem(at: directory.appendingPathComponent("dirlink"))
+
             // downloads: spaces, a quote, brackets (no sibling matches) and a backslash are taken literally
             for name in ["with space.txt", "quote\"d.txt", "brack[1].txt", "back\\slash.txt", "ünï.txt"] {
                 let local = work.appendingPathComponent("dl-" + name.replacingOccurrences(of: "/", with: "_"))

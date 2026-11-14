@@ -27,7 +27,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             )
         }
         startMonitoringWhenTrusted()
-        if Settings.restoreLayoutAtLaunch { LayoutStore.restore(into: ListerManager.shared) }
 
         // `MacLister --reset-buttons` rewrites buttons.json with the defaults and quits (scripting aid).
         if CommandLine.arguments.contains("--reset-buttons") {
@@ -91,6 +90,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTest.run() }
             return
         }
+
+        // Only a normal launch brings the saved listers back; the scripting and test modes above start clean.
+        if Settings.restoreLayoutAtLaunch { LayoutStore.restore(into: ListerManager.shared) }
 
         // The Dock icon follows the setting, now and whenever it changes (the self-test modes above stay agents).
         applyDockIconPreference()
@@ -225,7 +227,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         save.target = self
         let restore = menu.addItem(withTitle: tr("Restore Layout"), action: #selector(restoreLayout), keyEquivalent: "")
         restore.target = self
-        menu.addItem(.separator())
         menu.addItem(.separator())
         undoItem = menu.addItem(withTitle: tr("Undo"), action: #selector(undoFromMenu), keyEquivalent: "")
         undoItem.target = self
@@ -391,6 +392,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item.keyEquivalentModifierMask = combo.flags
         } else {
             item.keyEquivalent = ""
+            item.keyEquivalentModifierMask = []
         }
     }
 

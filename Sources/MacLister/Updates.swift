@@ -218,6 +218,7 @@ final class UpdateManager {
             guard let self else { return }
             self.busy = false
             Settings.lastUpdateCheck = Date()
+            NotificationCenter.default.post(name: .updateCheckFinished, object: nil)
             switch result {
             case .failure(let error):
                 if userInitiated { self.show(title: tr("Could not check for updates"), text: error.localizedDescription) }
@@ -279,4 +280,9 @@ final class UpdateManager {
             }
         }
     }
+}
+
+extension Notification.Name {
+    /// Posted on the main queue when an update check has ended, with or without a result.
+    static let updateCheckFinished = Notification.Name("MacListerUpdateCheckFinished")
 }
