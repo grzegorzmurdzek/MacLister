@@ -1303,6 +1303,10 @@ extension ListerViewController {
             menu.addItem(item)
         }
         menu.addItem(.separator())
+        let folders = NSMenuItem(title: tr("Folders Above Files"), action: #selector(toggleFoldersFirst), keyEquivalent: "")
+        folders.target = self
+        folders.state = Settings.foldersFirst ? .on : .off
+        menu.addItem(folders)
         let relative = NSMenuItem(title: tr("Relative Dates (Today, Yesterday)"), action: #selector(toggleRelativeDates), keyEquivalent: "")
         relative.target = self
         relative.state = Settings.relativeDates ? .on : .off
@@ -1318,6 +1322,11 @@ extension ListerViewController {
     }
 
     @objc fileprivate func resetColumns() { ColumnSettings.reset() }
+
+    @objc fileprivate func toggleFoldersFirst() {
+        Settings.foldersFirst.toggle()
+        NotificationCenter.default.post(name: .columnsChanged, object: nil)
+    }
 
     @objc fileprivate func toggleRelativeDates() {
         Settings.relativeDates.toggle()

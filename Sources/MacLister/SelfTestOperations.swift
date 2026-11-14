@@ -180,6 +180,26 @@ enum SelfTestOperations {
             check(false, "app delegate reachable")
         }
 
+        // --- sorting folders and files together
+        let sortDir = root.appendingPathComponent("S")
+        for folder in ["b_dir", "d_dir"] { try? fm.createDirectory(at: sortDir.appendingPathComponent(folder), withIntermediateDirectories: true) }
+        write("a.txt", "x", in: sortDir); write("c.txt", "xxxxxx", in: sortDir); write("e.txt", "xx", in: sortDir)
+        let sortModel = ListerModel(url: sortDir)
+        func order(_ first: Bool, _ key: ListerModel.SortKey = .name, ascending: Bool = true) -> [String] {
+            ListerModel.sorted(sortModel.items, by: key, ascending: ascending, foldersFirst: first).map(\.name)
+        }
+        check(order(true) == ["b_dir", "d_dir", "a.txt", "c.txt", "e.txt"], "folders first (the default): \(order(true))")
+        check(order(false) == ["a.txt", "b_dir", "c.txt", "d_dir", "e.txt"], "folders and files sorted together by name: \(order(false))")
+        check(order(false, .name, ascending: false) == ["e.txt", "d_dir", "c.txt", "b_dir", "a.txt"], "and in reverse: \(order(false, .name, ascending: false))")
+        check(order(true, .size, ascending: false).prefix(2).allSatisfy { $0.hasSuffix("_dir") }, "folders stay on top when sorting by size")
+        check(order(false, .size, ascending: false).first == "c.txt", "mixed by size, the biggest file leads: \(order(false, .size, ascending: false))")
+        UserDefaults.standard.set(false, forKey: "foldersFirst")
+        sortModel.reload()
+        check(sortModel.items.map(\.name) == ["a.txt", "b_dir", "c.txt", "d_dir", "e.txt"], "the setting changes the lister's own order: \(sortModel.items.map(\.name))")
+        UserDefaults.standard.set(true, forKey: "foldersFirst")
+        sortModel.reload()
+        check(sortModel.items.map(\.name).prefix(2) == ["b_dir", "d_dir"], "and back")
+
         // --- title format
         var ctx = TitleFormat.Context()
         ctx.name = "Reports"; ctx.items = "11 items"; ctx.diskSummary = "340 GB free"; ctx.folders = "3"; ctx.files = "8"; ctx.selected = "2"

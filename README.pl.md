@@ -82,8 +82,8 @@ wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list 
 - **Pasek ścieżki:** *Back*, *Parent*, menu **Go** (miejsca, woluminy, zakładki, ostatnie foldery), ścieżka jako
   klikalny **breadcrumb** (kliknij folder, żeby tam przejść; kliknij puste miejsce paska albo naciśnij **⌘L**, żeby
   wpisać ścieżkę, `~` działa) oraz znaczki **SRC** / **DST**.
-- **Lista plików:** ikona, nazwa, rozmiar, data modyfikacji. Kliknięcie nagłówka sortuje; foldery zawsze są
-  na początku. Dwuklik lub Return otwiera plik albo wchodzi do folderu. **Prawy przycisk na nagłówku kolumn**
+- **Lista plików:** ikona, nazwa, rozmiar, data modyfikacji. Kliknięcie nagłówka sortuje; foldery domyślnie są
+  na początku (wyłączysz to w **Ustawienia → Listery → Foldery nad plikami przy sortowaniu** albo w menu nagłówka kolumn). Dwuklik lub Return otwiera plik albo wchodzi do folderu. **Prawy przycisk na nagłówku kolumn**
   wybiera kolumny: Size, Modified, Created, Kind, Extension, Permissions, Tags, Comment.
 - **Lista odświeża się sama**, gdy pliki są dodawane, usuwane lub zmieniane na dysku (FSEvents), a podtytuł okna
   pokazuje wolne miejsce na woluminie.
@@ -184,7 +184,7 @@ W wielu laptopach klawisze F wymagają **fn**.
 - **Ogólne** — co otwiera lister (dwuklik, środkowy przycisk albo oba), wyśrodkowanie na kursorze, folder, który się
   otwiera, otwieranie zapisanego układu przy starcie, listery na wszystkich pulpitach, ikona w Docku, aplikacja
   terminala dla *Terminal Here*, język interfejsu.
-- **Listery** — położenie paska przycisków i etykiety, **Edit Buttons…** / *Wczytaj ponownie* / *Przywróć…*, daty
+- **Listery** — położenie paska przycisków i etykiety, foldery nad plikami, **Edit Buttons…** / *Wczytaj ponownie* / *Przywróć…*, daty
   względne, zaznaczanie przeciąganiem od nazw plików, **Tytuł listera…**, **Keyboard Shortcuts…**, **Edit Filetypes…**.
 - **Operacje** — jak długo przechowywany jest dziennik operacji, **Otwórz dziennik operacji…** oraz **Wyczyść ostatnie
   foldery…** / **Wyczyść dziennik operacji…** (każde najpierw prosi o potwierdzenie).

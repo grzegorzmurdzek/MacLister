@@ -59,6 +59,7 @@ enum Settings {
             "dragSelectFromNames": true,
             "showDockIcon": true,
             "listersOnAllDesktops": false,
+            "foldersFirst": true,
         ])
     }
 
@@ -143,6 +144,12 @@ enum Settings {
     static var listersOnAllDesktops: Bool {
         get { defaults.bool(forKey: "listersOnAllDesktops") }
         set { defaults.set(newValue, forKey: "listersOnAllDesktops") }
+    }
+
+    /// Folders stay above the files whatever the sort column is. Off: folders and files are sorted together.
+    static var foldersFirst: Bool {
+        get { defaults.bool(forKey: "foldersFirst") }
+        set { defaults.set(newValue, forKey: "foldersFirst") }
     }
 
     static var showStatusItem: Bool { defaults.bool(forKey: "showStatusItem") }

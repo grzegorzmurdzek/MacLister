@@ -79,7 +79,7 @@ run `defaults delete com.example.MacLister`, and remove MacLister from the two P
 - **Path bar:** *Back*, *Parent*, the **Go** menu (places, volumes, bookmarks, recent folders), the path as a
   clickable **breadcrumb** (click a folder to jump there; click the empty part of the bar or press **⌘L** to
   type a path instead, `~` works) and the **SRC** / **DST** badges.
-- **File list:** icon, name, size, modified date. Click a header to sort; folders always come first.
+- **File list:** icon, name, size, modified date. Click a header to sort; folders come first by default, or switch *Keep folders above files when sorting* off (Settings → Listers, or the column header menu) to sort folders and files together.
   Double-click or Return opens a file or enters a folder. **Right-click the column header** to choose the
   columns: Size, Modified, Created, Kind, Extension, Permissions, Tags, Comment.
 - **The list refreshes itself** when files are added, removed or changed on disk (FSEvents), and the window
@@ -181,7 +181,7 @@ On many laptops F-keys need **fn**.
 - **General** — what opens a lister (double-click, middle button or both), centre it on the pointer, the folder it
   opens, reopen the saved layout at launch, listers on all desktops, the Dock icon, the terminal app for
   *Terminal Here*, the interface language.
-- **Listers** — button bar position and labels, **Edit Buttons…** / *Reload* / *Reset…*, relative dates,
+- **Listers** — button bar position and labels, folders above files, **Edit Buttons…** / *Reload* / *Reset…*, relative dates,
   drag-select from file names, **Lister Title…**, **Keyboard Shortcuts…**, **Edit Filetypes…**.
 - **Operations** — how long the operation log is kept, **Open Operation Log…**, and **Clear Recent Folders…** /
   **Clear Operation Log…** (each asks for confirmation first).

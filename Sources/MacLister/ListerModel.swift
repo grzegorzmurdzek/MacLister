@@ -448,10 +448,10 @@ final class ListerModel: ObservableObject {
         return listed.filter { $0.isNavigable || NamePattern.matches($0.name, patterns: patterns) }
     }
 
-    /// Folders always come first; inside each group the chosen column decides.
-    static func sorted(_ items: [FileItem], by key: SortKey, ascending: Bool) -> [FileItem] {
+    /// Folders come first (unless the setting is off); inside each group, or among everything, the chosen column decides.
+    static func sorted(_ items: [FileItem], by key: SortKey, ascending: Bool, foldersFirst: Bool = Settings.foldersFirst) -> [FileItem] {
         items.sorted { a, b in
-            if a.isNavigable != b.isNavigable { return a.isNavigable }
+            if foldersFirst, a.isNavigable != b.isNavigable { return a.isNavigable }
             let order: ComparisonResult
             switch key {
             case .name:

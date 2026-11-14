@@ -685,3 +685,5 @@
 "Show listers on all desktops" = "Pokazuj listery na wszystkich pulpitach";
 "To keep your listers on a desktop of their own, switch to that desktop and choose Move All Listers to This Desktop (menu-bar icon, Dock icon or a shortcut). Or Control-click the Dock icon → Options → Assign To → This Desktop." = "Żeby listery miały własny pulpit, przejdź na ten pulpit i wybierz „Przenieś wszystkie listery na ten pulpit” (ikona w pasku menu, ikona w Docku albo skrót). Albo kliknij ikonę w Docku z Control → Opcje → Przypisz do → Ten pulpit.";
 "Gather listers" = "Zbierz listery na pulpicie";
+"Keep folders above files when sorting" = "Foldery nad plikami przy sortowaniu";
+"Folders Above Files" = "Foldery nad plikami";

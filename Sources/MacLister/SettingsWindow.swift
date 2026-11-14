@@ -89,6 +89,7 @@ private struct ListersSettingsView: View {
     @AppStorage("buttonBarPosition") private var position = ButtonBarPosition.abovePath.rawValue
     @AppStorage("showButtonLabels") private var labels = false
     @AppStorage("relativeDates") private var relativeDates = true
+    @AppStorage("foldersFirst") private var foldersFirst = true
     @AppStorage("dragSelectFromNames") private var dragSelect = true
     @State private var confirmReset = false
 
@@ -108,6 +109,8 @@ private struct ListersSettingsView: View {
                 }
             }
             Section("File list") {
+                Toggle("Keep folders above files when sorting", isOn: $foldersFirst)
+                    .onChange(of: foldersFirst) { _ in NotificationCenter.default.post(name: .columnsChanged, object: nil) }
                 Toggle("Show dates as Today and Yesterday", isOn: $relativeDates)
                     .onChange(of: relativeDates) { _ in NotificationCenter.default.post(name: .columnsChanged, object: nil) }
                 Toggle("Select by dragging from file names", isOn: $dragSelect)
