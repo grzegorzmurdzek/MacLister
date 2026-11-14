@@ -136,6 +136,11 @@ extension ListerViewController {
     /// Starts a job. Progress and a Cancel button appear in the status line of every lister in `models`.
     func beginTransfer(_ kind: TransferKind, items: [URL], into folder: URL, showingIn models: [ListerModel],
                        names: [URL: String] = [:]) {
+        // files that are still inside an archive are taken out first
+        if ArchiveBrowser.shared.needsMaterialization(items) {
+            materialized(items) { [weak self] in self?.beginTransfer(kind, items: items, into: folder, showingIn: models, names: names) }
+            return
+        }
         let job = TransferJob(kind: kind, items: items, destination: folder)
         job.topLevelNames = names
         let memory = ConflictMemory()

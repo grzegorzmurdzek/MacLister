@@ -204,9 +204,11 @@ extension ListerViewController {
     func copyFilesToPasteboard() {
         let urls = model.selectedURLs
         guard !urls.isEmpty, !isRemote else { NSSound.beep(); return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.writeObjects(urls as [NSURL])
-        flash(urls.count == 1 ? tr("Copied “%@”", urls[0].lastPathComponent) : trCount("Copied %d items", urls.count))
+        materialized(urls) { [weak self] in
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.writeObjects(urls as [NSURL])
+            self?.flash(urls.count == 1 ? tr("Copied “%@”", urls[0].lastPathComponent) : trCount("Copied %d items", urls.count))
+        }
     }
 
     // MARK: Compress

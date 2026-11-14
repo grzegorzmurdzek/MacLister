@@ -336,14 +336,26 @@ ją usuwa. Migawki są w `snapshots.json`.
 
 ### Przeglądanie archiwów
 
-Dwuklik na pliku zip, tar, tar.gz, 7z, rar … pokazuje jego zawartość jak folder. Archiwum jest raz rozpakowywane do
-`~/Library/Caches/MacLister/Archives` (w trakcie widać komunikat) i pokazywane **tylko do odczytu**: pasek ścieżki
-i tytuł podają archiwum (`…/pack.zip/folder`), *Parent* z góry archiwum wraca do folderu, w którym ono leży, a Back,
-Quick Look, Info, Open i **Copy** (także przeciąganiem) działają jak w każdym folderze. Polecenia zmieniające archiwum
-(Kosz, zmiana nazwy, nowy folder, przenoszenie z niego, upuszczanie do niego …) nie są oferowane albo mówią dlaczego.
-Rozpakowane archiwa, których nikt nie otwierał od dwóch dni, są usuwane przy starcie programu. **Ustawienia → Listery →
-Otwieraj archiwa jak foldery** to wyłącza (wtedy decyduje reguła typu pliku, a standardowa rozpakowuje archiwum); *Extract* rozpakowuje do folderu tak czy
-inaczej. Reguła typu pliku, która otwiera aplikację lub uruchamia polecenie, nadal ma pierwszeństwo przed przeglądaniem.
+Dwuklik na pliku zip, tar, tar.gz, 7z, rar, iso … pokazuje jego zawartość jak folder, **bez rozpakowywania** (tak jak XAD na
+Amidze). MacLister czyta spis zawartości archiwum systemową biblioteką libarchive, więc nawet archiwum wielkości
+kilku gigabajtów otwiera się od razu i widać każdy folder, rozmiar i datę; same pliki zostają w archiwum. Plik jest
+wyciągany dopiero, gdy go używasz: otwierasz, oglądasz w Quick Look, kopiujesz (albo przeciągasz), otwierasz w aplikacji,
+liczysz sumy kontrolne. Komunikat z przyciskiem Anuluj pokazuje, co jest wyciągane; folder jest wyciągany jednym
+przebiegiem. Wszystko jest tylko do odczytu: pasek ścieżki i tytuł podają archiwum (`…/pack.zip/folder`), *Parent* z góry
+archiwum wraca do folderu, w którym ono leży, a polecenia zmieniające archiwum (Kosz, zmiana nazwy, nowy folder,
+przenoszenie z niego, upuszczanie do niego, Znajdź, Synchronizuj …) nie są oferowane albo mówią dlaczego. Archiwum
+w archiwum otwiera się tak samo.
+
+**Hasła.** **ZIP** chroniony hasłem (zwykłe szyfrowanie ZIP i AES) pokazuje listę plików od razu; pierwszy użyty plik pyta
+o hasło, które jest pamiętane do zamknięcia MacListera. Systemowa libarchive nie umie odszyfrować haseł **7z i RAR**:
+takie archiwa mówią o tym zamiast pytać.
+
+To, co zostało wyciągnięte, leży w `~/Library/Caches/MacLister/Archives` (zaślepki o właściwym rozmiarze i dacie, a gdy
+plik jest potrzebny, prawdziwe pliki) i jest usuwane, gdy nikt nie otwierał archiwum od dwóch dni. **Ustawienia → Listery →
+Otwieraj archiwa jak foldery** wyłącza przeglądanie (wtedy decyduje reguła typu pliku, a standardowa rozpakowuje
+archiwum); *Extract* rozpakowuje do folderu tak czy inaczej. Reguła typu pliku, która otwiera aplikację lub uruchamia
+polecenie, nadal ma pierwszeństwo przed przeglądaniem. Formaty, których libarchive nie potrafi wylistować, są rozpakowywane
+w całości przez `bsdtar`, jak dotąd.
 
 ## Serwery: FTP, FTPS i SFTP
 
@@ -449,6 +461,13 @@ Kopiowania i przenoszenia zapisujące na ten sam dysk (lub ten sam serwer) wykon
 pokazują *Oczekiwanie w kolejce…* i obok paska postępu mały przycisk **W kolejce: N**, z którego można usunąć każdą z nich.
 Operacje na różne dyski nadal idą równolegle. Pliki, które są kopiowane lub przenoszone (albo czekają na to), nie dadzą
 się przenieść do Kosza, zmienić nazwy ani przenieść spod trwającej operacji; MacLister mówi o tym zamiast to robić.
+
+### Foldery otwierane po najechaniu
+
+Przytrzymaj przeciągane pliki nad folderem na liście albo nad zamkniętym folderem w drzewie przez około sekundę, a folder się
+otworzy, więc możesz zanieść pliki kilka poziomów w dół jednym przeciągnięciem (wskaźnik musi spocząć; opóźnienie to
+ukryte ustawienie `springLoadedDelay`, domyślnie 0,8 s). **Ustawienia → Listery → Otwieraj foldery, gdy przeciągasz nad nimi pliki**
+to wyłącza.
 
 ### Zaznaczanie przeciąganiem
 
@@ -600,6 +619,8 @@ Ustawiane przez `defaults write com.example.MacLister <klucz> <wartość>`:
 | `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` albo `bottom` |
 | `showButtonLabels` | false | napisy obok ikon przycisków |
 | `relativeDates` | true | *Dzisiaj / Wczoraj* w kolumnach z datami (także: menu nagłówka kolumn) |
+| `springLoadedFolders` | true | otwieraj folder, nad którym spoczywają przeciągane pliki (także: Ustawienia → Listery) |
+| `springLoadedDelay` | 0.8 | ile sekund pliki muszą spoczywać nad folderem (od 0,2 do 5) |
 | `debugHitTest` | false | zapisuj decyzję dla każdego kliknięcia do `~/Library/Logs/MacLister.log` |
 
 ## Rozwiązywanie problemów
@@ -673,8 +694,7 @@ miejsce pulpitu?), `ListerWindowController` / `ListerManager` (okna, role), `Lis
 
 Serwery obsługują tylko przeglądanie, kopiowanie i podstawowe operacje na folderach (zob. *Serwery*).
 Brak podglądu hex oraz wyszukiwania, duplikatów, sum kontrolnych i migawek na serwerach; archiwa są przeglądane tylko
-do odczytu (nie da się ich zmieniać od środka). Przeciąganie stosuje reguły Findera, a otwieranie folderów po najechaniu nie jest zaimplementowane.
-Archiwa z hasłem kończą się komunikatem o błędzie.
+do odczytu (nie da się ich zmieniać od środka). Przeciąganie stosuje reguły Findera. Hasła do 7z i RAR nie są obsługiwane (systemowa biblioteka ich nie odszyfruje).
 
 ## Licencja
 

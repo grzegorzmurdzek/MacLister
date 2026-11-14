@@ -546,6 +546,7 @@ final class ListerModel: ObservableObject {
     }
 
     private func list(_ directory: URL) throws -> [FileItem] {
+        ArchiveBrowser.shared.populate(directory)       // inside an archive: its files appear as placeholders
         let columns = ColumnSettings.visible          // optional data is read only when its column is shown
         let keys = Self.itemKeys(columns)
         let urls = try FileManager.default.contentsOfDirectory(

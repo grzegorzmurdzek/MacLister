@@ -143,6 +143,8 @@ final class ListerViewController: NSViewController {
     let treeController = FolderTreeController()
     var splitView: NSSplitView?
     fileprivate var didPlaceTree = false
+    /// Opens the folder under a dragged file after a moment (Settings: spring-loaded folders).
+    let springLoader = SpringLoader()
     /// Is the directory tree beside the list? New listers start like the last one you set.
     var treeVisible = Settings.showFolderTree
 
@@ -450,7 +452,11 @@ final class ListerViewController: NSViewController {
         model.selectedURLs = selectedItems.map(\.url)
         if QLPreviewPanel.sharedPreviewPanelExists(), let panel = QLPreviewPanel.shared(),
            panel.isVisible, panel.dataSource === self {
-            if isRemote { refreshRemoteQuickLook() } else { panel.reloadData() }
+            if isRemote { refreshRemoteQuickLook() }
+            else {
+                let files = selectedItems.filter { !$0.isDirectory }.map(\.url)
+                materialized(files) { QLPreviewPanel.shared()?.reloadData() }
+            }
         }
     }
 
@@ -465,6 +471,11 @@ final class ListerViewController: NSViewController {
     func open(_ item: FileItem) {
         if item.url.scheme == VirtualPlace.scheme { openSharedRow(item); return }
         if isRemote { openRemote(item); return }
+        // a file inside an archive is taken out of it first
+        if !item.isNavigable, ArchiveBrowser.shared.needsMaterialization([item.url]) {
+            materialized([item.url]) { [weak self] in self?.open(item) }
+            return
+        }
         if item.isNavigable {
             model.navigate(to: item.url)
         } else if Settings.browseArchives, ArchiveExtractor.isBrowsable(item.url),
@@ -586,7 +597,9 @@ final class ListerViewController: NSViewController {
         if QLPreviewPanel.sharedPreviewPanelExists(), panel.isVisible {
             panel.orderOut(nil)
         } else {
-            panel.makeKeyAndOrderFront(nil)
+            // files inside an archive are taken out first, then the panel shows them
+            let files = selectedItems.filter { !$0.isDirectory }.map(\.url)
+            materialized(files) { QLPreviewPanel.shared()?.makeKeyAndOrderFront(nil) }
         }
     }
 
@@ -642,7 +655,16 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
     /// Lets files be dragged out of the lister (Finder, Mail, other listers…).
     func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
         // files on a server cannot be dragged out yet (they would have to be downloaded first)
-        rows.indices.contains(row) && !isRemote ? rows[row].url as NSURL : nil
+        guard rows.indices.contains(row), !isRemote else { return nil }
+        let url = rows[row].url
+        // a drag cannot wait: what is still inside an archive is taken out now, unless it is too much for that
+        if ArchiveBrowser.shared.needsMaterialization([url]) {
+            if ArchiveBrowser.shared.pendingBytes([url]) > 100_000_000 || !ArchiveBrowser.shared.materializeNow([url]) {
+                flash(tr("This is too big to drag out of an archive: use Copy instead"))
+                return nil
+            }
+        }
+        return url as NSURL
     }
 
     // MARK: Drop target
@@ -674,7 +696,14 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
 
     func tableView(_ tableView: NSTableView, validateDrop info: NSDraggingInfo,
                    proposedRow row: Int, proposedDropOperation dropOperation: NSTableView.DropOperation) -> NSDragOperation {
-        guard !Self.droppedURLs(from: info.draggingPasteboard).isEmpty, !model.isVirtual, !model.isInArchive else { return [] }
+        guard !Self.droppedURLs(from: info.draggingPasteboard).isEmpty, !model.isVirtual, !model.isInArchive else { springLoader.cancel(); return [] }
+        // hold the files over a folder and it opens (whether or not they could be dropped into it)
+        if dropOperation == .on, rows.indices.contains(row), rows[row].isNavigable {
+            let folder = rows[row].url
+            springLoader.hover(folder) { [weak self] in self?.model.navigate(to: folder) }
+        } else {
+            springLoader.cancel()
+        }
         if self.dropFolder(forRow: row, operation: dropOperation) == model.url {
             tableView.setDropRow(-1, dropOperation: .on)        // highlight the whole table
         } else {
@@ -1257,19 +1286,19 @@ extension ListerViewController: NSMenuDelegate {
 
             if local {
                 // Share, tag colours (Tags… is in Details), Quick Actions and Services
-                addShareItem(to: menu, urls: urls)
                 if writable {
+                    addShareItem(to: menu, urls: urls)
                     addTagItems(to: menu, urls: urls, tagsMenu: details)
                     addQuickActions(to: menu, urls: urls)
+                    addServicesItem(to: menu)
+                    menu.addItem(.separator())
                 }
-                addServicesItem(to: menu)
-                menu.addItem(.separator())
             }
 
             if items.count == 1, items[0].isNavigable, let dst = ListerManager.shared.destinationController, dst.model !== model {
                 add(tr("Open in Destination")) { [weak self] in self?.showInDestination() }
             }
-            if local { add(tr("Reveal in Finder")) { [weak self] in self?.revealInFinder() } }
+            if local, writable { add(tr("Reveal in Finder")) { [weak self] in self?.revealInFinder() } }
             menu.addItem(.separator())
 
             // Folder-level commands are one step further when files are selected.
@@ -1555,7 +1584,9 @@ extension ListerViewController {
     }
 
     func open(_ urls: [URL], with app: URL) {
-        NSWorkspace.shared.open(urls, withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
+        materialized(urls) {
+            NSWorkspace.shared.open(urls, withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
+        }
     }
 
     private func chooseApplication(for urls: [URL]) {

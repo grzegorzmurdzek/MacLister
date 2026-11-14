@@ -109,6 +109,23 @@ enum SelfTestFeatures {
         check(linkFound, "a link in the notes stays clickable")
         check(ReleaseNotes.excerpt(from: "Just a plain note.", polish: false) == "Just a plain note.", "notes without the usual headings are shown as they are")
 
+        // a list feed: skipped versions bring their notes along; drafts and pre-releases are ignored
+        func entry(_ tag: String, _ body: String, draft: Bool = false, pre: Bool = false) -> [String: Any] {
+            ["tag_name": tag, "html_url": "https://example.org/\(tag)", "body": body, "draft": draft, "prerelease": pre, "assets": []]
+        }
+        let listFeed = (try? JSONSerialization.data(withJSONObject: [
+            entry("v1.5.3", "### What's new\n\n- three"), entry("v1.5.1", "### What's new\n\n- one"), entry("v1.4.0", "### What's new\n\n- old"),
+            entry("v1.5.2", "### What's new\n\n- two"), entry("v1.6.0", "### What's new\n\n- beta", pre: true), entry("v1.7.0", "### What's new\n\n- draft", draft: true)])) ?? Data()
+        let parsedList = try? UpdateChecker.parse(listFeed, current: "1.4.0")
+        check(parsedList?.version == "1.5.3" && parsedList?.earlier.map(\.version) == ["1.5.2", "1.5.1"], "a release list gives the newest version and the skipped ones, newest first: \(String(describing: parsedList?.earlier.map(\.version)))")
+        if let parsedList {
+            let text = ReleaseNotes.combined(parsedList, polish: false)
+            check(text.hasPrefix("## 1.5.3") && text.contains("- three") && text.contains("## 1.5.2") && text.contains("- two") && text.contains("## 1.5.1") && text.contains("- one")
+                  && !text.contains("old") && !text.contains("beta") && !text.contains("draft") && text.range(of: "## 1.5.3")!.lowerBound < text.range(of: "## 1.5.2")!.lowerBound, "the update window shows every skipped version's notes: \(text.debugDescription)")
+        }
+        let direct = try? UpdateChecker.parse(listFeed, current: "1.5.3")
+        check(direct?.earlier.isEmpty == true && direct.map { ReleaseNotes.combined($0, polish: false) } == "### What's new\n\n- three", "one step behind: just the latest notes, no extra heading")
+
         // New Text File: a default button, TextEdit as the default editor, and a choice of installed editors
         check(ListerButton.defaults.contains { $0.action == .newTextFile }, "the default button bar has New Text File")
         check(Settings.textEditorBundleID == "com.apple.TextEdit" || UserDefaults.standard.string(forKey: "textEditorBundleID") != nil, "TextEdit is the default text editor")
@@ -403,6 +420,24 @@ enum SelfTestFeatures {
             Settings.showFolderTree = false
             treeController.window?.close()
         }
+        // spring-loaded folders: a target hovered long enough opens once; leaving cancels
+        let spring = SpringLoader(delay: 0.5)
+        var sprung: [String] = []
+        for step in 0..<7 { later(step == 0 ? 0.1 : 0.12) { spring.hover("a") { sprung.append("a") } } }
+        later(0.3) {
+            check(sprung == ["a"], "a folder hovered for the delay opens, once: \(sprung)")
+            spring.hover("b") { sprung.append("b") }                 // one update, then the pointer leaves
+        }
+        later(1.2) {
+            check(sprung == ["a"] && !spring.isWatching, "a target the pointer left again does not open: \(sprung)")
+            let off = SpringLoader(delay: 0.1)
+            let wasOn = Settings.springLoadedFolders
+            Settings.springLoadedFolders = false
+            off.hover("c") { sprung.append("c") }
+            check(!off.isWatching, "nothing springs when the setting is off")
+            Settings.springLoadedFolders = wasOn
+        }
+        later(0.5) { check(sprung == ["a"], "and it never opened later: \(sprung)") }
         // New Text File never overwrites; a folder that cannot be read leaves the sort order alone
         let textDir = root.appendingPathComponent("TextFiles"), lockedDir = root.appendingPathComponent("Locked")
         for dir in [textDir, lockedDir] { try? fm.createDirectory(at: dir, withIntermediateDirectories: true) }
@@ -481,6 +516,101 @@ enum SelfTestFeatures {
                   "Parent from the top of the archive returns to the folder it lies in: \(model.url.path)")
             check(model.selectedURLs.map { $0.resolvingSymlinksInPath() } == [zipFile.resolvingSymlinksInPath()], "and the archive is selected there: \(model.selectedURLs.map(\.lastPathComponent))")
             archiveLister.window?.close()
+        }
+        // archives without unpacking: the list comes first, files are placeholders until needed, passwords work for ZIP
+        var lazyRoot: URL?
+        later {
+            check(ArchiveReader.isAvailable, "the system's archive library can be used")
+            if case .success(let entries) = ArchiveReader.list(zipFile) {
+                let byPath = Dictionary(uniqueKeysWithValues: entries.map { ($0.path, $0) })
+                check(Set(byPath.keys) == ["root.txt", "folderX", "folderX/inner.txt"] && byPath["root.txt"]?.size == 3 && byPath["folderX/inner.txt"]?.size == 6 && byPath["folderX"]?.isDirectory == true,
+                      "the list of an archive comes without unpacking it: \(byPath.keys.sorted())")
+            } else { check(false, "listing the zip") }
+            ArchiveBrowser.shared.open(zipFile) { result in if case .success(let root) = result { lazyRoot = root } }
+        }
+        later(0.8) {
+            guard let root = lazyRoot else { check(false, "the archive opened lazily"); return }
+            ArchiveBrowser.shared.populate(root)
+            let top = root.appendingPathComponent("root.txt")
+            let size = (try? fm.attributesOfItem(atPath: top.path)[.size] as? Int) ?? -1
+            check(size == 3 && ArchiveBrowser.shared.needsMaterialization([top]), "a file shows with its real size but is only a placeholder: \(size)")
+            check((try? String(contentsOf: top, encoding: .utf8)) != "top", "the placeholder holds no data yet")
+            check(ArchiveBrowser.shared.indexedSize(of: root) == 9 && FolderSize.total(of: root) == 9, "sizes come from the list: \(ArchiveBrowser.shared.indexedSize(of: root) ?? -1)")
+            check(ArchiveBrowser.shared.indexedNames(in: root) == ["folderX", "root.txt"], "the list says what is in the folder: \(ArchiveBrowser.shared.indexedNames(in: root) ?? [])")
+            check(ArchiveBrowser.shared.materializeNow([top]), "a file can be taken out of the archive")
+            check((try? String(contentsOf: top, encoding: .utf8)) == "top" && !ArchiveBrowser.shared.needsMaterialization([top]), "it then holds the real data")
+            let folder = root.appendingPathComponent("folderX")
+            ArchiveBrowser.shared.populate(folder)
+            check(ArchiveBrowser.shared.needsMaterialization([folder]), "a folder with files not yet taken out needs them")
+            var done = false
+            ArchiveBrowser.shared.materialize([folder]) { result in
+                if case .success = result { done = true }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                check(done && (try? String(contentsOf: folder.appendingPathComponent("inner.txt"), encoding: .utf8)) == "inside" && !ArchiveBrowser.shared.needsMaterialization([folder]),
+                      "a whole folder can be taken out in one go")
+            }
+        }
+        // a password-protected ZIP: names are listed, the files need the password
+        let secretZip = zipHome.appendingPathComponent("secret.zip")
+        do {
+            let zip = Process()
+            zip.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
+            zip.currentDirectoryURL = zipSource
+            zip.arguments = ["-q", "-P", "hunter2", secretZip.path, "root.txt"]
+            try? zip.run(); zip.waitUntilExit()
+        }
+        var secretRoot: URL?
+        var outcomes: [String] = []
+        later(1.2) {
+            check(fm.fileExists(atPath: secretZip.path), "a password-protected zip was made for the test")
+            ArchiveBrowser.shared.open(secretZip) { result in if case .success(let root) = result { secretRoot = root } }
+        }
+        later(0.8) {
+            guard let root = secretRoot else { check(false, "a protected zip lists its files without the password"); return }
+            ArchiveBrowser.shared.populate(root)
+            let file = root.appendingPathComponent("root.txt")
+            ArchiveBrowser.shared.materialize([file]) { result in
+                if case .failure(let failure) = result { outcomes.append(failure == .passphraseRequired ? "required" : "other: \(failure)") } else { outcomes.append("ok") }
+            }
+        }
+        later(0.8) {
+            check(outcomes == ["required"], "taking a file out of a protected zip asks for the password: \(outcomes)")
+            guard let root = secretRoot else { return }
+            let file = root.appendingPathComponent("root.txt")
+            ArchiveBrowser.shared.setPassphrase("wrong", for: root)
+            ArchiveBrowser.shared.materialize([file]) { result in
+                if case .failure(let failure) = result { outcomes.append(failure == .wrongPassphrase ? "wrong" : "other: \(failure)") } else { outcomes.append("ok") }
+            }
+        }
+        later(0.8) {
+            check(outcomes == ["required", "wrong"], "a wrong password is reported as such: \(outcomes)")
+            guard let root = secretRoot else { return }
+            let file = root.appendingPathComponent("root.txt")
+            ArchiveBrowser.shared.setPassphrase("hunter2", for: root)
+            ArchiveBrowser.shared.materialize([file]) { result in
+                if case .success = result { outcomes.append("ok") } else { outcomes.append("failed") }
+            }
+        }
+        later(0.8) {
+            guard let root = secretRoot else { return }
+            check(outcomes == ["required", "wrong", "ok"] && (try? String(contentsOf: root.appendingPathComponent("root.txt"), encoding: .utf8)) == "top",
+                  "the right password opens the file: \(outcomes)")
+        }
+        // a tar.gz is listed too, and a path pointing outside the archive is refused
+        let tgz = zipHome.appendingPathComponent("pack.tgz")
+        do {
+            let tar = Process()
+            tar.executableURL = URL(fileURLWithPath: "/usr/bin/bsdtar")
+            tar.arguments = ["-czf", tgz.path, "-C", zipSource.path, "root.txt", "folderX"]
+            try? tar.run(); tar.waitUntilExit()
+        }
+        later {
+            if case .success(let entries) = ArchiveReader.list(tgz) {
+                check(Set(entries.map(\.path)) == ["root.txt", "folderX", "folderX/inner.txt"], "a tar.gz is listed without unpacking: \(entries.map(\.path))")
+            } else { check(false, "listing the tar.gz") }
+            check(ArchiveReader.normalized("../etc/passwd") == nil && ArchiveReader.normalized("a/../../b") == nil && ArchiveReader.normalized("/abs/x") == "abs/x"
+                  && ArchiveReader.normalized("./a//b/") == "a/b" && ArchiveReader.normalized("./") == nil, "paths that point outside the archive are refused")
         }
         // two quick opens of one archive share nothing half-made; a folder unpacked read-only can still be cleaned away
         let twin = zipHome.appendingPathComponent("twin.zip")

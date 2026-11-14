@@ -233,8 +233,10 @@ extension ListerViewController {
             flash(tr("Checksums need files: select a file, not a folder"))
             return
         }
-        SheetPresenter().present(on: window, size: NSSize(width: 640, height: 460)) { close in
-            ChecksumsView(urls: files, close: close)
+        materialized(files) {
+            SheetPresenter().present(on: window, size: NSSize(width: 640, height: 460)) { close in
+                ChecksumsView(urls: files, close: close)
+            }
         }
     }
 }

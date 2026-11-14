@@ -124,6 +124,7 @@ private struct ListersSettingsView: View {
     @AppStorage("foldersFirst") private var foldersFirst = true
     @AppStorage("dragSelectFromNames") private var dragSelect = true
     @AppStorage("browseArchives") private var browseArchives = true
+    @AppStorage("springLoadedFolders") private var springLoaded = true
     @State private var confirmReset = false
 
     var body: some View {
@@ -148,6 +149,9 @@ private struct ListersSettingsView: View {
                     .onChange(of: relativeDates) { _ in NotificationCenter.default.post(name: .columnsChanged, object: nil) }
                 Toggle("Open archives like folders", isOn: $browseArchives)
                 Text("A double-click on a zip, tar, 7z or rar file shows what is inside, read-only; copy files out with Copy. Off: your filetype rule decides (by default it unpacks the archive). Extract unpacks it either way.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Toggle("Open folders when you drag files over them", isOn: $springLoaded)
+                Text("Hold the files over a folder in a list, or a closed folder in the tree, for a moment and it opens, so you can carry them several levels down in one drag.")
                     .font(.caption).foregroundStyle(.secondary)
                 Toggle("Select by dragging from file names", isOn: $dragSelect)
                 Text("Dragging from empty space of a row always selects. With this on, an unselected file name does too; a selected file is always dragged as a file.")

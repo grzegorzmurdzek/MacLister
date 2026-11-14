@@ -58,6 +58,7 @@ enum Settings {
             "terminalBundleID": "com.apple.Terminal",
             "textEditorBundleID": "com.apple.TextEdit",
             "browseArchives": true,
+            "springLoadedFolders": true,
             "relativeDates": true,
             "dragSelectFromNames": true,
             "showDockIcon": true,
@@ -161,6 +162,18 @@ enum Settings {
     static var textEditorBundleID: String {
         get { defaults.string(forKey: "textEditorBundleID") ?? "com.apple.TextEdit" }
         set { defaults.set(newValue, forKey: "textEditorBundleID") }
+    }
+
+    /// Dragging files over a folder for a moment opens it (spring-loaded folders).
+    static var springLoadedFolders: Bool {
+        get { defaults.bool(forKey: "springLoadedFolders") }
+        set { defaults.set(newValue, forKey: "springLoadedFolders") }
+    }
+
+    /// Seconds a dragged file must rest on a folder before it opens (hidden setting).
+    static var springLoadedDelay: TimeInterval {
+        let value = defaults.double(forKey: "springLoadedDelay")
+        return value >= 0.2 && value <= 5 ? value : 0.8
     }
 
     /// The directory tree beside the file list; new listers start with the state you last chose.

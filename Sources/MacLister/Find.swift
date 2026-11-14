@@ -481,6 +481,7 @@ extension ListerViewController {
     /// Flat view: all files of this folder and its sub-folders in one list; the same command leaves it again.
     func toggleFlatView() {
         if remoteUnavailable(tr("Flat view")) { return }
+        if refuseInArchive(tr("Flat view")) { return }
         if let current = FindQuery(url: model.url), current.flat {
             model.navigate(to: current.scope)
             return

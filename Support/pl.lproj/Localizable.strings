@@ -855,3 +855,13 @@
 "Show every file below this folder as one list" = "Pokaż wszystkie pliki z tego folderu i podfolderów jako jedną listę";
 "Copy to the destination under new names (⇧F5)" = "Kopiuj do celu pod nowymi nazwami (⇧F5)";
 "Move to the destination under new names (⇧F6)" = "Przenieś do celu pod nowymi nazwami (⇧F6)";
+"Open folders when you drag files over them" = "Otwieraj foldery, gdy przeciągasz nad nimi pliki";
+"Hold the files over a folder in a list, or a closed folder in the tree, for a moment and it opens, so you can carry them several levels down in one drag." = "Przytrzymaj pliki chwilę nad folderem na liście albo nad zamkniętym folderem w drzewie, a folder się otworzy, więc możesz zanieść pliki kilka poziomów w dół jednym przeciągnięciem.";
+"The system's archive library is not available" = "Systemowa biblioteka archiwów jest niedostępna";
+"This archive is protected by a password" = "To archiwum jest chronione hasłem";
+"The password is not correct" = "Hasło jest niepoprawne";
+"This archive is encrypted in a way macOS cannot read (only ZIP passwords are supported)" = "To archiwum jest zaszyfrowane w sposób, którego macOS nie odczyta (obsługiwane są tylko hasła ZIP)";
+"“%@” is protected by a password" = "„%@” jest chronione hasłem";
+"Enter the password to open it. It is kept only until MacLister quits." = "Wpisz hasło, żeby je otworzyć. Jest pamiętane tylko do zamknięcia MacListera.";
+"Taking files out of the archive…" = "Wyciąganie plików z archiwum…";
+"This is too big to drag out of an archive: use Copy instead" = "To jest za duże, żeby przeciągać z archiwum: użyj Kopiuj";

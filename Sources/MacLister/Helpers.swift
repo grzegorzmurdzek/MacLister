@@ -44,6 +44,8 @@ enum FolderSize {
 
     /// Walks `url` and sums both sizes. Returns nil when `cancel` fired before the walk finished.
     static func measure(_ url: URL, cancel: CancelToken? = nil) -> Measure? {
+        // inside an archive the list of contents knows every size; nothing has to be unpacked to add them up
+        if let size = ArchiveBrowser.shared.indexedSize(of: url) { return Measure(logical: size, onDisk: size) }
         let fm = FileManager.default
         var isDirectory: ObjCBool = false
         guard fm.fileExists(atPath: url.path, isDirectory: &isDirectory) else { return Measure() }

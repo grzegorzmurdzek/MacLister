@@ -54,6 +54,7 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
     /// Files were dropped on a folder: urls, folder, the operation Finder rules chose.
     var onDrop: (([URL], URL, NSDragOperation) -> Void)?
     private var suppressSelection = false
+    let springLoader = SpringLoader()
     private var lastRevealed: URL?
     private var volumeObservers: [NSObjectProtocol] = []
 
@@ -250,8 +251,14 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
     // MARK: Dropping files on a folder
 
     func outlineView(_ outlineView: NSOutlineView, validateDrop info: NSDraggingInfo, proposedItem item: Any?, proposedChildIndex index: Int) -> NSDragOperation {
-        guard let node = item as? TreeNode, ArchiveBrowser.shared.location(of: node.url) == nil else { return [] }
+        guard let node = item as? TreeNode, ArchiveBrowser.shared.location(of: node.url) == nil else { springLoader.cancel(); return [] }
         outlineView.setDropItem(node, dropChildIndex: NSOutlineViewDropOnItemIndex)
+        // hold the files over a closed folder and it opens
+        if !outlineView.isItemExpanded(node) {
+            springLoader.hover(node.url) { [weak self, weak node] in if let node { self?.outline.expandItem(node) } }
+        } else {
+            springLoader.cancel()
+        }
         let urls = ListerViewController.droppedURLs(from: info.draggingPasteboard)
         guard !urls.isEmpty else { return [] }
         return ListerViewController.dragOperation(for: urls, into: node.url, modifiers: NSEvent.modifierFlags, sourceMask: info.draggingSourceOperationMask)

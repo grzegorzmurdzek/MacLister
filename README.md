@@ -330,14 +330,25 @@ Snapshots are kept in `snapshots.json`.
 
 ### Browsing archives
 
-A double-click on a zip, tar, tar.gz, 7z, rar … file shows what is inside, like a folder. The archive is unpacked once
-into `~/Library/Caches/MacLister/Archives` (a progress message while it works) and shown **read-only**: the path bar and
-the title name the archive (`…/pack.zip/folder`), *Parent* from the top of the archive goes back to the folder it lies
-in, and Back, Quick Look, Info, Open and **Copy** (also by dragging) work as in any folder. Commands that would change
-the archive (Trash, Rename, New Folder, Move out of it, dropping into it …) are not offered, or say why. Unpacked
-archives nobody opened for two days are removed when the app starts. **Settings → Listers → Open archives like folders**
-turns this off (then your filetype rule decides, and the stock rule unpacks the archive); *Extract* unpacks into a folder
-either way. A filetype rule that opens an application or runs a command still wins over browsing.
+A double-click on a zip, tar, tar.gz, 7z, rar, iso … file shows what is inside, like a folder, **without unpacking it**
+(the way XAD does on the Amiga). MacLister reads the archive's list of contents with the system's libarchive, so even a
+multi-gigabyte archive opens at once and every folder, size and date is there; the files themselves stay in the
+archive. A file is taken out only when you use it: open it, preview it with Quick Look, copy it (or drag it out),
+open it with an application, take its checksums. A progress message with Cancel shows what is being taken out; a folder
+is taken out in one pass. Everything is read-only: the path bar and the title name the archive (`…/pack.zip/folder`),
+*Parent* from the top of the archive goes back to the folder it lies in, and commands that would change the archive
+(Trash, Rename, New Folder, Move out of it, dropping into it, Find, Synchronize …) are not offered, or say why. An archive
+inside an archive opens the same way.
+
+**Passwords.** A password-protected **ZIP** (the usual ZIP encryption and AES) lists its files at once; the first file you
+use asks for the password, which is kept until MacLister quits. The system's libarchive cannot decrypt **7z and RAR**
+passwords: those archives say so instead of asking.
+
+What is taken out lives in `~/Library/Caches/MacLister/Archives` (placeholders of the right size and date, real files
+once needed) and is removed when nobody opened the archive for two days. **Settings → Listers → Open archives like
+folders** turns browsing off (then your filetype rule decides, and the stock rule unpacks the archive); *Extract* unpacks
+into a folder either way. A filetype rule that opens an application or runs a command still wins over browsing. Formats
+libarchive cannot list are unpacked completely with `bsdtar`, as before.
 
 ## Servers: FTP, FTPS and SFTP
 
@@ -441,6 +452,12 @@ Copies and moves that write to the same disk (or the same server) run one after 
 *Waiting in queue…* and a small **In queue: N** menu next to the progress bar, where each can be removed. Operations
 for different disks still run side by side. Files that are being copied or moved — or wait to be — cannot be trashed,
 renamed or moved from under the job; MacLister says so instead.
+
+### Spring-loaded folders
+
+Hold dragged files over a folder in a list, or over a closed folder in the tree, for about a second and it opens, so
+you can carry the files several levels down in one drag (the pointer must rest; the delay is the hidden setting
+`springLoadedDelay`, 0.8 s by default). **Settings → Listers → Open folders when you drag files over them** turns it off.
 
 ### Drag-select
 
@@ -593,6 +610,8 @@ Set with `defaults write com.example.MacLister <key> <value>`:
 | `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` or `bottom` (also: Settings → Listers) |
 | `showButtonLabels` | false | text next to the button icons |
 | `relativeDates` | true | *Today / Yesterday* in the date columns (also: column header menu) |
+| `springLoadedFolders` | true | open a folder that dragged files rest on (also: Settings → Listers) |
+| `springLoadedDelay` | 0.8 | seconds the files must rest on the folder first (0.2 to 5) |
 | `debugHitTest` | false | log every click decision to `~/Library/Logs/MacLister.log` |
 
 ## Troubleshooting
@@ -664,8 +683,7 @@ Layout: `Sources/MacLister/` – `DesktopDoubleClickMonitor` (event tap), `Deskt
 
 No hex viewer, no search, duplicates, checksums or snapshots on servers, and archives are browsed read-only (they cannot be changed from inside).
 Servers support browsing, copying and the basic folder operations only (see *Servers*).
-Dragging uses Finder conventions; spring-loaded folders are not implemented. Password-protected archives report
-an error.
+Dragging uses Finder conventions. 7z and RAR passwords are not supported (the system library cannot decrypt them).
 
 ## License
 
