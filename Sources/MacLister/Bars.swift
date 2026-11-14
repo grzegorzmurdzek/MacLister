@@ -383,7 +383,7 @@ struct BreadcrumbView: View {
             }
             .fixedSize()
             .padding(.horizontal, 4)
-            .frame(width: geometry.size.width, alignment: .trailing)
+            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .trailing)   // centred vertically, tail of the path at the right
             .clipped()
             .mask(
                 HStack(spacing: 0) {
