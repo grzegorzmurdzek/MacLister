@@ -156,6 +156,7 @@ struct ButtonEditorView: View {
             let titles = [old.title, tr(old.title), tr("New Button"), "New Button", ""]
             if titles.contains(where: { edited.title.caseInsensitiveCompare($0) == .orderedSame }) { edited.title = tr(new.title) }
             if edited.symbol == nil || edited.symbol == old.suggestedSymbol || edited.symbol == "star.fill" { edited.symbol = new.suggestedSymbol }
+            if edited.help == nil || edited.help?.isEmpty == true || edited.help == old.defaultHelp { edited.help = new.defaultHelp }
             edited.action = new
             button.wrappedValue = edited
         })

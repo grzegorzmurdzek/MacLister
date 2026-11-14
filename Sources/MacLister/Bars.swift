@@ -294,7 +294,7 @@ struct ButtonBarView: View {
     }
 
     private func help(for button: ListerButton) -> String {
-        let base = button.help.map { "\(tr(button.title)) – \(tr($0))" } ?? tr(button.title)
+        let base = (button.help ?? button.action.defaultHelp).map { "\(tr(button.title)) – \(tr($0))" } ?? tr(button.title)
         return button.hasExtraClicks ? base + "\n" + button.clickHelp : base
     }
 

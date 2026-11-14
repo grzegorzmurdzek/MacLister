@@ -186,7 +186,10 @@ On many laptops F-keys need **fn**.
   \[SRC\] / \[DST\]), Bring All to Front, Close All, *Duplicate Frontmost Lister*, layouts, *Undo*, *Operation Log…*,
   *Check for Updates…*, **Settings…** (⌘,), permission status.
 
-<p align="center"><img src="docs/screenshots/context-menu.jpg" alt="The context menu of a file: Open, Open With, Move to Trash, Info, Rename, Compress, Duplicate, Make Alias, Share, tag colours, Quick Actions, Services and MacLister's own commands" width="420"></p>
+<p align="center">
+  <img src="docs/screenshots/context-menu.jpg" alt="The context menu of a file: Open, Open With, Move to Trash, Info, Rename, Quick Look, Copy, the Details and Make submenus, Share, tag colours, Quick Actions, Services, Reveal in Finder and This Lister" width="320">
+  <img src="docs/screenshots/title-bar-menu.jpg" alt="The menu under a right-click on the title bar: Parent, Back, Refresh, Bookmarks, Recent Folders, the View, Search and Source and Destination submenus, Undo, Operation Log, Connect to Server, Terminal Here, the Lister and All Listers submenus and Close Lister" width="320">
+</p>
 
 ### Settings
 

@@ -845,3 +845,13 @@
 "Source and Destination" = "Źródło i cel";
 "Lister" = "Lister";
 "All Listers" = "Wszystkie listery";
+"Show or hide the folder tree beside the list (⌥⌘T)" = "Pokaż lub ukryj drzewo folderów obok listy (⌥⌘T)";
+"Search this folder and everything below it (⇧⌘F)" = "Przeszukaj ten folder i wszystko pod nim (⇧⌘F)";
+"Find files with the same content below this folder" = "Znajdź pliki o tej samej zawartości w tym folderze i pod nim";
+"MD5, SHA-1, SHA-256 and SHA-512 of the selected files" = "MD5, SHA-1, SHA-256 i SHA-512 zaznaczonych plików";
+"Remember this window's size, position and sort order for this folder" = "Zapamiętaj rozmiar, pozycję okna i sortowanie dla tego folderu";
+"Forget the snapshot of this folder" = "Zapomnij migawkę tego folderu";
+"Compare the source and destination folders and copy what differs" = "Porównaj foldery źródłowy i docelowy i skopiuj to, co się różni";
+"Show every file below this folder as one list" = "Pokaż wszystkie pliki z tego folderu i podfolderów jako jedną listę";
+"Copy to the destination under new names (⇧F5)" = "Kopiuj do celu pod nowymi nazwami (⇧F5)";
+"Move to the destination under new names (⇧F6)" = "Przenieś do celu pod nowymi nazwami (⇧F6)";

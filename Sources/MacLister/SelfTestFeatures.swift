@@ -383,6 +383,7 @@ enum SelfTestFeatures {
         }
         later(0.5) {
             guard let tvc = treeController.listerViewController else { return }
+            check(tvc.treeController.scrollView.frame.width >= 120 && !tvc.treeController.scrollView.isHidden, "the tree pane really has a width after layout: \(tvc.treeController.scrollView.frame) split \(tvc.splitView?.frame ?? .zero)")
             check(tvc.treeController.selectedURL?.standardizedFileURL == dirA.appendingPathComponent("big").standardizedFileURL, "the tree follows the lister into a sub-folder")
             tvc.treeController.onSelect?(dirA)
         }
@@ -582,8 +583,8 @@ enum SelfTestFeatures {
             check(["Duplicate Lister", "New Lister", "Set as Source", "Set as Destination", "Swap Source and Destination",
                    "Parent", "Refresh", "Show Hidden Files", "Close Lister", "Close All Listers", "Save Layout", "Restore Layout",
                    "Name This Lister…", "Lister Title…", "Keyboard Shortcuts…", "Connect to Server…", "Terminal Here", "Undo", "Operation Log…",
-                   "Filter…", "Find…", "Find Duplicates…", "Flat View", "Show Folder Tree", "Snapshot This Folder", "Bookmarks", "Recent Folders",
-                   "Bring All Listers to Front", "Move All Listers to This Desktop", "Lock Role"].allSatisfy { wanted in titles.contains { $0.hasPrefix(wanted) } },
+                   "Filter…", "Find…", "Find Duplicates…", "Flat View", "Folder Tree", "Snapshot This Folder", "Bookmarks", "Recent Folders",
+                   "Bring All Listers to Front", "Move All Listers to This Desktop", "Lock Role"].allSatisfy { wanted in titles.contains { $0.hasPrefix(wanted) || $0.hasSuffix(wanted) } },
                   "title-bar menu still has every lister command: \(titles.filter { !$0.isEmpty })")
             check((menu?.items.filter { !$0.isSeparatorItem }.count ?? 99) <= 16, "the title-bar menu is short on its first level: \(menu?.items.filter { !$0.isSeparatorItem }.map(\.title) ?? [])")
             let rolesMenu = menu?.items.first { $0.title == "Source and Destination" }?.submenu

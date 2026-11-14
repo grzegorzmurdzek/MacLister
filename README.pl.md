@@ -189,7 +189,10 @@ W wielu laptopach klawisze F wymagają **fn**.
   \[SRC\] / \[DST\]), Bring All to Front, Close All, *Duplicate Frontmost Lister*, układy, *Cofnij*, *Dziennik operacji…*,
   *Sprawdź aktualizacje…*, **Ustawienia…** (⌘,), stan uprawnień.
 
-<p align="center"><img src="docs/screenshots/context-menu.jpg" alt="Menu pod prawym przyciskiem dla pliku: Otwórz, Otwórz w aplikacji, Przenieś do Kosza, Informacje, Kompresuj, Udostępnij, kolory tagów, Szybkie czynności, Usługi i własne polecenia MacLister" width="420"></p>
+<p align="center">
+  <img src="docs/screenshots/context-menu.jpg" alt="Menu pod prawym przyciskiem dla pliku: Otwórz, Otwórz w aplikacji, Przenieś do Kosza, Informacje, Zmień nazwę, Szybki podgląd, Kopiuj, podmenu Szczegóły i Utwórz, Udostępnij, kolory tagów, Szybkie czynności, Usługi, Pokaż w Finderze i Ten lister" width="320">
+  <img src="docs/screenshots/title-bar-menu.jpg" alt="Menu pod prawym przyciskiem na belce okna: Parent, Back, Refresh, Zakładki, Ostatnie foldery, podmenu Widok, Szukaj i Źródło i cel, Cofnij, Dziennik operacji, Połącz z serwerem, Terminal tutaj, podmenu Lister i Wszystkie listery oraz Zamknij lister" width="320">
+</p>
 
 ### Ustawienia
 

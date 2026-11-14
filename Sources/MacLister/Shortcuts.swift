@@ -365,10 +365,35 @@ enum GlobalShortcutActions {
 extension ListerAction {
     /// "swapSourceDestination" → "Swap source destination"
     var title: String {
+        if let custom = Self.friendlyTitles[self] { return tr(custom) }
         var words = ""
         for character in rawValue {
             if character.isUppercase { words += " " + character.lowercased() } else { words.append(character) }
         }
         return tr(words.prefix(1).uppercased() + words.dropFirst())
+    }
+}
+
+extension ListerAction {
+    /// Names that read better than the one made from the action's code name.
+    static let friendlyTitles: [ListerAction: String] = [.toggleTree: "Folder tree"]
+
+    /// What a button with this action shows as its tooltip when it has none of its own. English: like the texts in
+    /// buttons.json it is translated when it is shown.
+    var defaultHelp: String? {
+        switch self {
+        case .toggleTree: return "Show or hide the folder tree beside the list (⌥⌘T)"
+        case .find: return "Search this folder and everything below it (⇧⌘F)"
+        case .findDuplicates: return "Find files with the same content below this folder"
+        case .checksums: return "MD5, SHA-1, SHA-256 and SHA-512 of the selected files"
+        case .snapshot: return "Remember this window's size, position and sort order for this folder"
+        case .forgetSnapshot: return "Forget the snapshot of this folder"
+        case .synchronize: return "Compare the source and destination folders and copy what differs"
+        case .flatView: return "Show every file below this folder as one list"
+        case .newTextFile: return "Create a text file here and open it in your text editor"
+        case .copyAs: return "Copy to the destination under new names (⇧F5)"
+        case .moveAs: return "Move to the destination under new names (⇧F6)"
+        default: return nil
+        }
     }
 }
