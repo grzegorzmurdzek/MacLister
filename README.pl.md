@@ -599,3 +599,7 @@ Serwery obsługują tylko przeglądanie, kopiowanie i podstawowe operacje na fol
 Brak wyszukiwania plików, widoku drzewa i podglądu hex; archiwów nie da się przeglądać jak folderów (są
 rozpakowywane). Przeciąganie stosuje reguły Findera, a otwieranie folderów po najechaniu nie jest zaimplementowane.
 Archiwa z hasłem kończą się komunikatem o błędzie.
+
+## Licencja
+
+MacLister jest udostępniony na [licencji MIT](LICENSE).

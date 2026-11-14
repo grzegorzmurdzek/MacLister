@@ -593,3 +593,7 @@ No file search, tree view or hex viewer, and archives cannot be browsed like fol
 Servers support browsing, copying and the basic folder operations only (see *Servers*).
 Dragging uses Finder conventions; spring-loaded folders are not implemented. Password-protected archives report
 an error.
+
+## License
+
+MacLister is released under the [MIT License](LICENSE).
