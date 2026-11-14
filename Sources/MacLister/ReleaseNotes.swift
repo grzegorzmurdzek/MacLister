@@ -12,7 +12,7 @@ enum ReleaseNotes {
             lines = polish ? Array(lines[(rule + 1)...]) : Array(lines[..<rule])
         }
         if let first = lines.firstIndex(where: { $0.hasPrefix("### ") }) { lines = Array(lines[first...]) }
-        if let install = lines.firstIndex(where: { $0.hasPrefix("### Install") }) { lines = Array(lines[..<install]) }
+        if let install = lines.firstIndex(where: { $0.hasPrefix("### Install") || $0.hasPrefix("### Instalacja") }) { lines = Array(lines[..<install]) }
         return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 

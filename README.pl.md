@@ -178,9 +178,13 @@ W wielu laptopach klawisze F wymagają **fn**.
   płaski, Oblicz rozmiary folderów, Porównaj i Synchronizuj z celem, Nowy folder, Nowy plik tekstowy, Terminal tutaj,
   Kopiuj ścieżkę folderu, Ukryte pliki, Odśwież oraz **Ten lister**. Kropka przełącza kolor na wszystkich zaznaczonych
   elementach (kropka z haczykiem: mają go wszystkie); *Tagi…* dodaje i usuwa dowolne tagi, kolorowe lub nie.
-- **Prawy przycisk na belce okna** (albo Control-klik) – polecenia listera: **Duplicate Lister**, New Lister,
-  Set as Source / Destination, Swap, Parent, Back, Refresh, pliki ukryte, Filter, Bookmarks, Recent Folders,
-  Terminal Here, Bring All to Front, Close, Close All, Save/Restore Layout.
+- **Prawy przycisk na belce okna** (albo Control-klik) – polecenia listera, rzadsze w podmenu: *Nadrzędny*, *Wstecz*,
+  *Odśwież*, **Zakładki** i **Ostatnie foldery**; **Widok** (*Pokaż ukryte pliki*, *Filtr…*, *Widok płaski*, *Pokaż drzewo
+  folderów*); **Szukaj** (*Znajdź…*, *Znajdź duplikaty…*); **Źródło i cel** (*Ustaw jako źródło*, *Ustaw jako cel*,
+  *Zablokuj rolę*, *Zamień źródło i cel*); *Cofnij*, *Dziennik operacji…*, *Połącz z serwerem…*, *Terminal tutaj*;
+  **Lister** (*Powiel lister*, *Nazwij ten lister…*, *Nowy lister*, *Tytuł listera…*, *Zrób migawkę tego folderu*,
+  *Skróty klawiszowe…*); **Wszystkie listery** (*Przenieś wszystkie listery na wierzch*, *Przenieś wszystkie listery na
+  ten pulpit*, *Zamknij wszystkie listery*, *Zapisz układ*, *Przywróć układ*); *Zamknij lister*.
 - **Ikona w pasku menu** – lista wszystkich otwartych listerów (kliknięcie wynosi lister na wierzch; role widać jako
   \[SRC\] / \[DST\]), Bring All to Front, Close All, *Duplicate Frontmost Lister*, układy, *Cofnij*, *Dziennik operacji…*,
   *Sprawdź aktualizacje…*, **Ustawienia…** (⌘,), stan uprawnień.
@@ -335,8 +339,8 @@ i tytuł podają archiwum (`…/pack.zip/folder`), *Parent* z góry archiwum wra
 Quick Look, Info, Open i **Copy** (także przeciąganiem) działają jak w każdym folderze. Polecenia zmieniające archiwum
 (Kosz, zmiana nazwy, nowy folder, przenoszenie z niego, upuszczanie do niego …) nie są oferowane albo mówią dlaczego.
 Rozpakowane archiwa, których nikt nie otwierał od dwóch dni, są usuwane przy starcie programu. **Ustawienia → Listery →
-Otwieraj archiwa jak foldery** to wyłącza (wtedy archiwum otwiera system); *Extract* rozpakowuje do folderu tak czy
-inaczej, a reguła typu pliku dla rozszerzenia nadal ma pierwszeństwo przed dwuklikiem.
+Otwieraj archiwa jak foldery** to wyłącza (wtedy decyduje reguła typu pliku, a standardowa rozpakowuje archiwum); *Extract* rozpakowuje do folderu tak czy
+inaczej. Reguła typu pliku, która otwiera aplikację lub uruchamia polecenie, nadal ma pierwszeństwo przed przeglądaniem.
 
 ## Serwery: FTP, FTPS i SFTP
 

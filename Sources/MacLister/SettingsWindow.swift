@@ -147,7 +147,7 @@ private struct ListersSettingsView: View {
                 Toggle("Show dates as Today and Yesterday", isOn: $relativeDates)
                     .onChange(of: relativeDates) { _ in NotificationCenter.default.post(name: .columnsChanged, object: nil) }
                 Toggle("Open archives like folders", isOn: $browseArchives)
-                Text("A double-click on a zip, tar, 7z or rar file shows what is inside, read-only; copy files out with Copy. Off: the system opens the archive. Extract unpacks it either way.")
+                Text("A double-click on a zip, tar, 7z or rar file shows what is inside, read-only; copy files out with Copy. Off: your filetype rule decides (by default it unpacks the archive). Extract unpacks it either way.")
                     .font(.caption).foregroundStyle(.secondary)
                 Toggle("Select by dragging from file names", isOn: $dragSelect)
                 Text("Dragging from empty space of a row always selects. With this on, an unselected file name does too; a selected file is always dragged as a file.")

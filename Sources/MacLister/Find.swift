@@ -466,6 +466,7 @@ extension ListerViewController {
     /// Opens the Find window. It starts in the folder shown here (or the one of the last search).
     func promptFind() {
         if remoteUnavailable(tr("Find")) { return }
+        if refuseInArchive(tr("Find")) { return }
         guard let window = view.window else { return }
         var start = FindQuery.last ?? FindQuery(scope: FileManager.default.homeDirectoryForCurrentUser)
         if let current = FindQuery(url: model.url) { start = current }

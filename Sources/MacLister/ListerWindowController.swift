@@ -68,7 +68,8 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         let context = TitleFormat.context(for: model)
         window.title = TitleFormat.render(TitleFormat.title, context)
         window.subtitle = TitleFormat.render(TitleFormat.subtitle, context)
-        window.representedURL = model.url.isFileURL && !model.isVirtual ? model.url : nil      // proxy icon; ⌘-click the title for the path menu
+        // proxy icon; ⌘-click the title for the path menu (inside an archive: the archive itself)
+        window.representedURL = model.url.isFileURL && !model.isVirtual ? ArchiveBrowser.shared.realFile(for: model.url) : nil
     }
 
     @available(*, unavailable)
@@ -78,8 +79,9 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
 
     /// Entry in the menu-bar list of listers: "Documents — ~/Documents   [SRC]".
     var menuTitle: String {
-        let name = FileManager.default.displayName(atPath: model.url.path)
-        let path = (model.url.path as NSString).abbreviatingWithTildeInPath
+        let inArchive = model.isInArchive
+        let name = inArchive ? model.displayName : FileManager.default.displayName(atPath: model.url.path)
+        let path = ((inArchive ? ListerModel.displayPath(model.url) : model.url.path) as NSString).abbreviatingWithTildeInPath
         let role: String
         switch model.role {
         case .source:      role = "   [SRC]"

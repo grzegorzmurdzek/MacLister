@@ -840,4 +840,8 @@
 "Files cannot be moved out of an archive: copy them instead" = "Plików nie można przenosić z archiwum: skopiuj je";
 "Reading “%@”…" = "Czytanie „%@”…";
 "Open archives like folders" = "Otwieraj archiwa jak foldery";
-"A double-click on a zip, tar, 7z or rar file shows what is inside, read-only; copy files out with Copy. Off: the system opens the archive. Extract unpacks it either way." = "Dwuklik na pliku zip, tar, 7z lub rar pokazuje jego zawartość tylko do odczytu; pliki wyciągasz przez Kopiuj. Wyłączone: archiwum otwiera system. Rozpakuj działa w obu przypadkach.";
+"A double-click on a zip, tar, 7z or rar file shows what is inside, read-only; copy files out with Copy. Off: your filetype rule decides (by default it unpacks the archive). Extract unpacks it either way." = "Dwuklik na pliku zip, tar, 7z lub rar pokazuje jego zawartość tylko do odczytu; pliki wyciągasz przez Kopiuj. Wyłączone: decyduje Twoja reguła typu pliku (domyślnie rozpakowanie). Rozpakuj działa w obu przypadkach.";
+"View" = "Widok";
+"Source and Destination" = "Źródło i cel";
+"Lister" = "Lister";
+"All Listers" = "Wszystkie listery";

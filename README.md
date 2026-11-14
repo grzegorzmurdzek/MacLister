@@ -175,9 +175,13 @@ On many laptops F-keys need **fn**.
   destination, New Folder, New Text File, Terminal Here, Copy Folder Path, Hidden Files, Refresh, and **This Lister**.
   Tag dots toggle a colour on every selected item (a dot with a check mark means all of them have it); *Tags…* adds
   and removes any tags, coloured or not.
-- **Right-click the title bar** (or Control-click) – lister commands: **Duplicate Lister**, New Lister, Set as
-  Source / Destination, Swap, Parent, Back, Refresh, Hidden files, Filter, Bookmarks, Recent Folders,
-  Terminal Here, Bring All to Front, Close, Close All, Save/Restore Layout.
+- **Right-click the title bar** (or Control-click) – lister commands, with the less common ones in submenus:
+  *Parent*, *Back*, *Refresh*, **Bookmarks** and **Recent Folders**; **View** (*Show Hidden Files*, *Filter…*, *Flat View*,
+  *Show Folder Tree*); **Search** (*Find…*, *Find Duplicates…*); **Source and Destination** (*Set as Source*, *Set as
+  Destination*, *Lock Role*, *Swap*); *Undo*, *Operation Log…*, *Connect to Server…*, *Terminal Here*; **Lister**
+  (*Duplicate Lister*, *Name This Lister…*, *New Lister*, *Lister Title…*, *Snapshot This Folder*, *Keyboard
+  Shortcuts…*); **All Listers** (*Bring All Listers to Front*, *Move All Listers to This Desktop*, *Close All Listers*,
+  *Save Layout*, *Restore Layout*); *Close Lister*.
 - **Menu-bar icon** – list of all open listers (click to bring one to the front; roles are shown as
   \[SRC\] / \[DST\]), Bring All to Front, Close All, *Duplicate Frontmost Lister*, layouts, *Undo*, *Operation Log…*,
   *Check for Updates…*, **Settings…** (⌘,), permission status.
@@ -329,8 +333,8 @@ the title name the archive (`…/pack.zip/folder`), *Parent* from the top of the
 in, and Back, Quick Look, Info, Open and **Copy** (also by dragging) work as in any folder. Commands that would change
 the archive (Trash, Rename, New Folder, Move out of it, dropping into it …) are not offered, or say why. Unpacked
 archives nobody opened for two days are removed when the app starts. **Settings → Listers → Open archives like folders**
-turns this off (then the system opens the archive); *Extract* unpacks into a folder either way, and a filetype rule
-for the extension still wins over the double-click.
+turns this off (then your filetype rule decides, and the stock rule unpacks the archive); *Extract* unpacks into a folder
+either way. A filetype rule that opens an application or runs a command still wins over browsing.
 
 ## Servers: FTP, FTPS and SFTP
 

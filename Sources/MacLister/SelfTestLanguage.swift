@@ -47,7 +47,7 @@ enum SelfTestLanguage {
             }
             check(titles.contains { $0.hasPrefix("Kompresuj „a.txt”") }, "compress item is Polish")
             check(!titles.contains("Move to Trash") && !titles.contains("Open"), "no English leftovers in the context menu")
-            let title = vc.makeTitleBarMenu().items.map(\.title)
+            let title = vc.makeTitleBarMenu().flatTitles
             check(title.contains("Ustaw jako źródło") && title.contains("Zamknij lister") && title.contains("Połącz z serwerem…"), "title-bar menu is Polish: \(title.filter { !$0.isEmpty }.prefix(6))")
 
             // SwiftUI: literals are looked up in the same table. Render a small view and read it back with OCR.
@@ -103,6 +103,13 @@ enum SelfTestLanguage {
             LocalizationAudit.touch(OperationLogView(), size: NSSize(width: 640, height: 420))
             LocalizationAudit.touch(ButtonEditorView(initial: ListerButton.defaults, selection: 3, close: { }), size: NSSize(width: 700, height: 480))
             LocalizationAudit.touch(TitleFormatEditor(close: { }), size: NSSize(width: 520, height: 600))
+            LocalizationAudit.touch(ChecksumsView(urls: [dir.appendingPathComponent("a.txt")], close: { }), size: NSSize(width: 640, height: 460))
+            LocalizationAudit.touch(DuplicatesView(initial: DuplicateFinder.Options(scope: dir), onTrash: { _, _ in }, close: { }), size: NSSize(width: 720, height: 600))
+            LocalizationAudit.touch(FindView(initial: FindQuery(scope: dir), onFind: { _ in }, close: { }), size: NSSize(width: 500, height: 440))
+            LocalizationAudit.touch(CopyAsView(kind: .copy, sources: [dir.appendingPathComponent("a.txt")], destinationName: "x", sameFolder: false, onApply: { _ in }, close: { }), size: NSSize(width: 440, height: 300))
+            LocalizationAudit.touch(SynchronizeView(source: dir, destination: dir, onRun: { _ in }, close: { }), size: NSSize(width: 640, height: 560))
+            LocalizationAudit.touch(AboutView(), size: NSSize(width: 380, height: 420))
+            LocalizationAudit.touch(SymbolGrid(onPick: { _ in }), size: NSSize(width: 330, height: 260))
             one.model.progress = nil
             let known: Set<String> = ["OK", "Regex", "Folder", "Mission Control", "Spotlight", "Audio", "Video", "port", "ext", "Server", "Servers", "Terminal", "FTP", "SFTP"]
             let untranslated = LocalizationAudit.misses.subtracting(known).sorted()

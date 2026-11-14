@@ -54,9 +54,21 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
     /// Files were dropped on a folder: urls, folder, the operation Finder rules chose.
     var onDrop: (([URL], URL, NSDragOperation) -> Void)?
     private var suppressSelection = false
+    private var lastRevealed: URL?
+    private var volumeObservers: [NSObjectProtocol] = []
+
+    deinit { volumeObservers.forEach { NSWorkspace.shared.notificationCenter.removeObserver($0) } }
 
     override init() {
         super.init()
+        // a disk plugged in or ejected while the lister is open
+        for name in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification] {
+            volumeObservers.append(NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                guard let self else { return }
+                self.buildRoots()
+                if let url = self.lastRevealed { self.reveal(url) }
+            })
+        }
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("tree"))
         column.resizingMask = .autoresizingMask
         outline.addTableColumn(column)
@@ -102,6 +114,7 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
 
     /// Opens the branches down to `url` and selects it.
     func reveal(_ url: URL) {
+        lastRevealed = url
         guard url.isFileURL, var node = root(containing: url) else { select(nil); return }
         let target = url.standardizedFileURL.path
         outline.expandItem(node)

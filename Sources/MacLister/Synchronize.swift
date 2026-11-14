@@ -277,6 +277,10 @@ extension ListerViewController {
             model.errorMessage = tr("Source and destination show the same folder")
             return
         }
+        if sourceModel.isInArchive || destinationModel.isInArchive {
+            model.errorMessage = tr("“%@” is not available inside an archive: it is read-only. Copy the files out first.", tr("Synchronize"))
+            return
+        }
         guard !sourceModel.isVirtual, !destinationModel.isVirtual, !sourceModel.isRemote, !destinationModel.isRemote,
               let window = view.window else {
             model.errorMessage = tr("Synchronize needs two local folders")

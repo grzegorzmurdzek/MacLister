@@ -277,13 +277,16 @@ final class ListerViewController: NSViewController {
             .store(in: &cancellables)
         model.$url
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] url in if self?.treeVisible == true { self?.treeController.reveal(url) } }
+            .sink { [weak self] url in
+                guard self?.treeVisible == true else { return }
+                self?.treeController.reveal(ArchiveBrowser.shared.treeFolder(for: url))
+            }
             .store(in: &cancellables)
         model.$items
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 guard let self, self.treeVisible, let model = Optional(self.model) else { return }
-                self.treeController.refresh(model.url)
+                self.treeController.refresh(ArchiveBrowser.shared.treeFolder(for: model.url))
             }
             .store(in: &cancellables)
         model.$showHidden
@@ -292,10 +295,10 @@ final class ListerViewController: NSViewController {
             .sink { [weak self] hidden in
                 guard let self else { return }
                 self.treeController.showHidden = hidden
-                if self.treeVisible { self.treeController.hiddenChanged(showing: self.model.url) }
+                if self.treeVisible { self.treeController.hiddenChanged(showing: ArchiveBrowser.shared.treeFolder(for: self.model.url)) }
             }
             .store(in: &cancellables)
-        if treeVisible { treeController.reveal(model.url) }
+        if treeVisible { treeController.reveal(ArchiveBrowser.shared.treeFolder(for: model.url)) }
     }
 
     private func configureTree() {
@@ -317,7 +320,7 @@ final class ListerViewController: NSViewController {
         splitView?.adjustSubviews()
         if treeVisible {
             treeController.showHidden = model.showHidden
-            treeController.reveal(model.url)
+            treeController.reveal(ArchiveBrowser.shared.treeFolder(for: model.url))
             splitView?.setPosition(Settings.folderTreeWidth, ofDividerAt: 0)
             didPlaceTree = true
         }
@@ -456,15 +459,18 @@ final class ListerViewController: NSViewController {
         open(rows[row])
     }
 
-    private func open(_ item: FileItem) {
+    func open(_ item: FileItem) {
         if item.url.scheme == VirtualPlace.scheme { openSharedRow(item); return }
         if isRemote { openRemote(item); return }
         if item.isNavigable {
             model.navigate(to: item.url)
+        } else if Settings.browseArchives, ArchiveExtractor.isBrowsable(item.url),
+                  FiletypeStore.shared.rule(for: item.url).map({ $0.action == .extract }) ?? true {
+            // An archive opens like a folder (read-only). The stock filetype rule for archives is "extract", so that rule
+            // gives way; a rule that does something else (an app, a command) still wins.
+            browseArchive(item.url)
         } else if let rule = FiletypeStore.shared.rule(for: item.url), runFiletype(rule, on: item) {
             return
-        } else if Settings.browseArchives, ArchiveExtractor.isBrowsable(item.url) {
-            browseArchive(item.url)                 // an archive opens like a folder (read-only)
         } else {
             NSWorkspace.shared.open(item.url)
         }
@@ -915,6 +921,10 @@ extension ListerViewController {
             flash(tr("%@ is not available in “%@”: open a folder first", tr("Extract"), place.title))
             return
         }
+        if ArchiveBrowser.shared.location(of: targetModel.url) != nil {         // an archive is read-only: pick a destination lister
+            flash(tr("“%@” is not available inside an archive: it is read-only. Copy the files out first.", tr("Extract")))
+            return
+        }
         let target = targetModel.url
         let message = archives.count == 1 ? tr("Extracting 1 archive…") : trCount("Extracting %d archives…", archives.count)
         sourceModel.statusMessage = message
@@ -997,8 +1007,7 @@ extension ListerViewController {
         if remoteUnavailable(tr("New Text File")) { return }
         if refuseInList(tr("New Text File")) { return }
         if refuseInArchive(tr("New Text File")) { return }
-        let target = model.url.appendingPathComponent(uniqueName(tr("untitled")) + ".txt")
-        guard FileManager.default.createFile(atPath: target.path, contents: Data()) else {
+        guard let target = makeTextFile() else {
             model.errorMessage = tr("Cannot create a file in “%@”", model.url.lastPathComponent)
             return
         }
@@ -1013,10 +1022,26 @@ extension ListerViewController {
         }
     }
 
-    private func uniqueName(_ base: String) -> String {
+    /// An empty "untitled.txt" (or "untitled 2.txt" …) in this folder; an existing file is never overwritten.
+    func makeTextFile() -> URL? {
+        let stem = uniqueName(tr("untitled"), extension: "txt")
+        let target = model.url.appendingPathComponent(stem + ".txt")
+        do {
+            try Data().write(to: target, options: .withoutOverwriting)
+            return target
+        } catch {
+            return nil
+        }
+    }
+
+    /// `base`, or "base 2", "base 3" … the first name that is free; with an extension the full name is checked.
+    private func uniqueName(_ base: String, extension ext: String = "") -> String {
+        func taken(_ name: String) -> Bool {
+            FileManager.default.fileExists(atPath: model.url.appendingPathComponent(ext.isEmpty ? name : name + "." + ext).path)
+        }
         var candidate = base
         var n = 2
-        while FileManager.default.fileExists(atPath: model.url.appendingPathComponent(candidate).path) {
+        while taken(candidate) {
             candidate = "\(base) \(n)"
             n += 1
         }
@@ -1230,8 +1255,10 @@ extension ListerViewController: NSMenuDelegate {
             if local {
                 // Share, tag colours (Tags… is in Details), Quick Actions and Services
                 addShareItem(to: menu, urls: urls)
-                addTagItems(to: menu, urls: urls, tagsMenu: details)
-                addQuickActions(to: menu, urls: urls)
+                if writable {
+                    addTagItems(to: menu, urls: urls, tagsMenu: details)
+                    addQuickActions(to: menu, urls: urls)
+                }
                 addServicesItem(to: menu)
                 menu.addItem(.separator())
             }
@@ -1354,6 +1381,8 @@ extension ListerViewController: NSMenuDelegate {
 
 extension ListerViewController {
     /// Lister-level commands, like the lister menu of Directory Opus Magellan.
+    /// The menu under a right-click on the title bar. About half of it is in submenus (View, Search, Source and
+    /// Destination, Lister, All Listers) so it stays short; every command is still there.
     func makeTitleBarMenu() -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
@@ -1376,8 +1405,20 @@ extension ListerViewController {
             parent.addItem(parentItem)
         }
 
+        /// An empty submenu to fill with `add(…, to:)`; call `attach` when done.
+        func submenu(_ title: String) -> NSMenu {
+            let sub = NSMenu(title: title)
+            sub.autoenablesItems = false
+            return sub
+        }
+        func attach(_ sub: NSMenu) {
+            let parentItem = NSMenuItem(title: sub.title, action: nil, keyEquivalent: "")
+            parentItem.submenu = sub
+            menu.addItem(parentItem)
+        }
+
         @discardableResult
-        func add(_ title: String, key: String = "", mask: NSEvent.ModifierFlags = [.command],
+        func add(_ title: String, to target: NSMenu? = nil, key: String = "", mask: NSEvent.ModifierFlags = [.command],
                  checked: Bool = false, enabled: Bool = true, _ run: @escaping () -> Void) -> NSMenuItem {
             let item = NSMenuItem(title: title, action: #selector(contextMenuItemChosen(_:)), keyEquivalent: key)
             item.keyEquivalentModifierMask = mask
@@ -1385,45 +1426,14 @@ extension ListerViewController {
             item.representedObject = MenuAction(run)
             item.state = checked ? .on : .off
             item.isEnabled = enabled
-            menu.addItem(item)
+            (target ?? menu).addItem(item)
             return item
         }
 
-        add(tr("Duplicate Lister"), key: "d", mask: [.command, .option]) { [weak self] in self?.duplicateLister() }
-        add(model.label.isEmpty ? tr("Name This Lister…") : tr("Rename This Lister…")) { [weak self] in self?.promptLabel() }
-        add(tr("New Lister")) {
-            manager.openLister(directory: Settings.startDirectory, anchor: .cascade(from: controller?.window))
-        }
-        add(tr("Connect to Server…"), key: "k") { [weak self] in self?.connectToServer() }
-        add(tr("Keyboard Shortcuts…")) { ShortcutsWindowController.shared.show() }
-        add(tr("Lister Title…")) { TitleFormatWindow.show() }
-        if isRemote { add(tr("Disconnect from %@", RemoteURL.serverLabel(of: model.url))) { [weak self] in self?.disconnectCurrent() } }
-        menu.addItem(.separator())
-
-        add(tr("Set as Source"), checked: model.role == .source) { [weak self] in self?.toggleRole(.source) }
-        add(tr("Set as Destination"), checked: model.role == .destination) { [weak self] in self?.toggleRole(.destination) }
-        add(model.roleLocked ? tr("Unlock Role") : tr("Lock Role"), enabled: model.role != .none) {
-            if let controller { manager.toggleRoleLock(for: controller) }
-        }
-        add(tr("Swap Source and Destination"), enabled: manager.sourceController != nil || manager.destinationController != nil) {
-            manager.swapRoles()
-        }
-        menu.addItem(.separator())
-
-        add(OperationLog.shared.undoMenuTitle, key: "z", enabled: OperationLog.shared.lastUndoable != nil) { [weak self] in self?.undoLastOperation() }
-        add(tr("Operation Log…")) { OperationLogWindow.show() }
-        menu.addItem(.separator())
+        // moving around
         add(tr("Parent"), enabled: model.canGoParent) { [weak self] in self?.model.goParent() }
         add(tr("Back"), enabled: model.canGoBack) { [weak self] in self?.model.goBack() }
         add(tr("Refresh")) { [weak self] in self?.model.reload() }
-        add(tr("Show Hidden Files"), checked: model.showHidden) { [weak self] in self?.model.toggleHidden() }
-        add(model.filter.isEmpty ? tr("Filter…") : tr("Filter… (%@)", model.filter), key: "f") { [weak self] in self?.promptFilter() }
-        add(tr("Find…"), key: "f", mask: [.command, .shift]) { [weak self] in self?.promptFind() }
-        add(tr("Find Duplicates…"), enabled: !isRemote) { [weak self] in self?.promptDuplicates() }
-        add(treeMenuTitle) { [weak self] in self?.toggleTree() }
-        add(tr("Snapshot This Folder"), enabled: !isRemote && !model.isVirtual) { [weak self] in self?.snapshotFolder() }
-        if hasSnapshot { add(tr("Forget Snapshot")) { [weak self] in self?.forgetSnapshot() } }
-        add(flatViewMenuTitle, enabled: !isRemote) { [weak self] in self?.toggleFlatView() }
         addSubmenu(tr("Bookmarks"), to: menu) { sub, addItem in
             let bookmarks = BookmarkStore.shared.paths
             if bookmarks.isEmpty { addItem(tr("No bookmarks"), false) { } }
@@ -1448,17 +1458,59 @@ extension ListerViewController {
                 addItem(tr("Clear Recent Folders…"), true) { HistoryClearing.confirmAndClear(.recentFolders) }
             }
         }
+
+        // what the list shows, and looking for files
+        let view = submenu(tr("View"))
+        add(tr("Show Hidden Files"), to: view, checked: model.showHidden) { [weak self] in self?.model.toggleHidden() }
+        add(model.filter.isEmpty ? tr("Filter…") : tr("Filter… (%@)", model.filter), to: view, key: "f") { [weak self] in self?.promptFilter() }
+        add(flatViewMenuTitle, to: view, enabled: !isRemote) { [weak self] in self?.toggleFlatView() }
+        add(treeMenuTitle, to: view) { [weak self] in self?.toggleTree() }
+        attach(view)
+        let search = submenu(tr("Search"))
+        add(tr("Find…"), to: search, key: "f", mask: [.command, .shift]) { [weak self] in self?.promptFind() }
+        add(tr("Find Duplicates…"), to: search, enabled: !isRemote) { [weak self] in self?.promptDuplicates() }
+        attach(search)
+        let roles = submenu(tr("Source and Destination"))
+        add(tr("Set as Source"), to: roles, checked: model.role == .source) { [weak self] in self?.toggleRole(.source) }
+        add(tr("Set as Destination"), to: roles, checked: model.role == .destination) { [weak self] in self?.toggleRole(.destination) }
+        add(model.roleLocked ? tr("Unlock Role") : tr("Lock Role"), to: roles, enabled: model.role != .none) {
+            if let controller { manager.toggleRoleLock(for: controller) }
+        }
+        add(tr("Swap Source and Destination"), to: roles, enabled: manager.sourceController != nil || manager.destinationController != nil) {
+            manager.swapRoles()
+        }
+        attach(roles)
+        menu.addItem(.separator())
+
+        // history and tools
+        add(OperationLog.shared.undoMenuTitle, key: "z", enabled: OperationLog.shared.lastUndoable != nil) { [weak self] in self?.undoLastOperation() }
+        add(tr("Operation Log…")) { OperationLogWindow.show() }
+        add(tr("Connect to Server…"), key: "k") { [weak self] in self?.connectToServer() }
+        if isRemote { add(tr("Disconnect from %@", RemoteURL.serverLabel(of: model.url))) { [weak self] in self?.disconnectCurrent() } }
         add(tr("Terminal Here"), enabled: !isRemote) { [weak self] in self?.openTerminal() }
         menu.addItem(.separator())
 
-        add(tr("Bring All Listers to Front"), enabled: manager.openCount > 1) { manager.bringAllToFront() }
-        add(tr("Move All Listers to This Desktop")) { manager.gatherOnThisDesktop() }
+        // this lister, and all of them
+        let lister = submenu(tr("Lister"))
+        add(tr("Duplicate Lister"), to: lister, key: "d", mask: [.command, .option]) { [weak self] in self?.duplicateLister() }
+        add(model.label.isEmpty ? tr("Name This Lister…") : tr("Rename This Lister…"), to: lister) { [weak self] in self?.promptLabel() }
+        add(tr("New Lister"), to: lister) {
+            manager.openLister(directory: Settings.startDirectory, anchor: .cascade(from: controller?.window))
+        }
+        add(tr("Lister Title…"), to: lister) { TitleFormatWindow.show() }
+        add(tr("Snapshot This Folder"), to: lister, enabled: !isRemote && !model.isVirtual && !model.isInArchive) { [weak self] in self?.snapshotFolder() }
+        if hasSnapshot { add(tr("Forget Snapshot"), to: lister) { [weak self] in self?.forgetSnapshot() } }
+        add(tr("Keyboard Shortcuts…"), to: lister) { ShortcutsWindowController.shared.show() }
+        attach(lister)
+        let all = submenu(tr("All Listers"))
+        add(tr("Bring All Listers to Front"), to: all, enabled: manager.openCount > 1) { manager.bringAllToFront() }
+        add(tr("Move All Listers to This Desktop"), to: all) { manager.gatherOnThisDesktop() }
+        add(tr("Close All Listers"), to: all, enabled: manager.openCount > 1) { manager.closeAll() }
+        all.addItem(.separator())
+        add(tr("Save Layout"), to: all) { LayoutStore.save(from: manager) }
+        add(tr("Restore Layout"), to: all) { LayoutStore.restore(into: manager) }
+        attach(all)
         add(tr("Close Lister"), key: "w") { [weak self] in self?.view.window?.performClose(nil) }
-        add(tr("Close All Listers"), enabled: manager.openCount > 1) { manager.closeAll() }
-        menu.addItem(.separator())
-
-        add(tr("Save Layout")) { LayoutStore.save(from: manager) }
-        add(tr("Restore Layout")) { LayoutStore.restore(into: manager) }
         return menu
     }
 }
@@ -1574,7 +1626,8 @@ extension ListerViewController: NSSplitViewDelegate {
 
     /// The width you drag the divider to is the width of every tree from now on.
     func splitViewDidResizeSubviews(_ notification: Notification) {
-        guard treeVisible, didPlaceTree, NSApp.currentEvent?.type == .leftMouseDragged else { return }
+        // only when the divider itself is dragged, not when the window is resized
+        guard treeVisible, didPlaceTree, view.window?.inLiveResize != true, NSApp.currentEvent?.type == .leftMouseDragged else { return }
         let width = treeController.scrollView.frame.width
         if width >= 120 { Settings.folderTreeWidth = width }
     }

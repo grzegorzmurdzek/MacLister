@@ -93,7 +93,7 @@ struct DuplicatesView: View {
     var close: () -> Void
 
     @State private var scope: String
-    @State private var minimum = 0                    // index into `Self.minimums`
+    @State private var minimum: Int                   // index into `Self.minimums`
     @State private var includeHidden: Bool
     @State private var groups: [DuplicateFinder.Group] = []
     @State private var marked: Set<URL> = []
@@ -101,7 +101,7 @@ struct DuplicatesView: View {
     @State private var status = ""
     @State private var token = CancelToken()
 
-    enum Phase { case idle, searching, done }
+    enum Phase { case idle, searching, trashing, done }
 
     private static let minimums: [(title: String, bytes: Int64)] = [("Any size", 1), ("1 KB or more", 1_000), ("100 KB or more", 100_000), ("1 MB or more", 1_000_000), ("10 MB or more", 10_000_000)]
 
@@ -111,6 +111,7 @@ struct DuplicatesView: View {
         self.close = close
         _scope = State(initialValue: initial.scope.path)
         _includeHidden = State(initialValue: initial.includeHidden)
+        _minimum = State(initialValue: Self.minimums.lastIndex(where: { $0.bytes <= max(1, initial.minBytes) }) ?? 0)
     }
 
     private var scopeURL: URL { URL(fileURLWithPath: (scope as NSString).expandingTildeInPath) }
@@ -167,11 +168,11 @@ struct DuplicatesView: View {
             }
 
             HStack {
-                if phase == .searching {
+                if phase == .searching || phase == .trashing {
                     ProgressView().controlSize(.small)
                     Text(status).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                     Spacer()
-                    Button("Stop") { token.cancel() }
+                    if phase == .searching { Button("Stop") { token.cancel() } }
                 } else {
                     Button(phase == .done ? "Search Again" : "Search") { search() }
                         .keyboardShortcut(.defaultAction).disabled(!scopeExists)
@@ -232,7 +233,7 @@ struct DuplicatesView: View {
                 Spacer()
                 Button("Close") { token.cancel(); close() }.keyboardShortcut(.cancelAction)
                 Button(tr("Move %d to the Trash", marked.count)) { trashMarked() }
-                    .disabled(marked.isEmpty || phase == .searching)
+                    .disabled(marked.isEmpty || phase == .searching || phase == .trashing)
             }
         }
         .padding(20)
@@ -272,7 +273,7 @@ struct DuplicatesView: View {
 
     private func trashMarked() {
         let urls = Array(marked)
-        phase = .searching
+        phase = .trashing
         status = tr("Moving to the Trash…")
         onTrash(urls) { trashed in
             let gone = Set(trashed)
@@ -291,6 +292,7 @@ extension ListerViewController {
     /// Opens the Find Duplicates window, starting in the folder shown here.
     func promptDuplicates() {
         if remoteUnavailable(tr("Find Duplicates")) { return }
+        if refuseInArchive(tr("Find Duplicates")) { return }
         guard let window = view.window else { return }
         let start = model.isVirtual ? (FindQuery(url: model.url)?.scope ?? FileManager.default.homeDirectoryForCurrentUser) : model.url
         let options = DuplicateFinder.Options(scope: start, includeHidden: model.showHidden)

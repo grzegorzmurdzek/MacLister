@@ -278,6 +278,7 @@ final class ListerModel: ObservableObject {
             errorMessage = tr("Not a folder: %@", target.path)
             return false
         }
+        let sortBefore = (sortKey, ascending, sortBeforeVirtual)
         restoreSortAfterVirtual()
         applyFolderSort(for: target)
         do {
@@ -291,6 +292,7 @@ final class ListerModel: ObservableObject {
             watchCurrentFolder()
             return true
         } catch {
+            (sortKey, ascending, sortBeforeVirtual) = sortBefore          // we stay where we were, so does the sort order
             errorMessage = error.localizedDescription
             return false
         }

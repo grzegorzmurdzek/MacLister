@@ -47,7 +47,7 @@ enum FileHash {
     }
 
     /// SHA-256 of the first `bytes` bytes (or of the whole file when it is shorter): a cheap first look for duplicates.
-    static func sha256Prefix(of url: URL, bytes: Int, cancel: CancelToken? = nil) -> String? {
+    static func sha256Prefix(of url: URL, bytes: Int) -> String? {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
         guard let data = readChunk(handle, bytes) else { return nil }
@@ -101,7 +101,7 @@ struct ChecksumsView: View {
     @State private var rows: [ChecksumRow]
     @State private var done = false
     @State private var fraction = 0.0
-    @State private var currentName = ""
+    @State private var currentFile: URL?
     @State private var expected = ""
     @State private var token = CancelToken()
 
@@ -114,11 +114,11 @@ struct ChecksumsView: View {
     }
 
     /// Which checksum of which file equals what was pasted, if any.
-    private var match: (algorithm: FileHash.Algorithm, name: String)? {
+    private var match: (algorithm: FileHash.Algorithm, file: URL)? {
         let wanted = FileHash.normalized(expected)
         guard wanted.count >= 8 else { return nil }
         for row in rows {
-            for algorithm in FileHash.Algorithm.allCases where row.digests?[algorithm] == wanted { return (algorithm, row.url.lastPathComponent) }
+            for algorithm in FileHash.Algorithm.allCases where row.digests?[algorithm] == wanted { return (algorithm, row.url) }
         }
         return nil
     }
@@ -151,7 +151,7 @@ struct ChecksumsView: View {
                                         Text(algorithm.rawValue).font(.caption).foregroundStyle(.secondary).frame(width: 56, alignment: .trailing)
                                         Text(digests[algorithm] ?? "")
                                             .font(.system(size: 11, design: .monospaced)).textSelection(.enabled)
-                                            .foregroundStyle(match?.algorithm == algorithm && match?.name == row.url.lastPathComponent ? Color.green : Color.primary)
+                                            .foregroundStyle(match?.algorithm == algorithm && match?.file == row.url ? Color.green : Color.primary)
                                         Spacer(minLength: 0)
                                         Button { copy(digests[algorithm] ?? "") } label: { Image(systemName: "doc.on.doc") }
                                             .buttonStyle(.borderless).help("Copy")
@@ -159,7 +159,7 @@ struct ChecksumsView: View {
                                 }
                             } else if row.failed {
                                 Text("Cannot read this file").foregroundStyle(.red)
-                            } else if currentName == row.url.lastPathComponent {
+                            } else if currentFile == row.url {
                                 ProgressView(value: fraction)
                             } else {
                                 Text("Waiting…").foregroundStyle(.secondary)
@@ -175,9 +175,9 @@ struct ChecksumsView: View {
                 Text("Compare with")
                 TextField("paste a checksum", text: $expected).textFieldStyle(.roundedBorder).font(.system(.body, design: .monospaced))
             }
-            if !FileHash.normalized(expected).isEmpty {
+            if FileHash.normalized(expected).count >= 8 {
                 if let match {
-                    Label(tr("Matches the %@ of “%@”", match.algorithm.rawValue, match.name), systemImage: "checkmark.seal.fill").foregroundStyle(.green)
+                    Label(tr("Matches the %@ of “%@”", match.algorithm.rawValue, match.file.lastPathComponent), systemImage: "checkmark.seal.fill").foregroundStyle(.green)
                 } else if done {
                     Label("Does not match any checksum here", systemImage: "xmark.octagon.fill").foregroundStyle(.red)
                 }
@@ -206,7 +206,7 @@ struct ChecksumsView: View {
             for (index, url) in urls.enumerated() {
                 if token.isCancelled { return }
                 let size = max(1, Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0))
-                DispatchQueue.main.async { currentName = url.lastPathComponent; fraction = 0 }
+                DispatchQueue.main.async { currentFile = url; fraction = 0 }
                 var lastReport = Date.distantPast
                 let digests = FileHash.digests(of: url, cancel: token) { read in
                     guard Date().timeIntervalSince(lastReport) > 0.1 else { return }
@@ -217,7 +217,7 @@ struct ChecksumsView: View {
                 DispatchQueue.main.async {
                     rows[index].digests = digests
                     rows[index].failed = digests == nil
-                    if index == urls.count - 1 { done = true; currentName = "" }
+                    if index == urls.count - 1 { done = true; currentFile = nil }
                 }
             }
         }

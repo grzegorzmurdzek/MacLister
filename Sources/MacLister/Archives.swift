@@ -55,8 +55,8 @@ final class ArchiveBrowser {
             let directory = Self.cacheDirectory
             let root = directory.appendingPathComponent(Self.key(for: archive), isDirectory: true)
             if !fm.fileExists(atPath: root.path) {
-                let partial = directory.appendingPathComponent(Self.key(for: archive) + ".partial", isDirectory: true)
-                try? fm.removeItem(at: partial)
+                // a folder of its own for this attempt: opening the same archive twice at once must not share one
+                let partial = directory.appendingPathComponent(Self.key(for: archive) + "." + UUID().uuidString + ".partial", isDirectory: true)
                 do { try fm.createDirectory(at: partial, withIntermediateDirectories: true) }
                 catch {
                     DispatchQueue.main.async { completion(.failure(OpenError(message: error.localizedDescription))) }
@@ -69,9 +69,13 @@ final class ArchiveBrowser {
                 }
                 do { try fm.moveItem(at: partial, to: root) }
                 catch {
+                    Self.makeWritable(partial)
                     try? fm.removeItem(at: partial)
-                    DispatchQueue.main.async { completion(.failure(OpenError(message: error.localizedDescription))) }
-                    return
+                    // the other attempt got there first: its copy is just as good
+                    if !fm.fileExists(atPath: root.path) {
+                        DispatchQueue.main.async { completion(.failure(OpenError(message: error.localizedDescription))) }
+                        return
+                    }
                 }
             }
             try? fm.setAttributes([.modificationDate: Date()], ofItemAtPath: root.path)     // in use: not old
@@ -88,8 +92,36 @@ final class ArchiveBrowser {
         guard let entries = try? fm.contentsOfDirectory(at: cacheDirectory, includingPropertiesForKeys: [.contentModificationDateKey]) else { return }
         for entry in entries {
             let date = (try? entry.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-            if Date().timeIntervalSince(date) > seconds { try? fm.removeItem(at: entry) }
+            if Date().timeIntervalSince(date) > seconds {
+                makeWritable(entry)                 // a folder unpacked with mode 0555 cannot be emptied otherwise
+                try? fm.removeItem(at: entry)
+            }
         }
+    }
+
+    /// Gives the owner write and search permission on every folder below `url` (and on `url`).
+    static func makeWritable(_ url: URL) {
+        let fm = FileManager.default
+        func fix(_ item: URL) {
+            guard let mode = (try? fm.attributesOfItem(atPath: item.path)[.posixPermissions]) as? NSNumber else { return }
+            try? fm.setAttributes([.posixPermissions: NSNumber(value: mode.intValue | 0o700)], ofItemAtPath: item.path)
+        }
+        fix(url)
+        guard let walker = fm.enumerator(at: url, includingPropertiesForKeys: [.isDirectoryKey], options: []) else { return }
+        for case let item as URL in walker where (try? item.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true { fix(item) }
+    }
+
+    /// The folder the directory tree shows for a lister: the one the archive lies in, not the cache folder.
+    func treeFolder(for url: URL) -> URL {
+        let real = realFile(for: url)
+        return real == url ? url : real.deletingLastPathComponent()
+    }
+
+    /// The real file behind a path inside an archive (an archive inside an archive counts through to the outer one).
+    func realFile(for url: URL) -> URL {
+        var current = url
+        while let location = location(of: current) { current = location.archive }
+        return current
     }
 }
 

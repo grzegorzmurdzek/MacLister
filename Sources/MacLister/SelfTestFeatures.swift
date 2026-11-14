@@ -402,6 +402,29 @@ enum SelfTestFeatures {
             Settings.showFolderTree = false
             treeController.window?.close()
         }
+        // New Text File never overwrites; a folder that cannot be read leaves the sort order alone
+        let textDir = root.appendingPathComponent("TextFiles"), lockedDir = root.appendingPathComponent("Locked")
+        for dir in [textDir, lockedDir] { try? fm.createDirectory(at: dir, withIntermediateDirectories: true) }
+        try? "keep me".write(to: textDir.appendingPathComponent("untitled.txt"), atomically: true, encoding: .utf8)
+        let textLister = ListerManager.shared.openLister(directory: textDir, anchor: .cascade(from: nil))
+        later {
+            let made1 = textLister.listerViewController?.makeTextFile()
+            let made2 = textLister.listerViewController?.makeTextFile()
+            check(made1?.lastPathComponent == "untitled 2.txt" && made2?.lastPathComponent == "untitled 3.txt", "New Text File picks a free name: \(String(describing: made1?.lastPathComponent)), \(String(describing: made2?.lastPathComponent))")
+            check((try? String(contentsOf: textDir.appendingPathComponent("untitled.txt"), encoding: .utf8)) == "keep me", "an existing untitled.txt is never overwritten")
+            textLister.window?.close()
+        }
+        later {
+            SnapshotStore.shared.set(FolderSnapshot(width: 600, height: 400, x: nil, y: nil, sort: "size", ascending: false), for: lockedDir)
+            try? fm.setAttributes([.posixPermissions: 0o000], ofItemAtPath: lockedDir.path)
+            let lockedModel = ListerModel(url: dirA)
+            let before = (lockedModel.sortKey, lockedModel.ascending)
+            let ok = lockedModel.navigate(to: lockedDir)
+            check(!ok && lockedModel.sortKey == before.0 && lockedModel.ascending == before.1 && lockedModel.url.standardizedFileURL == dirA.standardizedFileURL,
+                  "a folder that cannot be read changes neither the folder nor the sort order: \(ok) \(lockedModel.sortKey)")
+            try? fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: lockedDir.path)
+            SnapshotStore.shared.remove(lockedDir)
+        }
         // archives browsed like folders: unpacked into a cache, shown as the archive, read-only
         let zipSource = root.appendingPathComponent("ZipSource"), zipHome = root.appendingPathComponent("ZipHome")
         let zipCache = root.appendingPathComponent("ArchiveCache")
@@ -420,12 +443,16 @@ enum SelfTestFeatures {
         check(ArchiveBrowser.key(for: zipFile) == ArchiveBrowser.key(for: zipFile) && ArchiveBrowser.key(for: zipFile).count == 24, "an archive always gets the same cache folder")
         let archiveLister = ListerManager.shared.openLister(directory: zipHome, anchor: .cascade(from: nil))
         later {
-            archiveLister.listerViewController?.browseArchive(zipFile)
+            // through open(_:), the way a double-click goes: the stock "extract" filetype rule must not win
+            FiletypeStore.shared.ensureConfigFileExists()
+            if let zipItem = archiveLister.model.items.first(where: { $0.name == "pack.zip" }) {
+                archiveLister.listerViewController?.open(zipItem)
+            } else { check(false, "pack.zip is listed") }
         }
         later(2.0) {
             let model = archiveLister.model
             check(model.isInArchive && Set(model.items.map(\.name)) == ["root.txt", "folderX"], "double-clicking an archive shows its contents: \(model.items.map(\.name))")
-            check(ListerModel.displayPath(model.url) == zipFile.standardizedFileURL.path, "the path bar names the archive, not the cache: \(ListerModel.displayPath(model.url))")
+            check(URL(fileURLWithPath: ListerModel.displayPath(model.url)).resolvingSymlinksInPath().path == zipFile.resolvingSymlinksInPath().path, "the path bar names the archive, not the cache: \(ListerModel.displayPath(model.url))")
             check(PathSegments.make(for: model.url).last?.title == "pack.zip" && model.displayName == "pack.zip", "the last path segment is the archive")
             model.navigate(to: model.url.appendingPathComponent("folderX"))
             check(model.items.map(\.name) == ["inner.txt"] && ListerModel.displayPath(model.url).hasSuffix("pack.zip/folderX"), "folders inside the archive open: \(ListerModel.displayPath(model.url))")
@@ -440,12 +467,45 @@ enum SelfTestFeatures {
             vc?.populate(menu, selection: model.items)
             let titles = menu.flatTitles
             check(!titles.contains("Move to Trash") && !titles.contains("Rename…") && !titles.contains("Duplicate") && titles.contains("Copy"), "the menu inside an archive offers no changes: \(titles.filter { !$0.isEmpty })")
+            check(!titles.contains("Tag Colors") && !titles.contains("Tags…") && !titles.contains("Quick Actions") && !titles.contains("Attributes…"), "no tags, Quick Actions or attributes inside an archive")
+            check(ArchiveBrowser.shared.treeFolder(for: model.url).resolvingSymlinksInPath() == zipHome.resolvingSymlinksInPath() && ArchiveBrowser.shared.realFile(for: model.url).resolvingSymlinksInPath() == zipFile.resolvingSymlinksInPath(),
+                  "the tree and the window proxy icon use the real archive, not the cache: \(ArchiveBrowser.shared.treeFolder(for: model.url).path)")
+            check(archiveLister.menuTitle.contains("pack.zip") && !archiveLister.menuTitle.contains("ArchiveCache"), "the list of listers names the archive: \(archiveLister.menuTitle)")
+            vc?.promptDuplicates()
+            check(model.statusMessage?.contains("read-only") == true, "Find Duplicates is refused inside an archive")
             model.goParent()
-            check(ListerModel.displayPath(model.url) == zipFile.standardizedFileURL.path, "Parent goes up inside the archive")
+            check(URL(fileURLWithPath: ListerModel.displayPath(model.url)).resolvingSymlinksInPath().path == zipFile.resolvingSymlinksInPath().path, "Parent goes up inside the archive")
             model.goParent()
-            check(!model.isInArchive && model.url.standardizedFileURL == zipHome.standardizedFileURL && model.selectedURLs.isEmpty == false || model.url.standardizedFileURL == zipHome.standardizedFileURL,
+            check(!model.isInArchive && model.url.resolvingSymlinksInPath() == zipHome.resolvingSymlinksInPath(),
                   "Parent from the top of the archive returns to the folder it lies in: \(model.url.path)")
+            check(model.selectedURLs.map { $0.resolvingSymlinksInPath() } == [zipFile.resolvingSymlinksInPath()], "and the archive is selected there: \(model.selectedURLs.map(\.lastPathComponent))")
             archiveLister.window?.close()
+        }
+        // two quick opens of one archive share nothing half-made; a folder unpacked read-only can still be cleaned away
+        let twin = zipHome.appendingPathComponent("twin.zip")
+        do {
+            let tar = Process()
+            tar.executableURL = URL(fileURLWithPath: "/usr/bin/bsdtar")
+            tar.arguments = ["-a", "-cf", twin.path, "-C", zipSource.path, "root.txt"]
+            try? tar.run(); tar.waitUntilExit()
+        }
+        var twinResults: [Bool] = []
+        later {
+            for _ in 0..<2 { ArchiveBrowser.shared.open(twin) { result in if case .success = result { twinResults.append(true) } else { twinResults.append(false) } } }
+        }
+        later(2.0) {
+            check(twinResults == [true, true], "opening one archive twice at once works both times: \(twinResults)")
+            let leftovers = ((try? fm.contentsOfDirectory(atPath: zipCache.path)) ?? []).filter { $0.hasSuffix(".partial") }
+            check(leftovers.isEmpty, "no half-unpacked folders stay behind: \(leftovers)")
+        }
+        later {
+            let locked = zipCache.appendingPathComponent("locked-entry/inner")
+            try? fm.createDirectory(at: locked, withIntermediateDirectories: true)
+            try? "x".write(to: locked.appendingPathComponent("f.txt"), atomically: true, encoding: .utf8)
+            try? fm.setAttributes([.posixPermissions: 0o555], ofItemAtPath: locked.path)
+            try? fm.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -5 * 86_400)], ofItemAtPath: zipCache.appendingPathComponent("locked-entry").path)
+            ArchiveBrowser.cleanOldCaches()
+            check(!fm.fileExists(atPath: zipCache.appendingPathComponent("locked-entry").path), "an old unpacked folder with read-only sub-folders is cleaned up too")
         }
         later {
             let stale = zipCache.appendingPathComponent("stale-entry")
@@ -518,13 +578,20 @@ enum SelfTestFeatures {
         // title-bar menu
         later {
             let menu = one.listerViewController?.makeTitleBarMenu()
-            let titles = menu?.items.map(\.title) ?? []
+            let titles = menu?.flatTitles ?? []
             check(["Duplicate Lister", "New Lister", "Set as Source", "Set as Destination", "Swap Source and Destination",
-                   "Parent", "Refresh", "Show Hidden Files", "Close Lister", "Close All Listers", "Save Layout"].allSatisfy(titles.contains),
-                  "title-bar menu has the lister commands: \(titles.filter { !$0.isEmpty })")
-            check(menu?.items.first { $0.title == "Set as Source" }?.state == .on, "title-bar menu shows the current role with a check mark")
+                   "Parent", "Refresh", "Show Hidden Files", "Close Lister", "Close All Listers", "Save Layout", "Restore Layout",
+                   "Name This Lister…", "Lister Title…", "Keyboard Shortcuts…", "Connect to Server…", "Terminal Here", "Undo", "Operation Log…",
+                   "Filter…", "Find…", "Find Duplicates…", "Flat View", "Show Folder Tree", "Snapshot This Folder", "Bookmarks", "Recent Folders",
+                   "Bring All Listers to Front", "Move All Listers to This Desktop", "Lock Role"].allSatisfy { wanted in titles.contains { $0.hasPrefix(wanted) } },
+                  "title-bar menu still has every lister command: \(titles.filter { !$0.isEmpty })")
+            check((menu?.items.filter { !$0.isSeparatorItem }.count ?? 99) <= 16, "the title-bar menu is short on its first level: \(menu?.items.filter { !$0.isSeparatorItem }.map(\.title) ?? [])")
+            let rolesMenu = menu?.items.first { $0.title == "Source and Destination" }?.submenu
+            check(rolesMenu?.items.first { $0.title == "Set as Source" }?.state == .on, "the Source and Destination submenu shows the current role with a check mark")
+            check(menu?.items.first { $0.title == "View" }?.submenu?.items.contains { $0.title == "Show Hidden Files" } == true
+                  && menu?.items.first { $0.title == "Search" }?.submenu?.items.contains { $0.title.hasPrefix("Find") } == true, "View and Search hold their commands")
             let countBefore = manager.openCount
-            if let item = menu?.items.first(where: { $0.title == "Duplicate Lister" }),
+            if let item = menu?.items.first(where: { $0.title == "Lister" })?.submenu?.items.first(where: { $0.title == "Duplicate Lister" }),
                let action = item.representedObject {
                 // run the menu item exactly as a click would
                 (item.target as? ListerViewController)?.perform(item.action!, with: item)
@@ -1532,7 +1599,7 @@ enum SelfTestFeatures {
             vc.populate(menu, selection: [])
             let titles = menu.flatTitles
             check(titles.contains("Rename This Lister…") && !titles.contains("Name This Lister…"), "the folder menu offers Rename once a label exists")
-            check(vc.makeTitleBarMenu().items.contains { $0.title == "Rename This Lister…" }, "the title-bar menu offers it too")
+            check(vc.makeTitleBarMenu().flatTitles.contains("Rename This Lister…"), "the title-bar menu offers it too")
             check(ListerAction.nameLister.title == "Name lister", "the action can be put on a button or a key")
             check(LabelPalette.color("orange") != nil && LabelPalette.color("nope") == nil && LabelPalette.color(nil) == nil, "label colours")
             let copy = ListerManager.shared.duplicate(one)
