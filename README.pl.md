@@ -538,7 +538,7 @@ Domyślnie: tytuł `{%l — }%n{ – %h}`, podtytuł `%c{ · %F}{ · %R}`.
 
 ### Aktualizacje
 
-Ikona w pasku menu → **Sprawdź aktualizacje…** (albo **Ustawienia → Aktualizacje**) pyta GitHub, czy jest nowsze wydanie, i pokazuje jego opis; **Zainstaluj i
+Ikona w pasku menu → **Sprawdź aktualizacje…** (albo **Ustawienia → Aktualizacje**) pyta GitHub, czy jest nowsze wydanie, i pokazuje jego opis (wraz z opisami pominiętych po drodze wersji); **Zainstaluj i
 uruchom ponownie** pobiera je, sprawdza sumę SHA-256 z plikiem `.sha256` wydania i podpis kodu, po czym podmienia
 aplikację i uruchamia ją (wymaga folderu instalacji, do którego możesz pisać; inaczej otwiera stronę wydania).
 **Ustawienia → Aktualizacje → Sprawdzaj aktualizacje automatycznie** zagląda raz dziennie — jest **domyślnie wyłączone**, a MacLister raz po

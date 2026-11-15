@@ -16,6 +16,16 @@ enum ReleaseNotes {
         return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// The notes for the update window: the newest release, and when versions were skipped, each of them under its
+    /// own version heading (newest first). A single release is shown without a heading, as before.
+    static func combined(_ release: ReleaseInfo, polish: Bool) -> String {
+        let latest = excerpt(from: release.notes, polish: polish)
+        if release.earlier.isEmpty { return latest }
+        let entries = [ReleaseEntry(version: release.version, notes: latest)]
+            + release.earlier.map { ReleaseEntry(version: $0.version, notes: excerpt(from: $0.notes, polish: polish)) }
+        return entries.filter { !$0.notes.isEmpty }.map { "## \($0.version)\n\n\($0.notes)" }.joined(separator: "\n\n")
+    }
+
     /// Headings, bullets, numbered lists, **bold**, *italic*, `code` and [links](url).
     static func attributed(_ markdown: String, size: CGFloat = NSFont.systemFontSize) -> NSAttributedString {
         let out = NSMutableAttributedString()

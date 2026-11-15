@@ -527,7 +527,7 @@ Defaults: title `{%l — }%n{ – %h}`, subtitle `%c{ · %F}{ · %R}`.
 
 ### Updates
 
-Menu-bar icon → **Check for Updates…** (or **Settings → Updates**) asks GitHub whether a newer release exists and shows its notes; **Install and
+Menu-bar icon → **Check for Updates…** (or **Settings → Updates**) asks GitHub whether a newer release exists and shows its notes (with the notes of any versions you skipped in between); **Install and
 Restart** downloads it, checks the SHA-256 against the release's `.sha256` file and the code signature, then
 replaces the app and starts it (needs a writable install folder; otherwise it opens the release page).
 **Settings → Updates → Check for updates automatically** looks once a day — it is **off by default**, MacLister asks you once after

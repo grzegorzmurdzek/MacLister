@@ -1,13 +1,21 @@
 import AppKit
 import CryptoKit
 
-/// A published version, as the GitHub "latest release" feed describes it.
+/// The notes of one published version.
+struct ReleaseEntry: Equatable {
+    var version: String
+    var notes: String
+}
+
+/// The newest published version, as the GitHub release feed describes it.
 struct ReleaseInfo: Equatable {
     var version: String
     var notes: String
     var pageURL: URL
     var zipURL: URL?
     var checksumURL: URL?
+    /// Releases between the running version and this one (newest first), so nobody who skipped a few misses their notes.
+    var earlier: [ReleaseEntry] = []
 }
 
 enum UpdateError: LocalizedError {
@@ -48,10 +56,22 @@ enum UpdateChecker {
         return false
     }
 
-    /// Reads a GitHub release document.
-    static func parse(_ data: Data) throws -> ReleaseInfo {
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let tag = json["tag_name"] as? String,
+    /// Reads the feed: one GitHub release document, or the list of releases. From a list the newest published
+    /// version (drafts and pre-releases ignored) is returned, and `earlier` holds the other versions newer than `current`.
+    static func parse(_ data: Data, current: String = currentVersion) throws -> ReleaseInfo {
+        let json = try JSONSerialization.jsonObject(with: data)
+        if let one = json as? [String: Any] { return try release(from: one) }
+        guard let list = json as? [[String: Any]] else { throw UpdateError.badAnswer }
+        let published = list.filter { ($0["draft"] as? Bool) != true && ($0["prerelease"] as? Bool) != true }.compactMap { try? release(from: $0) }
+        var sorted = published.sorted { isNewer($0.version, than: $1.version) }
+        guard var latest = sorted.first else { throw UpdateError.badAnswer }
+        sorted.removeFirst()
+        latest.earlier = sorted.filter { isNewer($0.version, than: current) }.map { ReleaseEntry(version: $0.version, notes: $0.notes) }
+        return latest
+    }
+
+    private static func release(from json: [String: Any]) throws -> ReleaseInfo {
+        guard let tag = json["tag_name"] as? String,
               let page = (json["html_url"] as? String).flatMap(URL.init(string:)) else { throw UpdateError.badAnswer }
         let assets = (json["assets"] as? [[String: Any]]) ?? []
         func asset(_ matches: (String) -> Bool) -> URL? {
@@ -244,7 +264,7 @@ final class UpdateManager {
         let alert = NSAlert()
         alert.messageText = tr("MacLister %@ is available", release.version)
         alert.informativeText = tr("You have version %@.", UpdateChecker.currentVersion)
-        let notes = ReleaseNotes.excerpt(from: release.notes, polish: (Bundle.main.preferredLocalizations.first ?? "en").hasPrefix("pl"))
+        let notes = ReleaseNotes.combined(release, polish: (Bundle.main.preferredLocalizations.first ?? "en").hasPrefix("pl"))
         if !notes.isEmpty { alert.accessoryView = ReleaseNotes.accessoryView(for: notes) }
         let canInstall = release.zipURL != nil && UpdateChecker.canReplaceRunningApp
         if canInstall { alert.addButton(withTitle: tr("Install and Restart")) }
