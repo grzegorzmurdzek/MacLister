@@ -130,6 +130,10 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
     /// Opens the branches down to `url` and selects it.
     func reveal(_ url: URL) {
         lastRevealed = url
+        // Opening branches and reloading rows moves the selection around: none of that is the user choosing a folder.
+        let wasSuppressing = suppressSelection
+        suppressSelection = true
+        defer { suppressSelection = wasSuppressing }
         guard url.isFileURL, var node = root(containing: url) else { select(nil); return }
         let target = url.standardizedFileURL.path
         outline.expandItem(node)
@@ -252,8 +256,23 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
     }
 
     func outlineViewSelectionDidChange(_ notification: Notification) {
-        guard !suppressSelection, let node = outline.item(atRow: outline.selectedRow) as? TreeNode else { return }
+        guard !suppressSelection, userIsChoosing, let node = outline.item(atRow: outline.selectedRow) as? TreeNode else { return }
         onSelect?(node.url)
+    }
+
+    /// Is the selection changing because of a click in the tree or a key typed into it? A button elsewhere in the window
+    /// (Back, Up) or a change of folder also moves the selection, and must never be taken for a choice.
+    private var userIsChoosing: Bool {
+        guard let event = NSApp.currentEvent else { return false }
+        switch event.type {
+        case .leftMouseDown, .leftMouseUp, .leftMouseDragged, .rightMouseDown:
+            guard event.window === outline.window else { return false }
+            return outline.bounds.contains(outline.convert(event.locationInWindow, from: nil))
+        case .keyDown, .keyUp:
+            return outline.window?.firstResponder === outline
+        default:
+            return false
+        }
     }
 
     // MARK: Dropping files on a folder

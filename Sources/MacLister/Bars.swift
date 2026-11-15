@@ -425,7 +425,8 @@ struct BreadcrumbView: View {
             .fixedSize()
             .padding(.horizontal, 4)
             .frame(width: geometry.size.width, height: geometry.size.height, alignment: .trailing)   // centred vertically, tail of the path at the right
-            .clipped()
+            .clipShape(Rectangle())
+            .contentShape(Rectangle())          // the part of a long path that is cut off must not take clicks meant for Back and Up
             .mask(
                 HStack(spacing: 0) {
                     LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing).frame(width: 18)

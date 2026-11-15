@@ -390,6 +390,22 @@ enum SelfTestFeatures {
         later(0.5) {
             guard let tvc = treeController.listerViewController else { return }
             check(treeController.model.url.standardizedFileURL == dirA.standardizedFileURL, "choosing a folder in the tree shows it in the lister")
+            // Back and Up must lead where they say, with the tree open: following the lister never counts as a choice
+            var chosen: [URL] = []
+            tvc.treeController.onSelect = { chosen.append($0) }
+            treeController.model.navigate(to: dirA.appendingPathComponent("big"))
+            treeController.model.goBack()
+            check(treeController.model.url.standardizedFileURL == dirA.standardizedFileURL, "Back returns to the previous folder with the tree open: \(treeController.model.url.path)")
+            treeController.model.navigate(to: dirA.appendingPathComponent("big"))
+            treeController.model.goParent()
+            check(treeController.model.url.standardizedFileURL == dirA.standardizedFileURL, "Parent goes to the parent with the tree open: \(treeController.model.url.path)")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                check(chosen.isEmpty && treeController.model.url.standardizedFileURL == dirA.standardizedFileURL, "the tree never navigates by itself while it follows the lister: \(chosen.map(\.lastPathComponent))")
+                tvc.treeController.onSelect = { [weak treeController] url in
+                    guard let model = treeController?.model, url.standardizedFileURL != model.url else { return }
+                    model.navigate(to: url)
+                }
+            }
             try? fm.createDirectory(at: dirA.appendingPathComponent("zz-new-folder"), withIntermediateDirectories: false)
             treeController.model.reload()
         }
