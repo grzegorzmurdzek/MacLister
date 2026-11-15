@@ -34,6 +34,11 @@ extension ListerViewController {
     func beginRemoteTransfer(_ kind: TransferKind, items: [URL], into folder: URL, showingIn models: [ListerModel],
                              knownSizes: [URL: Int64] = [:]) {
         guard let first = items.first else { return }
+        // from inside an archive: the real files first, not their placeholders
+        if ArchiveBrowser.shared.needsMaterialization(items) {
+            materialized(items) { [weak self] in self?.beginRemoteTransfer(kind, items: items, into: folder, showingIn: models, knownSizes: knownSizes) }
+            return
+        }
         let direction: RemoteTransferJob.Direction
         switch (RemoteURL.isRemote(first), RemoteURL.isRemote(folder)) {
         case (false, true): direction = .upload

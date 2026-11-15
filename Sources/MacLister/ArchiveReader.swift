@@ -30,6 +30,8 @@ final class ArchiveLibrary {
     let entryMtime: @convention(c) (Entry?) -> Int
     let entryMtimeIsSet: @convention(c) (Entry?) -> Int32
     let entryIsDataEncrypted: @convention(c) (Entry?) -> Int32
+    /// Not in every build: a hard link in a tar is a name for a file stored elsewhere in the archive.
+    let entryHardlink: (@convention(c) (Entry?) -> UnsafePointer<CChar>?)?
 
     private init?() {
         guard let lib = dlopen("/usr/lib/libarchive.2.dylib", RTLD_NOW) ?? dlopen("libarchive.dylib", RTLD_NOW) else { return nil }
@@ -65,6 +67,7 @@ final class ArchiveLibrary {
         self.entrySize = entrySize; self.entrySizeIsSet = entrySizeIsSet; self.entryFiletype = entryFiletype
         self.entryPerm = entryPerm; self.entryMtime = entryMtime; self.entryMtimeIsSet = entryMtimeIsSet
         self.entryIsDataEncrypted = entryIsDataEncrypted
+        self.entryHardlink = load("archive_entry_hardlink", as: (@convention(c) (Entry?) -> UnsafePointer<CChar>?).self)
     }
 }
 
@@ -138,13 +141,14 @@ enum ArchiveReader {
         let lower = text.lowercased()
         if lower.contains("incorrect passphrase") || lower.contains("wrong passphrase") { return .wrongPassphrase }
         if lower.contains("passphrase required") || lower.contains("passphrase is required") { return .passphraseRequired }
-        if lower.contains("encrypt") || lower.contains("crypto") { return .unsupportedEncryption }
+        if lower.contains("crypt") { return .unsupportedEncryption }          // encrypted, decrypt, cryptographic …
         return .failed(text.isEmpty ? "libarchive error \(fallback)" : text)
     }
 
     private static func entry(_ lib: ArchiveLibrary, _ raw: ArchiveLibrary.Entry) -> Entry? {
         let name = lib.entryPathnameUTF8(raw).map { String(cString: $0) } ?? lib.entryPathname(raw).map { String(cString: $0) } ?? ""
         guard let path = normalized(name) else { return nil }
+        if let hardlink = lib.entryHardlink?(raw), hardlink.pointee != 0 { return nil }          // would show up as an empty file
         let type = lib.entryFiletype(raw) & 0o170000
         // regular files and folders only: links and devices are not shown
         guard type == 0o100000 || type == 0o040000 else { return nil }
@@ -220,7 +224,8 @@ enum ArchiveReader {
                 let count = buffer.withUnsafeMutableBytes { lib.readData(handle, $0.baseAddress, $0.count) }
                 if count == 0 { break }
                 if count < 0 { failure = classify(lib, handle, fallback: Int32(truncatingIfNeeded: count)); break }
-                out.write(Data(buffer[0..<count]))
+                do { try out.write(contentsOf: buffer[0..<count]) }              // a full disk is an error, not a crash
+                catch { failure = .failed(error.localizedDescription); break }
                 bytes += Int64(count)
                 progress?(bytes)
             }

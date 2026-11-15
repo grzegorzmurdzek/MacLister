@@ -17,6 +17,9 @@ final class ListerDropView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
+    var onDragEnd: (() -> Void)?
+    override func draggingExited(_ sender: NSDraggingInfo?) { onDragEnd?() }
+    override func draggingEnded(_ sender: NSDraggingInfo) { onDragEnd?() }
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { dropOperation(sender) }
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { dropOperation(sender) }
     override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool { dropOperation(sender) != [] }
@@ -26,6 +29,11 @@ final class ListerDropView: NSView {
 /// NSTableView that routes key presses (Space, Return, Backspace, ⌘↑ …) to a handler first.
 final class ListerTableView: NSTableView, NSServicesMenuRequestor {
     var keyHandler: ((NSEvent) -> Bool)?
+    /// The drag left the list or ended (spring-loaded folders stop waiting).
+    var onDragEnd: (() -> Void)?
+
+    override func draggingExited(_ sender: NSDraggingInfo?) { onDragEnd?(); super.draggingExited(sender) }
+    override func draggingEnded(_ sender: NSDraggingInfo) { onDragEnd?(); super.draggingEnded(sender) }
     /// The files a service (Services submenu) may work on: the local selection.
     var servicesURLs: () -> [URL] = { [] }
 
@@ -143,6 +151,8 @@ final class ListerViewController: NSViewController {
     let treeController = FolderTreeController()
     var splitView: NSSplitView?
     fileprivate var didPlaceTree = false
+    /// The extraction that feeds the open Quick Look panel; stopped when the selection moves on.
+    var archiveQuickLookToken: CancelToken?
     /// Opens the folder under a dragged file after a moment (Settings: spring-loaded folders).
     let springLoader = SpringLoader()
     /// Is the directory tree beside the list? New listers start like the last one you set.
@@ -184,7 +194,8 @@ final class ListerViewController: NSViewController {
     override func loadView() {
         let root = ListerDropView(frame: NSRect(x: 0, y: 0, width: 680, height: 440))
         root.dropOperation = { [weak self] in self?.dropOperation(for: $0, row: -1, operation: .above) ?? [] }
-        root.performDrop = { [weak self] in self?.performDrop($0, row: -1, operation: .above) ?? false }
+        root.performDrop = { [weak self] in self?.springLoader.cancel(); return self?.performDrop($0, row: -1, operation: .above) ?? false }
+        root.onDragEnd = { [weak self] in self?.springLoader.cancel() }
 
         let pathBar = NSHostingView(rootView: PathBarView(model: model,
                                                           onToggleRole: { [weak self] in self?.toggleRole($0) },
@@ -392,6 +403,7 @@ final class ListerViewController: NSViewController {
         tableView.target = self
         tableView.doubleAction = #selector(rowDoubleClicked)
         tableView.keyHandler = { [weak self] in self?.handleKey($0) ?? false }
+        tableView.onDragEnd = { [weak self] in self?.springLoader.cancel() }
 
         // Right-click on the header chooses the columns.
         columnMenu.delegate = self
@@ -455,7 +467,7 @@ final class ListerViewController: NSViewController {
             if isRemote { refreshRemoteQuickLook() }
             else {
                 let files = selectedItems.filter { !$0.isDirectory }.map(\.url)
-                materialized(files) { QLPreviewPanel.shared()?.reloadData() }
+                materialized(files, token: freshQuickLookToken()) { QLPreviewPanel.shared()?.reloadData() }
             }
         }
     }
@@ -493,6 +505,12 @@ final class ListerViewController: NSViewController {
     private func openSelection() {
         let items = selectedItems
         if items.count == 1 { open(items[0]); return }
+        // files inside an archive come out together (one pass, one question about the password), then each is opened
+        let files = items.filter { !$0.isNavigable }.map(\.url)
+        if ArchiveBrowser.shared.needsMaterialization(files) {
+            materialized(files) { [weak self] in self?.openSelection() }
+            return
+        }
         for item in items {
             if item.isNavigable {
                 ListerManager.shared.openLister(directory: item.url, anchor: .cascade(from: view.window))
@@ -599,7 +617,7 @@ final class ListerViewController: NSViewController {
         } else {
             // files inside an archive are taken out first, then the panel shows them
             let files = selectedItems.filter { !$0.isDirectory }.map(\.url)
-            materialized(files) { QLPreviewPanel.shared()?.makeKeyAndOrderFront(nil) }
+            materialized(files, token: freshQuickLookToken()) { QLPreviewPanel.shared()?.makeKeyAndOrderFront(nil) }
         }
     }
 
@@ -657,10 +675,16 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
         // files on a server cannot be dragged out yet (they would have to be downloaded first)
         guard rows.indices.contains(row), !isRemote else { return nil }
         let url = rows[row].url
-        // a drag cannot wait: what is still inside an archive is taken out now, unless it is too much for that
-        if ArchiveBrowser.shared.needsMaterialization([url]) {
-            if ArchiveBrowser.shared.pendingBytes([url]) > 100_000_000 || !ArchiveBrowser.shared.materializeNow([url]) {
+        // a drag cannot wait: what is still inside an archive is taken out now (all selected rows in one pass, the first
+        // time this is asked for), unless it is too much for that
+        let dragged = tableView.selectedRowIndexes.contains(row) ? selectedItems.map(\.url) : [url]
+        if ArchiveBrowser.shared.needsMaterialization(dragged) {
+            if ArchiveBrowser.shared.pendingBytes(dragged) > 100_000_000 {
                 flash(tr("This is too big to drag out of an archive: use Copy instead"))
+                return nil
+            }
+            if let failure = ArchiveBrowser.shared.materializeNow(dragged) {
+                flash(failure.message)
                 return nil
             }
         }
@@ -714,7 +738,8 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
 
     func tableView(_ tableView: NSTableView, acceptDrop info: NSDraggingInfo,
                    row: Int, dropOperation: NSTableView.DropOperation) -> Bool {
-        performDrop(info, row: row, operation: dropOperation)
+        springLoader.cancel()
+        return performDrop(info, row: row, operation: dropOperation)
     }
 
     // Cell construction
@@ -942,6 +967,11 @@ extension ListerViewController {
     /// folder of `sourceModel` when no destination is set.
     func extractArchives(_ archives: [URL], from sourceModel: ListerModel) {
         let manager = ListerManager.shared
+        // an archive inside an archive has to come out of the outer one first
+        if ArchiveBrowser.shared.needsMaterialization(archives) {
+            materialized(archives) { [weak self] in self?.extractArchives(archives, from: sourceModel) }
+            return
+        }
         model.errorMessage = nil
         let targetModel = manager.destinationController?.model ?? sourceModel
         // Archives are unpacked with local tools into a local folder: not from or onto a server, nor into a list.
@@ -1336,7 +1366,7 @@ extension ListerViewController: NSMenuDelegate {
             menu.addItem(.separator())
         }
 
-        if !model.isVirtual && !isRemote {
+        if !model.isVirtual && !isRemote && !model.isInArchive {
             add(tr("Snapshot This Folder"), to: lister) { [weak self] in self?.snapshotFolder() }
             if hasSnapshot { add(tr("Forget Snapshot"), to: lister) { [weak self] in self?.forgetSnapshot() } }
         }

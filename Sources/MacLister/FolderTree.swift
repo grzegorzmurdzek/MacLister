@@ -44,9 +44,16 @@ final class TreeNode: NSObject {
 
 /// The directory tree beside the file list: the home folder and every volume, folders only.
 /// Choosing a folder shows it in the lister; the tree follows the lister; folders accept dropped files.
+/// The outline view of the tree; tells when a drag over it ends or leaves.
+final class TreeOutlineView: NSOutlineView {
+    var onDragEnd: (() -> Void)?
+    override func draggingExited(_ sender: NSDraggingInfo?) { onDragEnd?(); super.draggingExited(sender) }
+    override func draggingEnded(_ sender: NSDraggingInfo) { onDragEnd?(); super.draggingEnded(sender) }
+}
+
 final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate {
     let scrollView = NSScrollView()
-    private let outline = NSOutlineView()
+    private let outline = TreeOutlineView()
     private(set) var roots: [TreeNode] = []
     var showHidden = false
     /// The user chose a folder.
@@ -80,6 +87,7 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
         outline.indentationPerLevel = 12
         outline.dataSource = self
         outline.delegate = self
+        outline.onDragEnd = { [weak self] in self?.springLoader.cancel() }
         outline.registerForDraggedTypes([.fileURL])
         outline.draggingDestinationFeedbackStyle = .regular
         scrollView.documentView = outline
@@ -265,6 +273,7 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
     }
 
     func outlineView(_ outlineView: NSOutlineView, acceptDrop info: NSDraggingInfo, item: Any?, childIndex index: Int) -> Bool {
+        springLoader.cancel()
         guard let node = item as? TreeNode else { return false }
         let urls = ListerViewController.droppedURLs(from: info.draggingPasteboard)
         let operation = ListerViewController.dragOperation(for: urls, into: node.url, modifiers: NSEvent.modifierFlags, sourceMask: info.draggingSourceOperationMask)

@@ -7,7 +7,7 @@ struct ArchiveIndex {
     private(set) var children: [String: [String]] = [:]          // parent path ("" is the top) → paths of its children
 
     init(_ list: [ArchiveReader.Entry]) {
-        for item in list { entries[item.path] = item }
+        for item in list where entries[item.path] == nil { entries[item.path] = item }          // the first one, as extraction takes it
         for path in Array(entries.keys) {                           // a folder that has no entry of its own is made up
             var parent = Self.parent(of: path)
             while !parent.isEmpty, entries[parent] == nil {
@@ -29,6 +29,14 @@ struct ArchiveIndex {
         guard let entry = entries[path] else { return [] }
         if !entry.isDirectory { return [entry] }
         return (children[path] ?? []).flatMap { files(under: $0) }
+    }
+
+    /// The entry at `path` (a file) or everything below it (folders and files).
+    func everything(under path: String) -> [ArchiveReader.Entry] {
+        if path.isEmpty { return (children[""] ?? []).flatMap { everything(under: $0) } }
+        guard let entry = entries[path] else { return [] }
+        if !entry.isDirectory { return [entry] }
+        return [entry] + (children[path] ?? []).flatMap { everything(under: $0) }
     }
 
     var hasEncryptedFiles: Bool { entries.values.contains { $0.encrypted } }
@@ -58,10 +66,16 @@ final class ArchiveBrowser {
         let archive: URL
         let root: URL
         let index: ArchiveIndex?                    // nil: the archive was unpacked completely
-        var passphrase: String?
+        private let passphraseLock = NSLock()
+        private var storedPassphrase: String?
+        /// Read on the extraction queue, set from the main queue and from the opening queue: one lock for all.
+        var passphrase: String? {
+            get { passphraseLock.lock(); defer { passphraseLock.unlock() }; return storedPassphrase }
+            set { passphraseLock.lock(); storedPassphrase = newValue; passphraseLock.unlock() }
+        }
         let queue = DispatchQueue(label: "maclister.archive", qos: .userInitiated)
         init(archive: URL, root: URL, index: ArchiveIndex?, passphrase: String?) {
-            self.archive = archive; self.root = root; self.index = index; self.passphrase = passphrase
+            self.archive = archive; self.root = root; self.index = index; self.storedPassphrase = passphrase
         }
     }
 
@@ -119,6 +133,7 @@ final class ArchiveBrowser {
             self.lock.unlock()
             if let existing, existing.index != nil || ArchiveReader.isAvailable == false {
                 if let passphrase { existing.passphrase = passphrase }
+                if !fm.fileExists(atPath: root.path) { try? fm.createDirectory(at: root, withIntermediateDirectories: true) }     // cleaned away meanwhile
                 DispatchQueue.main.async { completion(.success(root)) }
                 return
             }
@@ -202,6 +217,11 @@ final class ArchiveBrowser {
                 continue
             }
             if fm.fileExists(atPath: url.path) { continue }
+            if child.size == 0 {                    // nothing to take out later: the real, empty file
+                fm.createFile(atPath: url.path, contents: nil, attributes: [.posixPermissions: Int((child.mode | 0o600) & 0o777)])
+                if let date = child.modified { try? fm.setAttributes([.modificationDate: date], ofItemAtPath: url.path) }
+                continue
+            }
             fm.createFile(atPath: url.path, contents: nil, attributes: [.posixPermissions: 0o644])
             if child.size > 0, let handle = try? FileHandle(forWritingTo: url) {
                 try? handle.truncate(atOffset: UInt64(child.size))
@@ -214,68 +234,89 @@ final class ArchiveBrowser {
         }
     }
 
-    /// Paths (inside the archive) of the files below these URLs that still have to be taken out of the archive.
-    private func pendingFiles(_ urls: [URL]) -> [(mount: Mount, paths: [String])] {
-        var byMount: [String: (Mount, Set<String>)] = [:]
+    /// What below these URLs is not really there yet: files still only placeholders or missing, empty files, folders.
+    private func pendingEntries(_ urls: [URL]) -> [(mount: Mount, entries: [ArchiveReader.Entry])] {
+        var byMount: [String: (Mount, [String: ArchiveReader.Entry])] = [:]
+        let fm = FileManager.default
         for url in urls {
             guard let (mount, inner) = mount(for: url), let index = mount.index else { continue }
-            for file in index.files(under: inner.joined(separator: "/")) where file.size > 0 {
-                let path = mount.root.appendingPathComponent(file.path).path
-                if !FileManager.default.fileExists(atPath: path) || Self.hasPlaceholderMark(path) {
-                    byMount[mount.root.path, default: (mount, [])].1.insert(file.path)
+            for entry in index.everything(under: inner.joined(separator: "/")) {
+                let path = mount.root.appendingPathComponent(entry.path).path
+                let missing = !fm.fileExists(atPath: path)
+                if missing || (!entry.isDirectory && entry.size > 0 && Self.hasPlaceholderMark(path)) {
+                    byMount[mount.root.path, default: (mount, [:])].1[entry.path] = entry
                 }
             }
         }
-        return byMount.values.map { ($0.0, Array($0.1)) }
+        return byMount.values.map { ($0.0, Array($0.1.values)) }
     }
 
-    /// Is any of these files (or a file in these folders) still only a placeholder?
-    func needsMaterialization(_ urls: [URL]) -> Bool { !pendingFiles(urls).isEmpty }
+    /// Is any of these files (or something in these folders) still only in the archive?
+    func needsMaterialization(_ urls: [URL]) -> Bool { !pendingEntries(urls).isEmpty }
 
     /// Total size of what still has to be taken out of the archive for these URLs.
     func pendingBytes(_ urls: [URL]) -> Int64 {
-        pendingFiles(urls).reduce(0) { total, group in
-            total + group.paths.reduce(0) { $0 + (group.mount.index?.entries[$1]?.size ?? 0) }
+        pendingEntries(urls).reduce(0) { total, group in total + group.entries.reduce(0) { $0 + $1.size } }
+    }
+
+    /// Folders are made here (the archive may not even have an entry for them); the files are what is read.
+    private func prepare(_ group: (mount: Mount, entries: [ArchiveReader.Entry])) -> Set<String> {
+        let fm = FileManager.default
+        var files = Set<String>()
+        for entry in group.entries.sorted(by: { $0.path.count < $1.path.count }) {
+            let url = group.mount.root.appendingPathComponent(entry.path, isDirectory: entry.isDirectory)
+            if entry.isDirectory {
+                try? fm.createDirectory(at: url, withIntermediateDirectories: true)
+                if let date = entry.modified { try? fm.setAttributes([.modificationDate: date], ofItemAtPath: url.path) }
+            } else {
+                files.insert(entry.path)
+            }
         }
+        return files
     }
 
     /// Takes the files out of the archive into the cache folder (replacing the placeholders); main queue.
     func materialize(_ urls: [URL], cancel: CancelToken? = nil, progress: ((Int64) -> Void)? = nil,
                      completion: @escaping (Result<Void, ArchiveReader.Failure>) -> Void) {
-        let work = pendingFiles(urls)
+        let work = pendingEntries(urls)
         guard !work.isEmpty else { completion(.success(())); return }
         DispatchQueue.global(qos: .userInitiated).async {
             var finished: Int64 = 0
-            for (mount, paths) in work {
-                var outcome: Result<Void, ArchiveReader.Failure> = .success(())
-                mount.queue.sync {
-                    let base = finished
-                    switch ArchiveReader.extract(mount.archive, wanting: Set(paths), to: mount.root, passphrase: mount.passphrase,
-                                                 cancel: cancel, progress: { done in
-                        DispatchQueue.main.async { progress?(base + done) }
-                    }) {
-                    case .success: break
-                    case .failure(let failure): outcome = .failure(failure)
+            for group in work {
+                let files = self.prepare(group)
+                let size = group.entries.reduce(0) { $0 + $1.size }
+                if !files.isEmpty {
+                    var outcome: Result<Void, ArchiveReader.Failure> = .success(())
+                    group.mount.queue.sync {
+                        let base = finished
+                        if case .failure(let failure) = ArchiveReader.extract(group.mount.archive, wanting: files, to: group.mount.root,
+                                                                              passphrase: group.mount.passphrase, cancel: cancel,
+                                                                              progress: { done in DispatchQueue.main.async { progress?(base + done) } }) {
+                            outcome = .failure(failure)
+                        }
                     }
+                    if case .failure = outcome { DispatchQueue.main.async { completion(outcome) }; return }
                 }
-                if case .failure = outcome { DispatchQueue.main.async { completion(outcome) }; return }
-                finished += paths.reduce(0) { $0 + (mount.index?.entries[$1]?.size ?? 0) }
+                finished += size
             }
             DispatchQueue.main.async { completion(.success(())) }
         }
     }
 
-    /// Synchronous variant (a drag out of the list cannot wait).
-    func materializeNow(_ urls: [URL]) -> Bool {
-        let work = pendingFiles(urls)
-        for (mount, paths) in work {
-            var ok = false
-            mount.queue.sync {
-                if case .success = ArchiveReader.extract(mount.archive, wanting: Set(paths), to: mount.root, passphrase: mount.passphrase) { ok = true }
+    /// Synchronous variant (a drag out of the list cannot wait); nil when it worked.
+    func materializeNow(_ urls: [URL]) -> ArchiveReader.Failure? {
+        for group in pendingEntries(urls) {
+            let files = prepare(group)
+            guard !files.isEmpty else { continue }
+            var failure: ArchiveReader.Failure?
+            group.mount.queue.sync {
+                if case .failure(let found) = ArchiveReader.extract(group.mount.archive, wanting: files, to: group.mount.root, passphrase: group.mount.passphrase) {
+                    failure = found
+                }
             }
-            if !ok { return false }
+            if let failure { return failure }
         }
-        return true
+        return nil
     }
 
     func setPassphrase(_ passphrase: String, for url: URL) {
@@ -406,12 +447,19 @@ extension ListerViewController {
 
     // MARK: Taking files out when they are needed
 
+    /// A new token for the extraction behind Quick Look; the one before it is cancelled (the selection moved on).
+    func freshQuickLookToken() -> CancelToken {
+        archiveQuickLookToken?.cancel()
+        let token = CancelToken()
+        archiveQuickLookToken = token
+        return token
+    }
+
     /// Runs `then` once the files at `urls` are really there: at once for anything outside an archive or already taken
     /// out, otherwise after they have been extracted (with progress, Cancel and a password question when needed).
-    func materialized(_ urls: [URL], attempt: Int = 1, then: @escaping () -> Void) {
+    func materialized(_ urls: [URL], attempt: Int = 1, token: CancelToken = CancelToken(), then: @escaping () -> Void) {
         guard ArchiveBrowser.shared.needsMaterialization(urls) else { then(); return }
         let total = max(1, ArchiveBrowser.shared.pendingBytes(urls))
-        let token = CancelToken()
         let text = tr("Taking files out of the archive…")
         model.progress = TransferStatus(text: text, fraction: 0, cancel: { token.cancel() })
         ArchiveBrowser.shared.materialize(urls, cancel: token, progress: { [weak self] done in
@@ -428,7 +476,7 @@ extension ListerViewController {
                 let archive = urls.first.flatMap { ArchiveBrowser.shared.location(of: $0)?.archive } ?? URL(fileURLWithPath: "/")
                 if let entered = self.askPassphrase(for: archive, wrong: failure == .wrongPassphrase) {
                     urls.forEach { ArchiveBrowser.shared.setPassphrase(entered, for: $0) }
-                    self.materialized(urls, attempt: attempt + 1, then: then)
+                    self.materialized(urls, attempt: attempt + 1, token: token, then: then)
                 }
             case .failure(let failure): self.model.errorMessage = failure.message
             }

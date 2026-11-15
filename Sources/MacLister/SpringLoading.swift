@@ -17,6 +17,8 @@ final class SpringLoader {
 
     init(delay: TimeInterval = Settings.springLoadedDelay) { self.delay = delay }
 
+    deinit { timer?.invalidate() }
+
     /// Called for every drag update over a folder; `open` runs once when the folder has been hovered long enough.
     func hover<Key: Hashable>(_ key: Key, open: @escaping () -> Void) {
         guard Settings.springLoadedFolders else { return }

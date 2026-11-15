@@ -520,7 +520,7 @@ enum SelfTestFeatures {
             check((try? String(contentsOf: top, encoding: .utf8)) != "top", "the placeholder holds no data yet")
             check(ArchiveBrowser.shared.indexedSize(of: root) == 9 && FolderSize.total(of: root) == 9, "sizes come from the list: \(ArchiveBrowser.shared.indexedSize(of: root) ?? -1)")
             check(ArchiveBrowser.shared.indexedNames(in: root) == ["folderX", "root.txt"], "the list says what is in the folder: \(ArchiveBrowser.shared.indexedNames(in: root) ?? [])")
-            check(ArchiveBrowser.shared.materializeNow([top]), "a file can be taken out of the archive")
+            check(ArchiveBrowser.shared.materializeNow([top]) == nil, "a file can be taken out of the archive")
             check((try? String(contentsOf: top, encoding: .utf8)) == "top" && !ArchiveBrowser.shared.needsMaterialization([top]), "it then holds the real data")
             let folder = root.appendingPathComponent("folderX")
             ArchiveBrowser.shared.populate(folder)
@@ -533,6 +533,30 @@ enum SelfTestFeatures {
                 check(done && (try? String(contentsOf: folder.appendingPathComponent("inner.txt"), encoding: .utf8)) == "inside" && !ArchiveBrowser.shared.needsMaterialization([folder]),
                       "a whole folder can be taken out in one go")
             }
+        }
+        // empty files and empty folders of a folder nobody opened are not lost when it is copied out
+        let emptySource = root.appendingPathComponent("EmptySource")
+        try? fm.createDirectory(at: emptySource.appendingPathComponent("Box/inner/deeper"), withIntermediateDirectories: true)
+        fm.createFile(atPath: emptySource.appendingPathComponent("Box/blank.txt").path, contents: nil, attributes: [.posixPermissions: 0o755])
+        fm.createFile(atPath: emptySource.appendingPathComponent("Box/inner/nothing.sh").path, contents: nil, attributes: [.posixPermissions: 0o755])
+        let emptyZip = zipHome.appendingPathComponent("empties.zip")
+        do {
+            let tar = Process()
+            tar.executableURL = URL(fileURLWithPath: "/usr/bin/bsdtar")
+            tar.arguments = ["-a", "-cf", emptyZip.path, "-C", emptySource.path, "Box"]
+            try? tar.run(); tar.waitUntilExit()
+        }
+        var emptyRoot: URL?
+        later(0.3) { ArchiveBrowser.shared.open(emptyZip) { result in if case .success(let root) = result { emptyRoot = root } } }
+        later(0.8) {
+            guard let root = emptyRoot else { check(false, "the archive with only empty things opened"); return }
+            ArchiveBrowser.shared.populate(root)
+            let box = root.appendingPathComponent("Box")
+            check(ArchiveBrowser.shared.needsMaterialization([box]), "a folder with only empty files and folders still needs taking out")
+            check(ArchiveBrowser.shared.materializeNow([box]) == nil, "taking it out works")
+            check(fm.fileExists(atPath: box.appendingPathComponent("blank.txt").path) && fm.fileExists(atPath: box.appendingPathComponent("inner/nothing.sh").path)
+                  && fm.fileExists(atPath: box.appendingPathComponent("inner/deeper").path), "empty files and folders are there")
+            check(!ArchiveBrowser.shared.needsMaterialization([box]), "and nothing is left to take out")
         }
         // a password-protected ZIP: names are listed, the files need the password
         let secretZip = zipHome.appendingPathComponent("secret.zip")
