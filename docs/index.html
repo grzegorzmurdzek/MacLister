@@ -58,6 +58,13 @@ header.nav { position: sticky; top: 0; z-index: 5; backdrop-filter: blur(16px); 
 .shot .play { position: absolute; right: 14px; bottom: 14px; padding: 6px 13px; border-radius: 999px; border: 0; cursor: pointer;
               font-family: inherit; font-size: 13px; font-weight: 600; line-height: 1.2; color: #fff; background: rgba(20, 22, 40, .55); backdrop-filter: blur(6px); opacity: .75; }
 .shot .play:hover, .shot .play:focus-visible { opacity: 1; }
+.shot video { cursor: pointer; }
+/* paused (the default): a large Play button in the middle of the picture */
+.shot .play[aria-pressed="true"] { right: auto; bottom: auto; left: 50%; top: 50%; transform: translate(-50%, -50%);
+              padding: 14px 26px 14px 22px; font-size: 18px; opacity: .95; background: rgba(20, 22, 40, .6);
+              box-shadow: 0 10px 30px rgba(0, 0, 0, .25); }
+.shot .play[aria-pressed="true"]::before { content: "▶"; margin-right: 10px; }
+.shot .play[aria-pressed="true"]:hover { transform: translate(-50%, -50%) scale(1.05); }
 
 section { padding: 64px 0 8px; }
 h2 { font-size: clamp(28px, 4vw, 40px); letter-spacing: -.01em; margin: 0 0 8px; text-align: center; }
@@ -143,8 +150,8 @@ html[lang="en"] [data-l="en"], html[lang="pl"] [data-l="pl"] { display: revert; 
            aria-label="MacLister in 40 seconds: a lister opens where you double-click the desktop, copying between source and destination, drag and drop, archives opened like folders, find and synchronize, many listers, the folder tree, light and dark, custom buttons">
       <img src="screenshots/lister-pair.jpg" alt="Two MacLister listers: Projects as the source with three files selected, a NAS as the destination, a copy in progress">
     </video>
-    <button class="play" id="demo-toggle" type="button" aria-pressed="false">
-      <span data-l="en">Pause</span><span data-l="pl">Pauza</span>
+    <button class="play" id="demo-toggle" type="button" aria-pressed="true">
+      <span data-l="en">Play</span><span data-l="pl">Odtwórz</span>
     </button>
   </div>
 </div>
@@ -281,11 +288,10 @@ function setLang(l) {
   setVideoLang(l);
 }
 
-// the demo video: the language of the page, plays by itself unless the visitor asked for less motion
+// the demo video: the language of the page; it waits for the visitor to press Play
 const demo = document.getElementById('demo');
 const demoToggle = document.getElementById('demo-toggle');
-const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-let demoPaused = calm;
+let demoPaused = true;
 function showDemoState() {
   demoToggle.setAttribute('aria-pressed', demoPaused);
   demoToggle.querySelector('[data-l="en"]').textContent = demoPaused ? 'Play' : 'Pause';
@@ -300,11 +306,13 @@ function setVideoLang(l) {
   }
   if (!demoPaused) demo.play().catch(() => {});
 }
-demoToggle.addEventListener('click', () => {
+function toggleDemo() {
   demoPaused = !demoPaused;
   if (demoPaused) demo.pause(); else demo.play().catch(() => {});
   showDemoState();
-});
+}
+demoToggle.addEventListener('click', toggleDemo);
+demo.addEventListener('click', toggleDemo);
 showDemoState();
 let saved = null; try { saved = localStorage.getItem('lang'); } catch (e) {}
 setLang(saved || ((navigator.language || '').toLowerCase().startsWith('pl') ? 'pl' : 'en'));
