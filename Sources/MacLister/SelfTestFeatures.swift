@@ -1109,6 +1109,42 @@ enum SelfTestFeatures {
             } else { check(false, "a.txt row for the menu test") }
             vc.populate(menu, selection: [])
             check(menu.flatTitles.contains("Select by Attributes…"), "empty-area menu offers Select by Attributes")
+
+            // Open in New Lister: only for a single folder (a fresh one: "big" has been moved away by now)
+            let newListerFolder = dirA.appendingPathComponent("zz-newlister")
+            try? fm.createDirectory(at: newListerFolder, withIntermediateDirectories: true)
+            one.model.reload()
+        }
+        later {
+            let menu = NSMenu()
+            let newListerFolder = dirA.appendingPathComponent("zz-newlister")
+            if let folderItem = one.model.items.first(where: { $0.name == "zz-newlister" }),
+               let fileItem = one.model.items.first(where: { !$0.isNavigable }) {
+                vc.populate(menu, selection: [fileItem])
+                check(!menu.flatTitles.contains("Open in New Lister"), "a file's menu has no Open in New Lister")
+                vc.populate(menu, selection: [folderItem, fileItem])
+                check(!menu.flatTitles.contains("Open in New Lister"), "a mixed selection has no Open in New Lister")
+                vc.populate(menu, selection: [])
+                check(!menu.flatTitles.contains("Open in New Lister"), "the empty-area menu has no Open in New Lister")
+                vc.populate(menu, selection: [folderItem])
+                vc.select(urls: [folderItem.url])
+                if let item = menu.items.first(where: { $0.title == "Open in New Lister" }) {
+                    let countBefore = manager.openCount
+                    let hiddenBefore = one.model.showHidden
+                    (item.target as? ListerViewController)?.perform(item.action!, with: item)
+                    check(manager.openCount == countBefore + 1, "Open in New Lister adds a lister")
+                    if let created = manager.allControllers.last, created !== one {
+                        check(created.model.url.standardizedFileURL == folderItem.url.standardizedFileURL, "the new lister shows the chosen folder: \(created.model.url.path)")
+                        check(created.model.showHidden == hiddenBefore && created.model.sortKey == one.model.sortKey, "the new lister inherits the sort and hidden-files settings")
+                        check(created.model.filter.isEmpty, "the new lister starts without a filter")
+                        check(one.model.url.standardizedFileURL == dirA.standardizedFileURL, "the original lister stays where it was")
+                        created.close()
+                    } else { check(false, "the new lister exists") }
+                } else { check(false, "a folder's menu offers Open in New Lister: \(menu.flatTitles)") }
+                vc.selectNoRows()
+            } else { check(false, "a folder and a file row for the Open in New Lister test: \(one.model.items.map(\.name))") }
+            try? fm.removeItem(at: newListerFolder)
+            one.model.reload()
         }
         // configurable columns
         let originalColumns = ColumnSettings.visible.filter { $0 != .name }
