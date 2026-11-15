@@ -109,7 +109,7 @@ Potem:
 | **Compare** | zaznacza w obu listerach elementy, których brakuje po drugiej stronie albo które się różnią (rozmiar / nowsze) |
 | **Synchronize…** | porównuje oba foldery razem ze wszystkim pod nimi i pokazuje listę tego, co zostanie skopiowane (albo trafi do Kosza); zaznaczasz, co wykonać |
 | **Swap** | zamienia role miejscami |
-| **Open in New Lister** | menu kontekstowe: otwiera zaznaczony folder w nowym listerze obok bieżącego |
+| **Open in New Lister** | menu kontekstowe albo **Shift + dwuklik** na folderze: otwiera go w nowym listerze obok bieżącego |
 | **Open in Destination** | menu kontekstowe: pokazuje zaznaczony folder w liście docelowym |
 
 Gdy żaden lister nie jest oznaczony jako SRC, źródłem jest ten, w którym wciśnięto przycisk.

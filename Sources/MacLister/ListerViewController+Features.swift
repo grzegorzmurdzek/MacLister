@@ -211,9 +211,18 @@ extension ListerViewController {
 
     /// Opens the selected folder in a new lister.
     func openFolderInNewLister() {
-        guard let controller = view.window?.windowController as? ListerWindowController,
-              selectedItems.count == 1, selectedItems[0].isNavigable else { return }
-        ListerManager.shared.openFolder(selectedItems[0].url, inNewListerFrom: controller)
+        guard selectedItems.count == 1 else { return }
+        openInNewLister(selectedItems[0])
+    }
+
+    /// Whether `item` is a folder that can open in a lister of its own (not on a server, in an archive or in a virtual place).
+    func canOpenInNewLister(_ item: FileItem) -> Bool {
+        item.isNavigable && !isRemote && !model.isInArchive && item.url.scheme != VirtualPlace.scheme
+    }
+
+    func openInNewLister(_ item: FileItem) {
+        guard canOpenInNewLister(item), let controller = view.window?.windowController as? ListerWindowController else { return }
+        ListerManager.shared.openFolder(item.url, inNewListerFrom: controller)
     }
 
     func addBookmark() {

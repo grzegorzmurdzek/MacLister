@@ -1140,6 +1140,17 @@ enum SelfTestFeatures {
                         check(one.model.url.standardizedFileURL == dirA.standardizedFileURL, "the original lister stays where it was")
                         created.close()
                     } else { check(false, "the new lister exists") }
+                    // Shift + double-click does the same; a plain double-click goes into the folder
+                    if let row = one.listerViewController?.rows.firstIndex(where: { $0.url == folderItem.url }) {
+                        let before = manager.openCount
+                        vc.activateRow(row, inNewLister: true)
+                        check(manager.openCount == before + 1, "Shift + double-click on a folder opens a new lister")
+                        if let shifted = manager.allControllers.last, shifted !== one {
+                            check(shifted.model.url.standardizedFileURL == folderItem.url.standardizedFileURL && one.model.url.standardizedFileURL == dirA.standardizedFileURL,
+                                  "the new lister shows the folder and the original stays")
+                            shifted.close()
+                        }
+                    } else { check(false, "the folder row for Shift + double-click") }
                 } else { check(false, "a folder's menu offers Open in New Lister: \(menu.flatTitles)") }
                 vc.selectNoRows()
             } else { check(false, "a folder and a file row for the Open in New Lister test: \(one.model.items.map(\.name))") }

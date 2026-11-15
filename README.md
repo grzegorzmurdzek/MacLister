@@ -106,7 +106,7 @@ Then:
 | **Compare** | selects, in both listers, items that are missing on the other side or differ (size / newer) |
 | **Synchronize…** | compares the two folders including everything below them and shows a list of what would be copied (or sent to the Trash); you tick what to do |
 | **Swap** | exchanges the roles |
-| **Open in New Lister** | context menu: opens the selected folder in a new lister beside this one |
+| **Open in New Lister** | context menu, or **Shift + double-click** on a folder: opens it in a new lister beside this one |
 | **Open in Destination** | context menu: shows the selected folder in the destination lister |
 
 If no lister is marked SRC, the lister whose button you pressed is the source.

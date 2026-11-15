@@ -475,9 +475,18 @@ final class ListerViewController: NSViewController {
     // MARK: - Opening
 
     @objc private func rowDoubleClicked() {
-        let row = tableView.clickedRow
+        activateRow(tableView.clickedRow, inNewLister: NSEvent.modifierFlags.contains(.shift))
+    }
+
+    /// A double-click on a row. With Shift a folder opens in a new lister instead (as in Directory Opus).
+    func activateRow(_ row: Int, inNewLister: Bool) {
         guard rows.indices.contains(row) else { return }   // header click
-        open(rows[row])
+        let item = rows[row]
+        if inNewLister, canOpenInNewLister(item) {
+            openInNewLister(item)
+        } else {
+            open(item)
+        }
     }
 
     func open(_ item: FileItem) {
