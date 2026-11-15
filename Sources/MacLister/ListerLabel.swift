@@ -29,6 +29,8 @@ enum LabelPalette {
 struct ListerLabelView: View {
     let initialName: String
     let initialColor: String?
+    /// The lister is a tab: the name is what its tab shows (instead of the folder's name).
+    var forTab = false
     var onApply: (_ name: String, _ color: String?) -> Void
     var close: () -> Void
 
@@ -38,9 +40,15 @@ struct ListerLabelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Name This Lister").font(.title3.bold())
-            Text("A short name helps you tell listers apart, for example “NAS” or “Backup”. It shows in the window title, next to the path and where you pick a destination.")
-                .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            if forTab {
+                Text("Name This Tab").font(.title3.bold())
+                Text("The tab shows this name instead of the folder's name, also when you go to another folder. It shows in the window title and where you pick a destination too. Leave it empty for the folder's name.")
+                    .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text("Name This Lister").font(.title3.bold())
+                Text("A short name helps you tell listers apart, for example “NAS” or “Backup”. It shows in the window title, next to the path and where you pick a destination.")
+                    .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
 
             TextField("Name (optional)", text: $name)
                 .textFieldStyle(.roundedBorder)
@@ -57,7 +65,7 @@ struct ListerLabelView: View {
 
             HStack {
                 if !initialName.isEmpty || initialColor != nil {
-                    Button("Remove Name") { onApply("", nil); close() }
+                    Button(forTab ? "Use the Folder's Name" : "Remove Name") { onApply("", nil); close() }
                 }
                 Spacer()
                 Button("Cancel", role: .cancel) { close() }.keyboardShortcut(.cancelAction)
@@ -96,11 +104,19 @@ struct ListerLabelView: View {
 }
 
 extension ListerViewController {
+    /// Whether this lister shares its window with other tabs.
+    var isTab: Bool {
+        guard let controller = view.window?.windowController as? ListerWindowController else { return false }
+        return ListerManager.shared.tabs(of: controller).count > 1
+    }
+
+    /// Name This Lister… / Name This Tab…: the same name, shown in the title, the tab and the menus.
     func promptLabel() {
         guard let window = view.window else { return }
         let initialName = model.label, initialColor = model.labelColor
-        SheetPresenter().present(on: window, size: NSSize(width: 400, height: 280)) { close in
-            ListerLabelView(initialName: initialName, initialColor: initialColor, onApply: { [weak self] name, color in
+        let forTab = isTab
+        SheetPresenter().present(on: window, size: NSSize(width: 400, height: forTab ? 300 : 280)) { close in
+            ListerLabelView(initialName: initialName, initialColor: initialColor, forTab: forTab, onApply: { [weak self] name, color in
                 self?.model.setLabel(name, color: color)
             }, close: close)
         }

@@ -157,7 +157,9 @@ nie da się wyczyścić ani zamienić, dopóki nie odblokujesz.
 | ⌘B | dodaj bieżący folder do zakładek |
 | ⌘⇧. | pokaż lub ukryj pliki ukryte |
 | ⌘⇧L | wynieś wszystkie listery na wierzch |
-| ⌘W | zamknij lister |
+| ⌘W | zamknij lister (z kartami: kartę) |
+| ⌘T | nowa karta z tym folderem (gdy karty są włączone, zob. [Karty](#karty)) |
+| ⌃Tab / ⌃⇧Tab, ⇧⌘] / ⇧⌘[ | następna / poprzednia karta |
 | ⌘Z | cofnij ostatnie kopiowanie, przeniesienie, duplikowanie lub wyrzucenie do Kosza (w tej sesji) |
 | Tab / ⇧Tab | przejdź do następnego / poprzedniego listera |
 
@@ -209,7 +211,7 @@ W wielu laptopach klawisze F wymagają **fn**.
   otwiera, otwieranie zapisanego układu przy starcie, listery na wszystkich pulpitach, ikona w Docku, aplikacja
   terminala dla *Terminal Here*, edytor tekstu dla *New Text File*, język interfejsu.
 - **Listery** — położenie paska przycisków i etykiety, foldery nad plikami, **Edit Buttons…** / *Wczytaj ponownie* / *Przywróć…*, daty
-  względne, otwieranie archiwów jak folderów, zaznaczanie przeciąganiem od nazw plików, **Tytuł listera…**, **Keyboard Shortcuts…**, **Edit Filetypes…**.
+  względne, **karty w listerach**, otwieranie archiwów jak folderów, zaznaczanie przeciąganiem od nazw plików, **Tytuł listera…**, **Keyboard Shortcuts…**, **Edit Filetypes…**.
 - **Operacje** — jak długo przechowywany jest dziennik operacji, **Otwórz dziennik operacji…** oraz **Wyczyść ostatnie
   foldery…** / **Wyczyść dziennik operacji…** (każde najpierw prosi o potwierdzenie).
 - **Aktualizacje** — wersja, ostatnie sprawdzenie, automatyczne sprawdzanie (domyślnie wyłączone), *Sprawdź aktualizacje…*.
@@ -335,7 +337,7 @@ Plik zastępuje reguły domyślne, a zmiany są wczytywane od razu.
 ### Układy
 
 Ikona w pasku menu → **Save Layout** zapamiętuje każdy otwarty lister (folder, pozycję, rozmiar, rolę,
-sortowanie, pliki ukryte, filtr); **Restore Layout** otwiera je z powrotem. Automatyczne przywracanie przy starcie:
+sortowanie, pliki ukryte, filtr oraz to, które listery były kartami jednego okna); **Restore Layout** otwiera je z powrotem. Automatyczne przywracanie przy starcie:
 
 ```bash
 defaults write com.example.MacLister restoreLayoutAtLaunch -bool true
@@ -499,6 +501,33 @@ Findera (naciśnięcie nazwy zawsze przeciąga plik)? **Ustawienia → Listery �
 
 **Tab** przenosi klawiaturę do następnego listera (w kolejności otwarcia), **⇧Tab** do poprzedniego. Obie rzeczy są też
 akcjami (`nextLister`, `previousLister`), którym możesz przypisać inny klawisz lub przycisk.
+
+### Karty
+
+Domyślnie wyłączone: **Ustawienia → Listery → Zezwalaj na karty w listerach**. Okno listera może wtedy mieścić kilka
+folderów jako karty, jak Finder czy przeglądarka. Każda karta to pełny lister (historia, sortowanie, filtr,
+zaznaczenie, drzewo folderów), więc wszystko inne działa osobno dla każdej karty.
+
+- **⌘T** (albo **+** na końcu paska kart) otwiera bieżący folder w nowej karcie; **⌘ + dwuklik** na folderze albo
+  **Otwórz w nowej karcie** z jego menu kontekstowego otwiera w niej ten folder. Pasek kart pojawia się, gdy okno ma dwie
+  karty; karty można przeciągać, by zmienić kolejność, wyciągnąć poza okno (powstaje osobny lister) albo upuścić na
+  innym oknie.
+- **⌃Tab / ⌃⇧Tab** (albo ⇧⌘] / ⇧⌘[) przechodzą do następnej / poprzedniej karty, **⌘W** zamyka kartę. **Tab** nadal
+  przechodzi między oknami listerów i pomija karty, których nie widać.
+- **Nazwy.** Karta pokazuje nazwę swojego folderu i zmienia ją razem z nim. Prawy przycisk na karcie (albo na belce)
+  → **Karty → Nazwij tę kartę…** nadaje jej własną nazwę i kolor (kropka na karcie); nazwa zostaje, gdy karta przejdzie
+  do innego folderu. *Użyj nazwy folderu* przywraca domyślną. To ta sama nazwa co w [Nazwij ten lister…](#nazwy-listerów),
+  więc widać ją też w tytule i w *Kopiuj do „…”*.
+- **Źródło i cel należą do okna.** Źródłem albo celem może być tylko karta, którą widzisz: po przełączeniu karty rola
+  (wraz z blokadą) przechodzi na nową kartę, więc kopia nigdy nie trafi do folderu, którego nie widać. Po zamknięciu tej
+  karty rola zostaje przy karcie pokazanej jako następna. Gdy łączysz okna, które obie miały rolę, zostaje rola
+  widocznej karty.
+- Menu belki ma podmenu **Karty**: Nowa karta, Nazwij / Zmień nazwę tej karty…, Następna / Poprzednia karta,
+  **Przenieś kartę do nowego listera**, **Połącz wszystkie listery w karty**, Zamknij pozostałe karty. Lista listerów w
+  pasku menu pokazuje karty jednego okna razem, kolejne z wcięciem.
+- Akcje dla przycisków i skrótów: `newTab`, `nextTab`, `previousTab`, `moveTabToNewLister`, `mergeListers`.
+- Wyłączenie opcji robi z każdej karty z powrotem osobne okno listera. Nowe listery (dwuklik na pulpicie, *Nowy lister*)
+  zawsze otwierają się jako okna, także gdy w macOS ustawiono *Preferuj karty przy otwieraniu dokumentów* na *Zawsze*.
 
 ### Cofanie i dziennik operacji
 
@@ -673,6 +702,7 @@ i więcej, a wyniki PASS/FAIL zapisują w `~/Library/Logs/MacLister.log`:
 ```bash
 open build/MacLister.app --args --selftest
 open build/MacLister.app --args --selftest-features
+open build/MacLister.app --args --selftest-tabs
 ```
 
 Testy serwerów działają na małych lokalnych serwerach FTP/FTPS (Python ze standardowej biblioteki,

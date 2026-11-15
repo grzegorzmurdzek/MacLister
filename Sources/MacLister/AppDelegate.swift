@@ -16,6 +16,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         GlobalShortcutActions.apply()
         LegacyMigration.run()          // before anything touches buttons.json or the defaults
         Settings.registerDefaults()
+        // New listers are windows of their own even with "prefer tabs" set in System Settings; a tab comes only from ⌘T,
+        // the tab bar's + button and the other tab commands (Settings → Listers → Tabs).
+        NSWindow.allowsAutomaticWindowTabbing = false
         ButtonStore.shared.ensureConfigFileExists()
         installMainMenu()
         if Settings.showStatusItem { installStatusItem() }
@@ -47,6 +50,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         if CommandLine.arguments.contains("--selftest-ops") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestOperations.run() }
+            return
+        }
+        if CommandLine.arguments.contains("--selftest-tabs") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestTabs.run() }
             return
         }
         if CommandLine.arguments.contains("--selftest-features") {
@@ -297,7 +304,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let listerItemTag = 100
 
     /// Titles of the dynamic lister entries; the self-test reads them.
-    func listerMenuTitles() -> [String] { ListerManager.shared.allControllers.map(\.menuTitle) }
+    func listerMenuTitles() -> [String] { ListerManager.shared.menuOrder.map(\.controller.menuTitle) }
 
     /// Opens the status menu programmatically and returns its item titles (self-test).
     func statusMenuTitles() -> [String] {
@@ -340,12 +347,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// One item per open lister (click: bring it to the front), shared by the menu-bar and the Dock menus.
+    /// The tabs of one window are listed together; the later ones are indented under the first.
     private func listerMenuItems() -> [NSMenuItem] {
-        ListerManager.shared.allControllers.map { controller in
+        ListerManager.shared.menuOrder.map { controller, isTab in
             let item = NSMenuItem(title: controller.menuTitle, action: #selector(focusLister(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = controller
             item.toolTip = controller.model.url.path
+            item.indentationLevel = isTab ? 1 : 0
             item.state = controller.window?.isKeyWindow == true ? .on : .off
             if let icon = NSWorkspace.shared.icon(forFile: controller.model.url.path).copy() as? NSImage {
                 icon.size = NSSize(width: 16, height: 16)

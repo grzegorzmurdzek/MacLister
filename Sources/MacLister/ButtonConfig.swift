@@ -39,6 +39,9 @@ enum ListerAction: String, Codable, CaseIterable, Identifiable {
     case undo, showLog
     /// Moves the keyboard focus to the next / previous lister (Tab / Shift-Tab).
     case nextLister, previousLister
+    /// Tabs (Settings → Listers): a new tab on this folder, the next / previous tab, a tab out into a window of its own,
+    /// every lister window into tabs of one.
+    case newTab, nextTab, previousTab, moveTabToNewLister, mergeListers
     /// Brings every lister to the macOS desktop (Space) you are on.
     case gatherListers
     /// A thin divider between groups of buttons (no action).
@@ -225,6 +228,11 @@ extension ListerAction {
         case .showLog: return "list.bullet.rectangle.fill"
         case .nextLister: return "arrow.right.circle.fill"
         case .previousLister: return "arrow.left.circle.fill"
+        case .newTab: return "plus.square.on.square"
+        case .nextTab: return "chevron.right.square.fill"
+        case .previousTab: return "chevron.left.square.fill"
+        case .moveTabToNewLister: return "macwindow.on.rectangle"
+        case .mergeListers: return "square.stack.fill"
         case .separator: return "minus"
         }
     }
@@ -259,7 +267,8 @@ extension ListerAction {
         case .parent, .back, .toggleTree, .addBookmark, .snapshot, .forgetSnapshot, .showRecents, .showShared, .connectToServer:
             return .navigation
         case .newLister, .duplicateLister, .setSource, .setDestination, .swapSourceDestination, .toggleRoleLock, .nameLister,
-             .nextLister, .previousLister, .bringAllToFront, .gatherListers:
+             .nextLister, .previousLister, .bringAllToFront, .gatherListers,
+             .newTab, .nextTab, .previousTab, .moveTabToNewLister, .mergeListers:
             return .listers
         case .terminalHere, .shell, .separator:
             return .other

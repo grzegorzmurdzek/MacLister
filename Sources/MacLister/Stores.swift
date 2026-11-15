@@ -196,6 +196,9 @@ struct ListerSnapshot: Codable {
     var locked: Bool?
     var label: String?
     var labelColor: String?
+    /// Listers with the same number were tabs of one window (in this order); `selectedTab`: the tab that was shown.
+    var tabGroup: Int?
+    var selectedTab: Bool?
 }
 
 enum LayoutStore {
@@ -204,16 +207,23 @@ enum LayoutStore {
     /// Remembers every open lister: folder, position, size, role, sort, filter.
     @discardableResult
     static func save(from manager: ListerManager) -> Int {
-        let snapshots: [ListerSnapshot] = manager.allControllers.compactMap { controller in
+        var groups: [ObjectIdentifier: Int] = [:]
+        let snapshots: [ListerSnapshot] = manager.menuOrder.compactMap { controller, _ in
             guard let frame = controller.window?.frame, controller.model.url.isFileURL else { return nil }   // servers are not restored
             let model = controller.model
+            var tabGroup: Int?
+            if manager.tabs(of: controller).count > 1, let group = controller.window?.tabGroup {
+                tabGroup = groups[ObjectIdentifier(group)] ?? groups.count
+                groups[ObjectIdentifier(group)] = tabGroup
+            }
             let role: String
             switch model.role { case .source: role = "source"; case .destination: role = "destination"; case .none: role = "none" }
             return ListerSnapshot(path: model.url.path, x: frame.minX, y: frame.minY, width: frame.width, height: frame.height,
                                   role: role, sort: model.sortKey.rawValue, ascending: model.ascending,
                                   showHidden: model.showHidden, filter: model.filter,
                                   locked: model.roleLocked ? true : nil,
-                                  label: model.label.isEmpty ? nil : model.label, labelColor: model.labelColor)
+                                  label: model.label.isEmpty ? nil : model.label, labelColor: model.labelColor,
+                                  tabGroup: tabGroup, selectedTab: tabGroup == nil ? nil : manager.isSelectedTab(controller))
         }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -226,26 +236,42 @@ enum LayoutStore {
     static func restore(into manager: ListerManager) -> Int {
         guard let data = try? Data(contentsOf: url),
               let snapshots = try? JSONDecoder().decode([ListerSnapshot].self, from: data) else { return 0 }
-        var opened = 0
+        var opened: [(controller: ListerWindowController, snapshot: ListerSnapshot)] = []
+        var groupHosts: [Int: ListerWindowController] = [:]
         for snapshot in snapshots {
             let folder = URL(fileURLWithPath: snapshot.path)
             guard FileManager.default.fileExists(atPath: folder.path) else { continue }
-            let controller = manager.openLister(directory: folder, anchor: .origin(NSPoint(x: snapshot.x, y: snapshot.y))) { controller in
-                controller.window?.setFrame(NSRect(x: snapshot.x, y: snapshot.y, width: snapshot.width, height: snapshot.height), display: false)
+            let configure: (ListerWindowController) -> Void = { controller in
                 controller.model.apply(sort: ListerModel.SortKey(rawValue: snapshot.sort) ?? .name,
                                        ascending: snapshot.ascending, showHidden: snapshot.showHidden, filter: snapshot.filter)
                 controller.model.reload()
             }
+            let controller: ListerWindowController
+            // Tabs come back as tabs while tabs are on; otherwise each one is a window of its own.
+            if let group = snapshot.tabGroup, Settings.listerTabs, let host = groupHosts[group],
+               let tab = manager.openTab(directory: folder, in: host, configure: configure) {
+                controller = tab
+            } else {
+                controller = manager.openLister(directory: folder, anchor: .origin(NSPoint(x: snapshot.x, y: snapshot.y))) { controller in
+                    controller.window?.setFrame(NSRect(x: snapshot.x, y: snapshot.y, width: snapshot.width, height: snapshot.height), display: false)
+                    configure(controller)
+                }
+                if let group = snapshot.tabGroup { groupHosts[group] = controller }
+            }
+            if let label = snapshot.label { controller.model.setLabel(label, color: snapshot.labelColor) }
+            else if snapshot.labelColor != nil { controller.model.setLabel("", color: snapshot.labelColor) }
+            opened.append((controller, snapshot))
+        }
+        // The tab that was shown is shown again; then the roles, which belong to the tabs you see.
+        for (controller, snapshot) in opened where snapshot.selectedTab == true { manager.select(controller) }
+        for (controller, snapshot) in opened {
             switch snapshot.role {
             case "source":      manager.toggleRole(.source, for: controller)
             case "destination": manager.toggleRole(.destination, for: controller)
             default:            break
             }
-            if snapshot.locked == true { controller.model.roleLocked = true }
-            if let label = snapshot.label { controller.model.setLabel(label, color: snapshot.labelColor) }
-            else if snapshot.labelColor != nil { controller.model.setLabel("", color: snapshot.labelColor) }
-            opened += 1
+            if snapshot.locked == true, controller.model.role != .none { controller.model.roleLocked = true }
         }
-        return opened
+        return opened.count
     }
 }

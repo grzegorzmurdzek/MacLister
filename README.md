@@ -154,7 +154,9 @@ cannot be cleared or swapped away until you unlock it.
 | ⌘B | bookmark this folder |
 | ⌘⇧. | show or hide hidden files |
 | ⌘⇧L | bring all listers to the front |
-| ⌘W | close the lister |
+| ⌘W | close the lister (with tabs: the tab) |
+| ⌘T | new tab on this folder (when tabs are on, see [Tabs](#tabs)) |
+| ⌃Tab / ⌃⇧Tab, ⇧⌘] / ⇧⌘[ | next / previous tab |
 | ⌘Z | undo the last copy, move, duplicate or Move to Trash (this session) |
 | Tab / ⇧Tab | move to the next / previous lister |
 
@@ -206,7 +208,7 @@ On many laptops F-keys need **fn**.
   opens, reopen the saved layout at launch, listers on all desktops, the Dock icon, the terminal app for
   *Terminal Here*, the text editor for *New Text File*, the interface language.
 - **Listers** — button bar position and labels, folders above files, **Edit Buttons…** / *Reload* / *Reset…*, relative dates,
-  open archives like folders, drag-select from file names, **Lister Title…**, **Keyboard Shortcuts…**, **Edit Filetypes…**.
+  **tabs in listers**, open archives like folders, drag-select from file names, **Lister Title…**, **Keyboard Shortcuts…**, **Edit Filetypes…**.
 - **Operations** — how long the operation log is kept, **Open Operation Log…**, and **Clear Recent Folders…** /
   **Clear Operation Log…** (each asks for confirmation first).
 - **Updates** — version, last check, automatic checks (off by default), *Check for Updates…*.
@@ -328,7 +330,7 @@ The file replaces the defaults; changes are picked up immediately.
 ### Layouts
 
 Menu-bar icon → **Save Layout** remembers every open lister (folder, position, size, role, sort, hidden files,
-filter); **Restore Layout** reopens them. To restore automatically at launch:
+filter, and which listers were tabs of one window); **Restore Layout** reopens them. To restore automatically at launch:
 
 ```bash
 defaults write com.example.MacLister restoreLayoutAtLaunch -bool true
@@ -487,6 +489,32 @@ drags the file)? **Settings → Listers → Select by dragging from file names**
 
 **Tab** moves the keyboard to the next lister (in the order they were opened), **⇧Tab** to the previous one. Both are
 also actions (`nextLister`, `previousLister`) you can give another key or a button.
+
+### Tabs
+
+Off by default: **Settings → Listers → Allow tabs in listers**. A lister window can then hold several folders as
+tabs, like Finder or a web browser. Each tab is a full lister of its own (history, sort, filter, selection, folder
+tree), so everything else works per tab.
+
+- **⌘T** (or the **+** at the end of the tab bar) opens the folder you are in in a new tab; **⌘ + double-click** on a
+  folder, or **Open in New Tab** in its context menu, opens that folder in one. The tab bar appears once a window has
+  two tabs; drag tabs to reorder them, out of the window to make a lister of their own, or onto another window.
+- **⌃Tab / ⌃⇧Tab** (or ⇧⌘] / ⇧⌘[) go to the next / previous tab, **⌘W** closes a tab. **Tab** still goes between
+  lister windows and skips the tabs you cannot see.
+- **Names.** A tab shows the name of its folder and follows it as you navigate. Right-click a tab (or the title bar)
+  → **Tabs → Name This Tab…** to give it a name of its own and a colour (a dot in the tab); the name stays when the tab
+  goes to another folder. *Use the Folder's Name* returns to the default. This is the same name as
+  [Name This Lister…](#naming-listers), so it also shows in the title and in *Copy to “…”*.
+- **Source and destination belong to the window.** Only the tab you see can be the source or the destination: when you
+  switch tabs, the role (and its lock) goes along to the tab you switch to, so a copy never lands in a folder you
+  cannot see. Closing that tab leaves the role with the tab shown next. Merging windows that both had a role keeps the
+  role of the tab you see.
+- The title-bar menu has a **Tabs** submenu: New Tab, Name / Rename This Tab…, Next / Previous Tab, **Move Tab to New
+  Lister**, **Merge All Listers into Tabs**, Close Other Tabs. The menu-bar list of listers shows the tabs of a window
+  together, the later ones indented.
+- Actions for buttons and keys: `newTab`, `nextTab`, `previousTab`, `moveTabToNewLister`, `mergeListers`.
+- Turning the setting off makes every tab a lister window of its own again. New listers (desktop double-click, *New
+  Lister*) always open as windows, also with macOS's *Prefer tabs when opening documents* set to *Always*.
 
 ### Undo and the operation log
 
@@ -662,6 +690,7 @@ PASS/FAIL lines to `~/Library/Logs/MacLister.log`:
 ```bash
 open build/MacLister.app --args --selftest
 open build/MacLister.app --args --selftest-features
+open build/MacLister.app --args --selftest-tabs
 ```
 
 Server tests run against small local FTP/FTPS servers (standard-library Python in `Tools/mock_ftp_server.py`):

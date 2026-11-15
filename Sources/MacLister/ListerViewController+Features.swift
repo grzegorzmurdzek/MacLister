@@ -220,6 +220,37 @@ extension ListerViewController {
         item.isNavigable && !isRemote && !model.isInArchive && item.url.scheme != VirtualPlace.scheme
     }
 
+    /// Opens the selected folder in a new tab of this lister's window.
+    func openFolderInNewTab() {
+        guard selectedItems.count == 1 else { return }
+        openInNewTab(selectedItems[0])
+    }
+
+    func openInNewTab(_ item: FileItem) {
+        guard canOpenInNewLister(item), let controller = windowController else { return }
+        ListerManager.shared.openFolder(item.url, inNewTabFrom: controller)
+    }
+
+    var windowController: ListerWindowController? { view.window?.windowController as? ListerWindowController }
+
+    /// ⌘T: a new tab on this folder.
+    func newTab() {
+        guard let controller = windowController else { return }
+        ListerManager.shared.newTab(from: controller)
+    }
+
+    func selectNeighbourTab(forward: Bool) {
+        guard let controller = windowController else { return }
+        guard Settings.listerTabs else { flash(tr("Tabs are off: turn them on in Settings → Listers")); return }
+        ListerManager.shared.selectNeighbourTab(of: controller, forward: forward)
+    }
+
+    /// The menu item that names this lister — or this tab, when the window has tabs.
+    var nameMenuTitle: String {
+        if isTab { return model.label.isEmpty ? tr("Name This Tab…") : tr("Rename This Tab…") }
+        return model.label.isEmpty ? tr("Name This Lister…") : tr("Rename This Lister…")
+    }
+
     func openInNewLister(_ item: FileItem) {
         guard canOpenInNewLister(item), let controller = view.window?.windowController as? ListerWindowController else { return }
         ListerManager.shared.openFolder(item.url, inNewListerFrom: controller)

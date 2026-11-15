@@ -125,6 +125,7 @@ private struct ListersSettingsView: View {
     @AppStorage("dragSelectFromNames") private var dragSelect = true
     @AppStorage("browseArchives") private var browseArchives = true
     @AppStorage("springLoadedFolders") private var springLoaded = true
+    @AppStorage("listerTabs") private var tabs = false
     @State private var confirmReset = false
 
     var body: some View {
@@ -141,6 +142,14 @@ private struct ListersSettingsView: View {
                         Button("Reset…") { confirmReset = true }
                     }
                 }
+            }
+            Section {
+                Toggle("Allow tabs in listers", isOn: $tabs)
+                    .onChange(of: tabs) { _ in ListerManager.shared.applyTabSetting() }
+            } header: {
+                Text("Tabs")
+            } footer: {
+                Text("⌘T opens the folder in a new tab, ⌘-double-click opens a folder in one, ⌃Tab goes to the next tab and ⌘W closes it. A tab shows the folder's name; Name This Tab… in the title-bar menu gives it a name of its own. Source and destination belong to the window: the tab you see has the role, and it goes along to the tab you switch to. Off: every tab becomes a lister of its own again.")
             }
             Section("File list") {
                 Toggle("Keep folders above files when sorting", isOn: $foldersFirst)

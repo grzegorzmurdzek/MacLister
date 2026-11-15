@@ -491,15 +491,20 @@ final class ListerViewController: NSViewController {
     // MARK: - Opening
 
     @objc private func rowDoubleClicked() {
-        activateRow(tableView.clickedRow, inNewLister: NSEvent.modifierFlags.contains(.shift))
+        let flags = NSEvent.modifierFlags
+        activateRow(tableView.clickedRow, inNewLister: flags.contains(.shift),
+                    inNewTab: flags.contains(.command) && Settings.listerTabs)
     }
 
-    /// A double-click on a row. With Shift a folder opens in a new lister instead (as in Directory Opus).
-    func activateRow(_ row: Int, inNewLister: Bool) {
+    /// A double-click on a row. With Shift a folder opens in a new lister instead (as in Directory Opus); with ⌘ in a
+    /// new tab (as in Finder), while tabs are on.
+    func activateRow(_ row: Int, inNewLister: Bool, inNewTab: Bool = false) {
         guard rows.indices.contains(row) else { return }   // header click
         let item = rows[row]
         if inNewLister, canOpenInNewLister(item) {
             openInNewLister(item)
+        } else if inNewTab, canOpenInNewLister(item) {
+            openInNewTab(item)
         } else {
             open(item)
         }
@@ -577,6 +582,16 @@ final class ListerViewController: NSViewController {
             ListerManager.shared.focusNeighbour(of: view.window?.windowController as? ListerWindowController, forward: true)
         case 48 where mods == .shift:             // ⇧Tab → previous lister
             ListerManager.shared.focusNeighbour(of: view.window?.windowController as? ListerWindowController, forward: false)
+        case 48 where mods == .control:           // ⌃Tab → next tab
+            selectNeighbourTab(forward: true)
+        case 48 where mods == [.control, .shift]: // ⌃⇧Tab → previous tab
+            selectNeighbourTab(forward: false)
+        case 30 where mods == [.command, .shift]: // ⇧⌘] → next tab
+            selectNeighbourTab(forward: true)
+        case 33 where mods == [.command, .shift]: // ⇧⌘[ → previous tab
+            selectNeighbourTab(forward: false)
+        case 17 where command:                    // ⌘T → new tab
+            newTab()
         case 6 where command:                     // ⌘Z → undo the last copy / move
             undoLastOperation()
         case 51 where plain:                      // Backspace → Parent
@@ -895,6 +910,11 @@ extension ListerViewController {
         case .nextLister:     ListerManager.shared.focusNeighbour(of: view.window?.windowController as? ListerWindowController, forward: true)
         case .gatherListers:  ListerManager.shared.gatherOnThisDesktop()
         case .previousLister: ListerManager.shared.focusNeighbour(of: view.window?.windowController as? ListerWindowController, forward: false)
+        case .newTab:         newTab()
+        case .nextTab:        selectNeighbourTab(forward: true)
+        case .previousTab:    selectNeighbourTab(forward: false)
+        case .moveTabToNewLister: if let c = windowController { ListerManager.shared.moveTabToNewLister(c) }
+        case .mergeListers:   if let c = windowController { ListerManager.shared.mergeAllListers(into: c) }
         case .duplicateFile:  duplicateSelection()
         case .selectPattern:  promptPattern(select: true)
         case .deselectPattern: promptPattern(select: false)
@@ -1352,6 +1372,7 @@ extension ListerViewController: NSMenuDelegate {
 
             if items.count == 1, items[0].isNavigable, local, !model.isInArchive {
                 add(tr("Open in New Lister")) { [weak self] in self?.openFolderInNewLister() }
+                if Settings.listerTabs { add(tr("Open in New Tab")) { [weak self] in self?.openFolderInNewTab() } }
             }
             if items.count == 1, items[0].isNavigable, let dst = ListerManager.shared.destinationController, dst.model !== model {
                 add(tr("Open in Destination")) { [weak self] in self?.showInDestination() }
@@ -1401,7 +1422,8 @@ extension ListerViewController: NSMenuDelegate {
         }
         add(treeMenuTitle, to: lister) { [weak self] in self?.toggleTree() }
         add(tr("Duplicate Lister"), to: lister) { [weak self] in self?.duplicateLister() }
-        add(model.label.isEmpty ? tr("Name This Lister…") : tr("Rename This Lister…"), to: lister) { [weak self] in self?.promptLabel() }
+        if Settings.listerTabs { add(tr("New Tab"), to: lister) { [weak self] in self?.newTab() } }
+        add(nameMenuTitle, to: lister) { [weak self] in self?.promptLabel() }
         add(tr("Add Bookmark"), to: lister) { [weak self] in self?.addBookmark() }
         attach(lister, symbol: "macwindow")
         // no trailing separator
@@ -1584,7 +1606,7 @@ extension ListerViewController {
         // this lister, and all of them
         let lister = submenu(tr("Lister"))
         add(tr("Duplicate Lister"), to: lister, key: "d", mask: [.command, .option]) { [weak self] in self?.duplicateLister() }
-        add(model.label.isEmpty ? tr("Name This Lister…") : tr("Rename This Lister…"), to: lister) { [weak self] in self?.promptLabel() }
+        add(nameMenuTitle, to: lister) { [weak self] in self?.promptLabel() }
         add(tr("New Lister"), to: lister) {
             manager.openLister(directory: Settings.startDirectory, anchor: .cascade(from: controller?.window))
         }
@@ -1594,6 +1616,26 @@ extension ListerViewController {
         add(tr("Add to Dock…"), to: lister, enabled: canAddToDock) { [weak self] in self?.addToDock() }
         add(tr("Keyboard Shortcuts…"), to: lister) { ShortcutsWindowController.shared.show() }
         attach(lister)
+        let tabCount = controller.map { manager.tabs(of: $0).count } ?? 1
+        if Settings.listerTabs {
+            let tabs = submenu(tr("Tabs"))
+            add(tr("New Tab"), to: tabs, key: "t") { [weak self] in self?.newTab() }
+            add(model.label.isEmpty ? tr("Name This Tab…") : tr("Rename This Tab…"), to: tabs) { [weak self] in self?.promptLabel() }
+            tabs.addItem(.separator())
+            add(tr("Next Tab"), to: tabs, key: "\t", mask: [.control], enabled: tabCount > 1) { [weak self] in self?.selectNeighbourTab(forward: true) }
+            add(tr("Previous Tab"), to: tabs, key: "\t", mask: [.control, .shift], enabled: tabCount > 1) { [weak self] in self?.selectNeighbourTab(forward: false) }
+            tabs.addItem(.separator())
+            add(tr("Move Tab to New Lister"), to: tabs, enabled: tabCount > 1) {
+                if let controller { manager.moveTabToNewLister(controller) }
+            }
+            add(tr("Merge All Listers into Tabs"), to: tabs, enabled: manager.openCount > tabCount) {
+                if let controller { manager.mergeAllListers(into: controller) }
+            }
+            add(tr("Close Other Tabs"), to: tabs, enabled: tabCount > 1) {
+                if let controller { manager.closeOtherTabs(than: controller) }
+            }
+            attach(tabs)
+        }
         let all = submenu(tr("All Listers"))
         add(tr("Bring All Listers to Front"), to: all, enabled: manager.openCount > 1) { manager.bringAllToFront() }
         add(tr("Move All Listers to This Desktop"), to: all) { manager.gatherOnThisDesktop() }
@@ -1602,7 +1644,7 @@ extension ListerViewController {
         add(tr("Save Layout"), to: all) { LayoutStore.save(from: manager) }
         add(tr("Restore Layout"), to: all) { LayoutStore.restore(into: manager) }
         attach(all)
-        add(tr("Close Lister"), key: "w") { [weak self] in self?.view.window?.performClose(nil) }
+        add(tabCount > 1 ? tr("Close Tab") : tr("Close Lister"), key: "w") { [weak self] in self?.view.window?.performClose(nil) }
         return menu
     }
 }

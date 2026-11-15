@@ -185,13 +185,15 @@ enum BuiltInShortcuts {
         e(3, .command, "F", tr("Filter")), e(3, [.command, .shift], "F", tr("Find")), e(17, [.command, .option], "T", tr("Folder tree")), e(11, .command, "B", tr("Bookmark")), e(37, [.command, .shift], "L", tr("Bring all listers to front")),
         e(37, .command, "L", tr("Type a path")), e(40, .command, "K", tr("Connect to Server")),
         e(48, [], "Tab", tr("Next lister")), e(48, .shift, "⇧Tab", tr("Previous lister")),
+        e(17, .command, "T", tr("New tab")), e(48, .control, "⌃Tab", tr("Next tab")), e(48, [.control, .shift], "⌃⇧Tab", tr("Previous tab")),
+        e(30, [.command, .shift], "]", tr("Next tab")), e(33, [.command, .shift], "[", tr("Previous tab")),
     ]
 
     /// Built-in key of an action, for display next to the custom one.
     static let byAction: [ListerAction: String] = [
         .copy: "F5", .move: "F6", .copyAs: "⇧F5", .moveAs: "⇧F6", .extract: "⌘E", .info: "⌘I", .attributes: "⌥⌘I", .duplicateFile: "⌘D", .duplicateLister: "⌥⌘D",
         .filter: "⌘F", .find: "⇧⌘F", .toggleTree: "⌥⌘T", .addBookmark: "⌘B", .bringAllToFront: "⇧⌘L", .connectToServer: "⌘K", .parent: "Delete", .open: "Return",
-        .nextLister: "Tab", .previousLister: "⇧Tab", .undo: "⌘Z", .toggleHidden: "⇧⌘.", .delete: "⌘Delete", .selectPattern: "+", .deselectPattern: "-", .invertSelection: "*",
+        .nextLister: "Tab", .previousLister: "⇧Tab", .newTab: "⌘T", .nextTab: "⌃Tab", .previousTab: "⌃⇧Tab", .undo: "⌘Z", .toggleHidden: "⇧⌘.", .delete: "⌘Delete", .selectPattern: "+", .deselectPattern: "-", .invertSelection: "*",
     ]
 
     /// Menu and window commands that are handled before a lister sees the key.
@@ -376,7 +378,7 @@ extension ListerAction {
 
 extension ListerAction {
     /// Names that read better than the one made from the action's code name.
-    static let friendlyTitles: [ListerAction: String] = [.toggleTree: "Folder tree"]
+    static let friendlyTitles: [ListerAction: String] = [.toggleTree: "Folder tree", .mergeListers: "Merge all listers into tabs"]
 
     /// What a button with this action shows as its tooltip when it has none of its own. English: like the texts in
     /// buttons.json it is translated when it is shown.
@@ -393,6 +395,11 @@ extension ListerAction {
         case .newTextFile: return "Create a text file here and open it in your text editor"
         case .copyAs: return "Copy to the destination under new names (⇧F5)"
         case .moveAs: return "Move to the destination under new names (⇧F6)"
+        case .newTab: return "Open this folder in a new tab (⌘T)"
+        case .nextTab: return "Show the next tab (⌃Tab)"
+        case .previousTab: return "Show the previous tab (⌃⇧Tab)"
+        case .moveTabToNewLister: return "Take this tab out into a lister window of its own"
+        case .mergeListers: return "Make every lister window a tab of this one"
         default: return nil
         }
     }

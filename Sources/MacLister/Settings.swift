@@ -63,6 +63,7 @@ enum Settings {
             "dragSelectFromNames": true,
             "showDockIcon": true,
             "listersOnAllDesktops": false,
+            "listerTabs": false,
             "foldersFirst": true,
         ])
     }
@@ -148,6 +149,12 @@ enum Settings {
     static var listersOnAllDesktops: Bool {
         get { defaults.bool(forKey: "listersOnAllDesktops") }
         set { defaults.set(newValue, forKey: "listersOnAllDesktops") }
+    }
+
+    /// Listers can hold several folders as tabs (⌘T), like Finder and web browsers. Off: one folder per window.
+    static var listerTabs: Bool {
+        get { defaults.bool(forKey: "listerTabs") }
+        set { defaults.set(newValue, forKey: "listerTabs") }
     }
 
     /// Folders stay above the files whatever the sort column is. Off: folders and files are sorted together.
