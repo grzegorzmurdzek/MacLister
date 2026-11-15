@@ -38,7 +38,7 @@ enum ListerColumn: String, CaseIterable {
         switch self {
         case .name: return 110
         case .size: return 60
-        case .date, .created: return 150
+        case .date, .created: return 120
         case .kind: return 90
         case .ext: return 50
         case .permissions: return 80
@@ -80,7 +80,29 @@ enum ColumnSettings {
 
     static func reset() {
         UserDefaults.standard.removeObject(forKey: key)
+        UserDefaults.standard.removeObject(forKey: widthsKey)
         NotificationCenter.default.post(name: .columnsChanged, object: nil)
+    }
+
+    // MARK: Widths the user dragged. Name is not stored: it always takes what the others leave.
+
+    private static let widthsKey = "columnWidths"
+
+    private static var storedWidths: [String: Double] {
+        UserDefaults.standard.dictionary(forKey: widthsKey) as? [String: Double] ?? [:]
+    }
+
+    /// The remembered width of a column, or its default; never below the column's minimum.
+    static func width(of column: ListerColumn) -> CGFloat {
+        guard column != .name, let stored = storedWidths[column.rawValue] else { return column.defaultWidth }
+        return max(column.minWidth, CGFloat(stored))
+    }
+
+    static func setWidth(_ width: CGFloat, of column: ListerColumn) {
+        guard column != .name else { return }
+        var widths = storedWidths
+        widths[column.rawValue] = Double(max(column.minWidth, width))
+        UserDefaults.standard.set(widths, forKey: widthsKey)
     }
 }
 

@@ -144,6 +144,8 @@ final class ListerViewController: NSViewController {
     private var layouts: [ButtonBarPosition: [NSLayoutConstraint]] = [:]
     private var currentPosition: ButtonBarPosition?
     private var didFitColumns = false
+    /// True while columns are created or fitted by code, so only the user's own resizing gets remembered.
+    private var isBuildingColumns = false
     var downloadGeneration = 0                      // the newest download to the cache owns the progress display
     var quickLookDownloadCancel: (() -> Void)?      // the download that feeds the open Quick Look panel
     private var columnsShowListLayout = false
@@ -217,7 +219,7 @@ final class ListerViewController: NSViewController {
 
         // the directory tree (optional) and the file list side by side
         configureTree()
-        let scrollView = NSSplitView()
+        let scrollView = TreeSplitView()
         scrollView.isVertical = true
         scrollView.dividerStyle = .thin
         scrollView.delegate = self
@@ -281,6 +283,15 @@ final class ListerViewController: NSViewController {
                 self?.model.reload()
             }
             .store(in: &cancellables)
+        // Remember the widths the user drags (Name is not stored: it takes the remaining space).
+        NotificationCenter.default.publisher(for: NSTableView.columnDidResizeNotification, object: tableView)
+            .sink { [weak self] note in
+                guard let self, !self.isBuildingColumns,
+                      let tableColumn = note.userInfo?["NSTableColumn"] as? NSTableColumn,
+                      let column = ListerColumn(rawValue: tableColumn.identifier.rawValue) else { return }
+                ColumnSettings.setWidth(tableColumn.width, of: column)
+            }
+            .store(in: &cancellables)
         NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
             .sink { [weak self] _ in self?.applyButtonBarPosition() }
             .store(in: &cancellables)
@@ -334,6 +345,9 @@ final class ListerViewController: NSViewController {
         if remember { Settings.showFolderTree = treeVisible }
         treeController.scrollView.isHidden = !treeVisible
         splitView?.adjustSubviews()
+        // the divider next to a hidden pane is not drawn any more, but its old pixels would stay on screen
+        splitView?.needsDisplay = true
+        splitView?.superview?.needsDisplay = true
         if treeVisible {
             treeController.showHidden = model.showHidden
             treeController.reveal(ArchiveBrowser.shared.treeFolder(for: model.url))
@@ -375,11 +389,13 @@ final class ListerViewController: NSViewController {
 
     private func rebuildColumns() {
         columnsShowListLayout = model.isVirtual
+        isBuildingColumns = true
+        defer { isBuildingColumns = false }
         for column in tableView.tableColumns { tableView.removeTableColumn(column) }
         for column in activeColumns {
             let tableColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(column.rawValue))
             tableColumn.title = column.title
-            tableColumn.width = column.defaultWidth
+            tableColumn.width = ColumnSettings.width(of: column)
             tableColumn.minWidth = column.minWidth
             tableColumn.sortDescriptorPrototype = NSSortDescriptor(key: column.rawValue, ascending: true)
             if column.rightAligned { tableColumn.headerCell.alignment = .right }
@@ -1706,5 +1722,14 @@ extension ListerViewController: NSSplitViewDelegate {
         guard treeVisible, didPlaceTree, view.window?.inLiveResize != true, NSApp.currentEvent?.type == .leftMouseDragged else { return }
         let width = treeController.scrollView.frame.width
         if width >= 120 { Settings.folderTreeWidth = width }
+    }
+}
+
+/// Tree and file list side by side. A hidden tree keeps its old frame, so the stock split view would still draw
+/// the divider there (the list is translucent) — a stray vertical line. No tree, no divider.
+final class TreeSplitView: NSSplitView {
+    override func drawDivider(in rect: NSRect) {
+        guard arrangedSubviews.first?.isHidden != true else { return }
+        super.drawDivider(in: rect)
     }
 }

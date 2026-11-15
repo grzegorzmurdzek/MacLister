@@ -434,6 +434,13 @@ enum SelfTestFeatures {
             tvc.toggleTree()
             check(!tvc.treeVisible && tvc.treeController.scrollView.isHidden, "the tree can be hidden again")
             Settings.showFolderTree = false
+        }
+        later(0.4) {
+            // hiding the tree must leave no divider line: the list fills the whole split view
+            if let tvc = treeController.listerViewController, let split = tvc.splitView {
+                let list = tvc.tableView.enclosingScrollView?.frame ?? .zero
+                check(list.minX == 0 && list.width == split.bounds.width, "no divider is left after hiding the tree: list \(list) split \(split.bounds) divider \(split.dividerThickness)")
+            }
             treeController.window?.close()
         }
         // spring-loaded folders: a target hovered long enough opens once; leaving cancels
@@ -1206,6 +1213,14 @@ enum SelfTestFeatures {
                 try? (url as NSURL).setResourceValue([String](), forKey: .tagNamesKey)
                 check(FinderMetadata.comment(of: url) == nil, "comment can be removed again")
             }
+            // a width the user dragged is remembered and survives rebuilding the columns
+            vc.tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("kind"))?.width = 133
+            check(ColumnSettings.width(of: .kind) == 133, "a dragged column width is stored: \(ColumnSettings.width(of: .kind))")
+            ColumnSettings.setVisible(originalColumns + [.kind])
+        }
+        later(0.5) {
+            check(vc.tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("kind"))?.width == 133, "the width survives rebuilding the columns")
+            UserDefaults.standard.removeObject(forKey: "columnWidths")
             ColumnSettings.setVisible(originalColumns)
         }
         later(0.5) {
