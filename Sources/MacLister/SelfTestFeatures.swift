@@ -392,7 +392,7 @@ enum SelfTestFeatures {
             let wasVisible = tvc.treeVisible
             if wasVisible { tvc.toggleTree() }
             tvc.toggleTree()
-            check(tvc.treeVisible && !tvc.treeController.scrollView.isHidden, "the directory tree can be shown")
+            check(tvc.treeVisible && !tvc.treeController.paneView.isHidden, "the directory tree can be shown")
             check(tvc.treeController.selectedURL?.standardizedFileURL == dirA.standardizedFileURL, "the tree selects the lister's folder: \(String(describing: tvc.treeController.selectedURL))")
             check(tvc.treeController.knownChildren(of: dirA).contains("big"), "the tree lists the sub-folders (not the files): \(tvc.treeController.knownChildren(of: dirA))")
             check(!tvc.treeController.knownChildren(of: dirA).contains("a.txt"), "files are not in the tree")
@@ -400,7 +400,7 @@ enum SelfTestFeatures {
         }
         later(0.5) {
             guard let tvc = treeController.listerViewController else { return }
-            check(tvc.treeController.scrollView.frame.width >= 120 && !tvc.treeController.scrollView.isHidden, "the tree pane really has a width after layout: \(tvc.treeController.scrollView.frame) split \(tvc.splitView?.frame ?? .zero)")
+            check(tvc.treeController.paneView.frame.width >= 120 && !tvc.treeController.paneView.isHidden, "the tree pane really has a width after layout: \(tvc.treeController.paneView.frame) split \(tvc.splitView?.frame ?? .zero)")
             check(tvc.treeController.selectedURL?.standardizedFileURL == dirA.appendingPathComponent("big").standardizedFileURL, "the tree follows the lister into a sub-folder")
             tvc.treeController.onSelect?(dirA)
         }
@@ -432,7 +432,7 @@ enum SelfTestFeatures {
             try? fm.removeItem(at: dirA.appendingPathComponent("zz-new-folder"))
             treeController.model.reload()
             tvc.toggleTree()
-            check(!tvc.treeVisible && tvc.treeController.scrollView.isHidden, "the tree can be hidden again")
+            check(!tvc.treeVisible && tvc.treeController.paneView.isHidden, "the tree can be hidden again")
             Settings.showFolderTree = false
         }
         later(0.4) {
@@ -442,6 +442,53 @@ enum SelfTestFeatures {
                 check(list.minX == 0 && list.width == split.bounds.width, "no divider is left after hiding the tree: list \(list) split \(split.bounds) divider \(split.dividerThickness)")
             }
             treeController.window?.close()
+        }
+        // Finder's sidebar in the tree pane: Recents, Shared, Favorites, Locations, Tags (a fixed copy stands in for Finder's)
+        let sidebarController = ListerManager.shared.openLister(directory: dirA, anchor: .cascade(from: nil))
+        let tagNames = ["Czerwony", "Praca", "Zielony", "Dom", "B24", "Żółty", "Pomarańczowy", "Szary", "Purpurowy"]
+        later {
+            FinderSidebarMonitor.override = FinderSidebar(favorites: [.init(name: "Fav", url: dirA)], tags: tagNames, isKnown: true,
+                                                          showsStartupDisk: true, showsICloudDrive: false, showsComputer: true, showsAirDrop: false, showsTrash: true)
+            FinderSidebarMonitor.shared.refresh()
+            guard let tvc = sidebarController.listerViewController else { check(false, "sidebar: lister available"); return }
+            if !tvc.treeVisible { tvc.toggleTree() }
+            let rows = tvc.treeController.sidebarRows()
+            check(rows.first?.names == [VirtualPlace.recents.title, VirtualPlace.shared.title], "the pane starts with Recents and Shared: \(rows.map(\.names))")
+            check(rows.first(where: { $0.header == tr("Favorites") })?.names == ["Fav"], "the Favorites are Finder's: \(rows.map { "\($0.header ?? "-"): \($0.names)" })")
+            let tags = rows.first(where: { $0.header == tr("Tags") })?.names ?? []
+            check(tags == Array(tagNames.prefix(7)) + [tr("All Tags…")], "seven favourite tags and All Tags…: \(tags)")
+            let locations = rows.first(where: { $0.header == tr("Locations") })?.names ?? []
+            check(locations.contains(NSUserName()) && locations.contains(tr("Trash")) && !locations.contains("AirDrop") && !locations.contains(tr("iCloud Drive")),
+                  "the Locations follow what Finder shows: \(locations)")
+            check(tvc.treeController.selectedNode?.name == "Fav", "in a favourite's folder the favourite is selected: \(String(describing: tvc.treeController.selectedNode?.name))")
+            sidebarController.model.navigate(to: dirA.appendingPathComponent("big"))
+        }
+        later(0.5) {
+            guard let tvc = sidebarController.listerViewController else { return }
+            check(tvc.treeController.selectedNode?.kind == .folder && tvc.treeController.selectedURL?.standardizedFileURL == dirA.appendingPathComponent("big").standardizedFileURL,
+                  "below a favourite the tree folder is selected")
+            var chosen: [URL] = []
+            tvc.treeController.onSelect = { chosen.append($0) }
+            sidebarController.model.navigate(to: VirtualPlace.recents.url)
+            check(sidebarController.model.virtualPlace == .recents, "the lister shows Recents")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                check(tvc.treeController.selectedNode?.kind == .place(.recents), "Recents is selected in the pane while the lister shows it: \(String(describing: tvc.treeController.selectedNode?.name))")
+                let tagURL = FindQuery.tagged("Praca").url
+                check(FindQuery(url: tagURL)?.tag == "Praca" && FindQuery(url: tagURL)?.title == "Praca", "a tag search keeps its tag in its address")
+                sidebarController.model.navigate(to: tagURL)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    check(tvc.treeController.selectedNode?.kind == .tag("Praca"), "the tag is selected while its files are shown: \(String(describing: tvc.treeController.selectedNode?.name))")
+                    check(chosen.isEmpty, "following the lister into a list never counts as a choice")
+                }
+            }
+        }
+        later(0.8) {
+            let query = FindQuery.tagged("Czerwony")
+            check(FindEngine.accepts(dirA, query: query, showHidden: false, checkHidden: false) == false, "a file without the tag does not match a tag search")
+            check(FinderTags.aliases(of: "Czerwony").count >= 1 && FinderTags.aliases(of: "Praca") == ["Praca"], "a colour tag is also searched under its other name")
+            FinderSidebarMonitor.override = nil
+            FinderSidebarMonitor.shared.refresh()
+            sidebarController.window?.close()
         }
         // spring-loaded folders: a target hovered long enough opens once; leaving cancels
         let spring = SpringLoader(delay: 0.5)

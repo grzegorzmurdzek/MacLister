@@ -189,6 +189,12 @@ enum Settings {
         set { defaults.set(newValue, forKey: "showFolderTree") }
     }
 
+    /// Height of Finder's sidebar part above the directory tree (points); 0: not set yet.
+    static var sidebarHeight: CGFloat {
+        get { let value = defaults.double(forKey: "sidebarHeight"); return value >= 80 ? CGFloat(value) : 0 }
+        set { defaults.set(newValue, forKey: "sidebarHeight") }
+    }
+
     /// Width of the directory tree (points).
     static var folderTreeWidth: CGFloat {
         get { let value = defaults.double(forKey: "folderTreeWidth"); return value >= 120 ? CGFloat(value) : 200 }

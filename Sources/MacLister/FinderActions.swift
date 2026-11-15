@@ -77,6 +77,9 @@ enum FinderTags {
     /// Finder's order of the colour dots.
     static let menuOrder = [6, 7, 5, 2, 4, 3, 1]
     private static let englishNames = [1: "Gray", 2: "Green", 3: "Purple", 4: "Blue", 5: "Yellow", 6: "Red", 7: "Orange"]
+    /// What the colours are called under a Polish system. MacLister may be set to another language than the system,
+    /// and Finder's own tags (the sidebar's) keep the system's names.
+    private static let polishNames = [1: "Szary", 2: "Zielony", 3: "Purpurowy", 4: "Niebieski", 5: "Żółty", 6: "Czerwony", 7: "Pomarańczowy"]
 
     /// System colour name in the user's language ("Red", "Czerwony" …).
     static func name(for label: Int) -> String {
@@ -89,10 +92,21 @@ enum FinderTags {
         return colors.indices.contains(label) ? colors[label] : .gray
     }
 
+    /// The names a tag may be stored under: a colour tag is "Red" in files tagged under an English system and
+    /// "Czerwony" under a Polish one.
+    static func aliases(of tag: String) -> [String] {
+        let label = label(of: Entry(name: tag, label: 0))
+        guard label > 0 else { return [tag] }
+        var names = [tag, name(for: label)]
+        names += [englishNames[label], polishNames[label]].compactMap { $0 }
+        var seen = Set<String>()
+        return names.filter { seen.insert($0.lowercased()).inserted }
+    }
+
     /// The colour label an entry stands for (by its number, or by the system name when it has none).
     static func label(of entry: Entry) -> Int {
         if entry.label > 0 { return entry.label }
-        for label in 1...7 where entry.name == name(for: label) || entry.name == englishNames[label] { return label }
+        for label in 1...7 where entry.name == name(for: label) || entry.name == englishNames[label] || entry.name == polishNames[label] { return label }
         return 0
     }
 

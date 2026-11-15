@@ -16,6 +16,15 @@ struct FindQuery: Equatable {
     var scanFolders = false
     /// Flat view: every file below the folder as one list (no conditions); folders are left out, bundles stay.
     var flat = false
+    /// A Finder tag the files must carry (what a click on a tag in Finder's sidebar searches for).
+    var tag = ""
+
+    /// Every file on this Mac that has the tag, as Finder's sidebar shows it.
+    static func tagged(_ tag: String) -> FindQuery {
+        var query = FindQuery(scope: URL(fileURLWithPath: "/"))
+        query.tag = tag
+        return query
+    }
 
     /// The name, kind, size and date conditions, shared with Select by Attributes.
     var attributeFilter: AttributeFilter {
@@ -30,7 +39,7 @@ struct FindQuery: Equatable {
     }
 
     var isEmpty: Bool {
-        name.isEmpty && content.isEmpty && category == .any && minBytes == nil && maxBytes == nil && withinDays == nil && olderDays == nil
+        name.isEmpty && content.isEmpty && tag.isEmpty && category == .any && minBytes == nil && maxBytes == nil && withinDays == nil && olderDays == nil
     }
 
     /// Last query of this session; the Find window starts from it.
@@ -53,6 +62,7 @@ struct FindQuery: Equatable {
         add("older", olderDays.map(String.init))
         add("scan", scanFolders ? "1" : nil)
         add("flat", flat ? "1" : nil)
+        add("tag", tag)
         parts.queryItems = items
         return parts.url!
     }
@@ -74,11 +84,13 @@ struct FindQuery: Equatable {
         olderDays = value("older").flatMap { Int($0) }
         scanFolders = value("scan") == "1"
         flat = value("flat") == "1"
+        tag = value("tag") ?? ""
     }
 
-    /// "Find: *.jpg" for the title and the history menu.
+    /// "Find: *.jpg" for the title and the history menu; a tag search is called after the tag, as in Finder.
     var title: String {
         if flat { return tr("Flat view: %@", scope.lastPathComponent) }
+        if !tag.isEmpty, name.isEmpty, content.isEmpty { return tag }
         let what = !name.isEmpty ? name : (!content.isEmpty ? "“\(content)”" : scope.lastPathComponent)
         return tr("Find: %@", what)
     }
@@ -149,6 +161,10 @@ enum FindEngine {
         }
         guard let item = item(for: url) else { return false }
         if query.flat, item.isDirectory, !item.isPackage { return false }
+        if !query.tag.isEmpty {
+            let names = Set(FinderTags.entries(of: url).map { $0.name.lowercased() })
+            guard FinderTags.aliases(of: query.tag).contains(where: { names.contains($0.lowercased()) }) else { return false }
+        }
         return query.attributeFilter.matches(item)
     }
 
@@ -271,6 +287,10 @@ final class SpotlightFind: NSObject {
         }
         if let days = query.olderDays {
             parts.append(NSPredicate(format: "%K < %@", NSMetadataItemFSContentChangeDateKey, now.addingTimeInterval(-Double(days) * 86_400) as NSDate))
+        }
+        if !query.tag.isEmpty {         // a colour tag is stored under its English or its local name, depending on when it was set
+            let tags = FinderTags.aliases(of: query.tag).map { NSPredicate(format: "%K ==[cd] %@", "kMDItemUserTags", $0) }
+            parts.append(tags.count == 1 ? tags[0] : NSCompoundPredicate(orPredicateWithSubpredicates: tags))
         }
         if parts.isEmpty { parts.append(NSPredicate(format: "%K LIKE %@", NSMetadataItemFSNameKey, "*")) }
         // NSMetadataQuery refuses a compound predicate with a single part

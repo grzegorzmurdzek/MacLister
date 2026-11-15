@@ -223,10 +223,10 @@ final class ListerViewController: NSViewController {
         scrollView.isVertical = true
         scrollView.dividerStyle = .thin
         scrollView.delegate = self
-        scrollView.addArrangedSubview(treeController.scrollView)
+        scrollView.addArrangedSubview(treeController.paneView)
         scrollView.addArrangedSubview(tableScroll)
         scrollView.setHoldingPriority(NSLayoutConstraint.Priority(260), forSubviewAt: 0)
-        treeController.scrollView.isHidden = !treeVisible
+        treeController.paneView.isHidden = !treeVisible
         splitView = scrollView
 
         for v in [pathBar, scrollView, buttonBar, statusBar] as [NSView] {
@@ -343,7 +343,7 @@ final class ListerViewController: NSViewController {
     func setTree(visible: Bool, remember: Bool) {
         treeVisible = visible
         if remember { Settings.showFolderTree = treeVisible }
-        treeController.scrollView.isHidden = !treeVisible
+        treeController.paneView.isHidden = !treeVisible
         splitView?.adjustSubviews()
         // the divider next to a hidden pane is not drawn any more, but its old pixels would stay on screen
         splitView?.needsDisplay = true
@@ -1764,7 +1764,7 @@ extension ListerViewController: NSSplitViewDelegate {
     func splitViewDidResizeSubviews(_ notification: Notification) {
         // only when the divider itself is dragged, not when the window is resized
         guard treeVisible, didPlaceTree, view.window?.inLiveResize != true, NSApp.currentEvent?.type == .leftMouseDragged else { return }
-        let width = treeController.scrollView.frame.width
+        let width = treeController.paneView.frame.width
         if width >= 120 { Settings.folderTreeWidth = width }
     }
 }
