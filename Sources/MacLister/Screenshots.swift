@@ -35,6 +35,7 @@ enum Screenshots {
         if !dark {
             queue("title-bar-menu") { titleBarMenu(named: "title-bar-menu") }
             queue("folder-tree") { folderTree(named: "folder-tree") }
+            queue("tabs") { tabsShot(named: "tabs") }
             queue("find") { findWindow(named: "find") }
             queue("find-duplicates") { duplicatesWindow(named: "find-duplicates") }
             queue("checksums") { checksumsWindow(named: "checksums") }
@@ -51,6 +52,10 @@ enum Screenshots {
             for (index, name) in ["general", "listers", "operations", "updates"].enumerated() {
                 queue("settings-\(name)") { settings(tab: index, named: "settings-\(name)") }
             }
+        }
+        // `-onlyShots tabs,find`: just those pictures (the others are left as they are)
+        if let only = UserDefaults.standard.string(forKey: "onlyShots")?.split(separator: ",").map(String.init) {
+            steps = steps.filter { step in only.contains { step.0 == $0 || step.0 == $0 + "-dark" } }
         }
         next()
     }
@@ -194,6 +199,27 @@ enum Screenshots {
             NSApp.activate(ignoringOtherApps: true)
             controller.window?.makeKeyAndOrderFront(nil)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { capture(to: name); finishScene() }
+        }
+    }
+
+    /// One lister with three tabs: the folder, a folder of photos and a tab named "NAS" with a colour.
+    private static func tabsShot(named name: String) {
+        let area = screen()
+        let origin = NSPoint(x: area.minX + 100, y: area.maxY - 500)
+        let host = ListerManager.shared.openLister(directory: demo.projects, anchor: .origin(origin))
+        host.window?.setContentSize(NSSize(width: 760, height: 440))
+        host.window?.setFrameOrigin(origin)
+        host.model.setLabel(tr("Work"), color: "blue")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            let photos = ListerManager.shared.newTab(from: host)
+            photos?.model.navigate(to: demo.project("f_photos"))
+            let nas = photos.flatMap { ListerManager.shared.openFolder(demo.backup, inNewTabFrom: $0) }
+            nas?.model.setLabel("NAS", color: "orange")
+            NSApp.activate(ignoringOtherApps: true)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                ListerManager.shared.select(host)       // the tab with files in it
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { capture(to: name); finishScene() }
+            }
         }
     }
 

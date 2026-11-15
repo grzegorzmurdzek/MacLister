@@ -17,6 +17,7 @@ TRANSITIONS = {
     "archive": ("circleopen", 0.5),
     "tools": ("smoothleft", 0.45),
     "many": ("smoothright", 0.45),
+    "tabs": ("slideup", 0.45),
     "tree": ("smoothdown", 0.45),
     "dark": ("fade", 0.6),          # light dissolving into dark
     "buttons": ("circleclose", 0.5),

@@ -11,6 +11,6 @@ OUT="$PWD/build/demo-video"
 mkdir -p "$OUT"
 for lang in ${LANGS:-pl en}; do
     "$APP" --demo-video "$OUT/raw-$lang.mov" -AppleLanguages "($lang)" -visibleColumns "(size,date)" \
-        -centerOnCursor NO -desktopTrigger doubleClick -showFolderTree NO | grep -E "^(recording|wrote|demo video|recording failed)"
+        -listerTabs YES -centerOnCursor NO -desktopTrigger doubleClick -showFolderTree NO | grep -E "^(recording|wrote|demo video|recording failed)"
     python3 Tools/demo_video_edit.py "$OUT/raw-$lang.mov" "$OUT/maclister-demo-$lang.mp4"
 done

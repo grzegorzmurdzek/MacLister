@@ -504,6 +504,8 @@ akcjami (`nextLister`, `previousLister`), którym możesz przypisać inny klawis
 
 ### Karty
 
+<p align="center"><img src="docs/screenshots/tabs.jpg" alt="Trzy karty w jednym oknie listera, dwie z nazwą i kolorem" width="640"></p>
+
 Okno listera może mieścić kilka folderów jako karty, jak Finder czy przeglądarka (**Ustawienia → Listery → Zezwalaj na
 karty w listerach**, domyślnie włączone; nowe listery nadal otwierają się jako osobne okna). Każda karta to pełny
 lister (historia, sortowanie, filtr, zaznaczenie, drzewo folderów), więc wszystko inne działa osobno dla każdej karty.

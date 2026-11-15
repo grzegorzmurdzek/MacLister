@@ -492,6 +492,8 @@ also actions (`nextLister`, `previousLister`) you can give another key or a butt
 
 ### Tabs
 
+<p align="center"><img src="docs/screenshots/tabs.jpg" alt="Three tabs in one lister window, two of them named and coloured" width="640"></p>
+
 A lister window can hold several folders as tabs, like Finder or a web browser (**Settings → Listers → Allow tabs in
 listers**, on by default; new listers still open as windows of their own). Each tab is a full lister of its own
 (history, sort, filter, selection, folder tree), so everything else works per tab.

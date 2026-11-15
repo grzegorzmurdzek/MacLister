@@ -84,6 +84,7 @@ enum DemoVideo {
         try await sceneArchive()
         try await sceneTools()
         try await sceneMany()
+        try await sceneTabs()
         try await sceneTree()
         try await sceneDark()
         try await sceneButtons()
@@ -284,7 +285,51 @@ enum DemoVideo {
         try await pause(0.2)
     }
 
-    /// Scene 7: the folder tree follows the lister.
+    /// Scene 7: tabs. ⌘T opens a folder in a new tab of the same lister, a named tab gets a colour, ⌃Tab goes round them.
+    private static func sceneTabs() async throws {
+        clear()
+        await cursor?.move(to: restPoint, duration: 0.01)
+        let size = NSSize(width: 860, height: 440)
+        let host = open(demo.projects, origin: NSPoint(x: region.midX - size.width / 2, y: region.maxY - 124 - size.height), size: size)
+        host.model.setLabel(tr("Work"), color: "blue")
+        NSApp.activate(ignoringOtherApps: true)         // after the six listers closed the app was not the active one: a dimmed window
+        host.window?.makeKeyAndOrderFront(nil)
+        try await pause(0.8)
+        mark("scene", "tabs")
+        let caption = Overlay.caption(tr("Tabs: many folders in one lister"), in: region)
+        try await pause(0.4)
+        if let window = host.window { mark("zoom", "tabs", focus: NSPoint(x: window.frame.midX, y: window.frame.maxY - 30)) }
+
+        var key = Overlay.key("⌘T", label: tr("New tab"), in: region)
+        try await pause(0.45)
+        let photos = ListerManager.shared.newTab(from: host)
+        photos?.model.navigate(to: demo.project("f_photos"))
+        try await pause(1.0)
+        key.dismiss()
+
+        key = Overlay.key("⌘T", label: tr("New tab"), in: region)
+        try await pause(0.45)
+        let nas = photos.flatMap { ListerManager.shared.openFolder(demo.backup, inNewTabFrom: $0) }
+        nas?.model.setLabel("NAS", color: "orange")
+        try await pause(1.0)
+        key.dismiss()
+        mark("zoomEnd", "tabs")
+
+        key = Overlay.key("⌃Tab", label: tr("Next tab"), in: region)
+        try await pause(0.45)
+        if let nas { ListerManager.shared.selectNeighbourTab(of: nas, forward: true) }
+        try await pause(0.9)
+        if let photos { ListerManager.shared.selectNeighbourTab(of: photos, forward: false) }
+        try await pause(0.4)
+        if let nas { ListerManager.shared.select(nas) }
+        try await pause(0.9)
+        key.dismiss()
+        caption.dismiss()
+        mark("end", "tabs")
+        try await pause(0.2)
+    }
+
+    /// Scene 8: the folder tree follows the lister.
     private static func sceneTree() async throws {
         clear()
         let size = NSSize(width: 860, height: 480)
@@ -311,7 +356,7 @@ enum DemoVideo {
         try await pause(0.2)
     }
 
-    /// Scene 8: the same pair of listers in the dark appearance.
+    /// Scene 9: the same pair of listers in the dark appearance.
     private static func sceneDark() async throws {
         clear()
         setAppearance(dark: true)
@@ -331,7 +376,7 @@ enum DemoVideo {
         setAppearance(dark: false)
     }
 
-    /// Scene 9: the button editor beside a lister.
+    /// Scene 10: the button editor beside a lister.
     private static func sceneButtons() async throws {
         let size = NSSize(width: 560, height: 440)
         let controller = open(demo.projects, origin: NSPoint(x: region.minX + 24, y: region.maxY - 130 - size.height), size: size)
@@ -360,7 +405,7 @@ enum DemoVideo {
         try await pause(0.2)
     }
 
-    /// Scene 10: the end card; it fades back to the bare desktop the video starts with, so a loop is seamless.
+    /// Scene 11: the end card; it fades back to the bare desktop the video starts with, so a loop is seamless.
     private static func sceneCard() async throws {
         clear()
         cursor?.orderOut(nil)
