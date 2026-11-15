@@ -492,9 +492,9 @@ also actions (`nextLister`, `previousLister`) you can give another key or a butt
 
 ### Tabs
 
-Off by default: **Settings → Listers → Allow tabs in listers**. A lister window can then hold several folders as
-tabs, like Finder or a web browser. Each tab is a full lister of its own (history, sort, filter, selection, folder
-tree), so everything else works per tab.
+A lister window can hold several folders as tabs, like Finder or a web browser (**Settings → Listers → Allow tabs in
+listers**, on by default; new listers still open as windows of their own). Each tab is a full lister of its own
+(history, sort, filter, selection, folder tree), so everything else works per tab.
 
 - **⌘T** (or the **+** at the end of the tab bar) opens the folder you are in in a new tab; **⌘ + double-click** on a
   folder, or **Open in New Tab** in its context menu, opens that folder in one. The tab bar appears once a window has
@@ -692,6 +692,10 @@ open build/MacLister.app --args --selftest
 open build/MacLister.app --args --selftest-features
 open build/MacLister.app --args --selftest-tabs
 ```
+
+Add `--quiet` to run a test while you keep working: MacLister then never takes the keyboard and its windows are
+invisible and let clicks through (they are still real windows). Start the binary itself, so the arguments reach it
+even while another MacLister runs: `build/MacLister.app/Contents/MacOS/MacLister --selftest-features --quiet`.
 
 Server tests run against small local FTP/FTPS servers (standard-library Python in `Tools/mock_ftp_server.py`):
 start it with `--port`, `--root` and optionally `--tls explicit|implicit --cert … --key …`, then

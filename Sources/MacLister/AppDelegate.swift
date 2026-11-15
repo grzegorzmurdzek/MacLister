@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var settingsItem: NSMenuItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        QuietMode.start()              // `--quiet`: self-tests that do not get in the way (before any window exists)
         DispatchQueue.global(qos: .utility).async { RemoteCache.purge() }     // old downloaded copies
         DispatchQueue.global(qos: .utility).async { ArchiveBrowser.cleanOldCaches() }     // archives unpacked for browsing
         NotificationCenter.default.addObserver(forName: .shortcutsChanged, object: nil, queue: .main) { _ in GlobalShortcutActions.apply() }

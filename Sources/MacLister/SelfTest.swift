@@ -160,7 +160,12 @@ enum SelfTest {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                                 let after = Array(frontOwnership().prefix(2))
                                 check(before != [true, true], "precondition: listers were sent behind other windows (before=\(before))")
-                                check(after == [true, true], "Bring All to Front puts both listers above other apps' windows (after=\(after))")
+                                if QuietMode.isOn {
+                                    // quiet mode must not cover your windows, which is just what this measures
+                                    DebugLog.write("selftest skip Bring All to Front above other apps (not measured with --quiet)")
+                                } else {
+                                    check(after == [true, true], "Bring All to Front puts both listers above other apps' windows (after=\(after))")
+                                }
 
                             manager.closeAll()
                             check(manager.openCount == 0, "Close All Listers closes every window")

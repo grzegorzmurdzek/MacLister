@@ -125,7 +125,7 @@ private struct ListersSettingsView: View {
     @AppStorage("dragSelectFromNames") private var dragSelect = true
     @AppStorage("browseArchives") private var browseArchives = true
     @AppStorage("springLoadedFolders") private var springLoaded = true
-    @AppStorage("listerTabs") private var tabs = false
+    @AppStorage("listerTabs") private var tabs = true
     @State private var confirmReset = false
 
     var body: some View {

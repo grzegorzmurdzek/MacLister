@@ -32,9 +32,13 @@ final class TreeNode: NSObject {
         isLoaded = kind != .folder
     }
 
-    init(header name: String, children: [TreeNode]) {
+    /// What identifies a header whatever the language (the English title), for remembering that it is closed.
+    private(set) var key = ""
+
+    init(header name: String, key: String, children: [TreeNode]) {
         url = URL(string: "\(VirtualPlace.scheme)://section")!
         self.name = name
+        self.key = key
         kind = .header
         self.children = children
         isLoaded = true
@@ -127,6 +131,9 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
     private var lastRevealed: URL?
     private var volumeObservers: [NSObjectProtocol] = []
     private var sidebarObserver: NSObjectProtocol?
+
+    /// The name of this Mac. Asked once: the system can be slow to answer, and buildRoots runs on every change.
+    private static let computerName = Host.current().localizedName ?? tr("Computer")
 
     static let airDropApp = URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app/Contents/Applications/AirDrop.app")
     private static let collapsedKey = "collapsedSidebarSections"
@@ -243,11 +250,12 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
         }
 
         // Finder's order: iCloud Drive, the home folder, this computer, the disks, AirDrop, the Trash
+        // (iCloud Drive is a row only: it is inside the home folder, so the tree reaches it there)
         let cloud = home.appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs", isDirectory: true)
-        if sidebar.showsICloudDrive { addPlace(url: cloud, name: tr("iCloud Drive"), symbol: "icloud", inTree: true) }
+        if sidebar.showsICloudDrive { addPlace(url: cloud, name: tr("iCloud Drive"), symbol: "icloud", inTree: false) }
         addPlace(url: home, name: NSUserName(), symbol: "house", inTree: true)
         if sidebar.showsComputer {
-            addShortcut(url: URL(fileURLWithPath: "/Volumes"), name: Host.current().localizedName ?? tr("Computer"), symbol: "laptopcomputer")
+            addShortcut(url: URL(fileURLWithPath: "/Volumes"), name: Self.computerName, symbol: "laptopcomputer")
         }
         let volumes = fm.mountedVolumeURLs(includingResourceValuesForKeys: [.volumeNameKey], options: [.skipHiddenVolumes]) ?? []
         for volume in volumes {
@@ -287,9 +295,9 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
         }
         let recents = place(.recents, symbol: "clock"), shared = place(.shared, symbol: "person.2")
         var top = [recents, shared]
-        if !favorites.isEmpty { top.append(TreeNode(header: tr("Favorites"), children: favorites)) }
-        top.append(TreeNode(header: tr("Locations"), children: locations))
-        if !tags.isEmpty { top.append(TreeNode(header: tr("Tags"), children: tags)) }
+        if !favorites.isEmpty { top.append(TreeNode(header: tr("Favorites"), key: "Favorites", children: favorites)) }
+        top.append(TreeNode(header: tr("Locations"), key: "Locations", children: locations))
+        if !tags.isEmpty { top.append(TreeNode(header: tr("Tags"), key: "Tags", children: tags)) }
 
         sections = top
         roots = treeRoots
@@ -313,13 +321,13 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
     /// Opens the headers the user has not closed.
     private func expandSections() {
         let closed = collapsedSections
-        for section in sections where section.kind == .header && !closed.contains(section.name) { sidebarOutline.expandItem(section) }
+        for section in sections where section.kind == .header && !closed.contains(section.key) { sidebarOutline.expandItem(section) }
     }
 
     private func noteSection(_ notification: Notification, collapsed: Bool) {
         guard let node = notification.userInfo?["NSObject"] as? TreeNode, node.kind == .header else { return }
         var closed = collapsedSections
-        if collapsed { closed.insert(node.name) } else { closed.remove(node.name) }
+        if collapsed { closed.insert(node.key) } else { closed.remove(node.key) }
         collapsedSections = closed
     }
 
@@ -388,7 +396,6 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
         sidebarOutline.deselectAll(nil)
         treeOutline.deselectAll(nil)
         guard let node else { return }
-        if let section = node.section { sidebarOutline.expandItem(section) }
         let outline = outline(for: node)
         let row = outline.row(forItem: node)
         if row >= 0 {

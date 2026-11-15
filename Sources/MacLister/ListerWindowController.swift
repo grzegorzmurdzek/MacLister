@@ -631,8 +631,45 @@ final class ListerManager {
     }
 }
 
+/// `--quiet` (or MACLISTER_QUIET=1 in the environment): for running the self-tests while you work at the Mac. The app
+/// never activates itself, so it never takes the keyboard, and every window it shows is fully transparent and lets
+/// clicks through. The windows are still real windows: lists load, menus build, roles and tabs behave as usual.
+enum QuietMode {
+    static let isOn = CommandLine.arguments.contains("--quiet") || ProcessInfo.processInfo.environment["MACLISTER_QUIET"] == "1"
+    private static var started = false
+
+    static func start() {
+        guard isOn, !started else { return }
+        started = true
+        // Every way of showing a window (makeKeyAndOrderFront, orderFront, sheets, panels) ends in order(_:relativeTo:) (-orderWindow:relativeTo:):
+        // the window turns transparent just before it reaches the screen, so nothing flashes.
+        if let original = class_getInstanceMethod(NSWindow.self, #selector(NSWindow.order(_:relativeTo:))),
+           let quiet = class_getInstanceMethod(NSWindow.self, #selector(NSWindow.quietOrderWindow(_:relativeTo:))) {
+            method_exchangeImplementations(original, quiet)
+        }
+        NotificationCenter.default.addObserver(forName: NSApplication.didUpdateNotification, object: nil, queue: .main) { _ in
+            NSApp.windows.forEach(hide)                      // anything shown some other way
+        }
+        DebugLog.write("quiet mode: windows are transparent and the app does not activate")
+    }
+
+    static func hide(_ window: NSWindow) {
+        if window.alphaValue != 0 { window.alphaValue = 0 }
+        if !window.ignoresMouseEvents { window.ignoresMouseEvents = true }
+    }
+}
+
+extension NSWindow {
+    /// Swapped with order(_:relativeTo:) in quiet mode, so calling it runs the original.
+    @objc fileprivate func quietOrderWindow(_ place: NSWindow.OrderingMode, relativeTo other: Int) {
+        QuietMode.hide(self)
+        quietOrderWindow(place, relativeTo: other)
+    }
+}
+
 extension NSApplication {
     func bringToFront() {
+        guard !QuietMode.isOn else { return }          // quiet mode: the person at the Mac keeps the keyboard
         // The flag is deprecated since macOS 14 but still honoured in practice; the cooperative
         // activate() alone is refused when another app (Finder after a desktop click) is active.
         activate(ignoringOtherApps: true)

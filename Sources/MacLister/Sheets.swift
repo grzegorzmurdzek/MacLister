@@ -16,7 +16,10 @@ final class SheetPresenter {
         }
         let host = NSHostingController(rootView: content(close))
         let panel = NSPanel(contentViewController: host)
-        panel.setContentSize(size)
+        // The size asked for, but never less than the form needs: controls are taller in the current macOS look than
+        // in the one the sizes were chosen for, and a form that does not fit loses its bottom row (the buttons).
+        let needed = host.view.fittingSize
+        panel.setContentSize(NSSize(width: max(size.width, needed.width), height: max(size.height, needed.height)))
         self.panel = panel
         window.beginSheet(panel)
     }

@@ -194,7 +194,9 @@ enum FindEngine {
             DispatchQueue.main.async { batch(urls) }
             lastFlush = Date()
         }
-        if let walker = FileManager.default.enumerator(at: query.scope, includingPropertiesForKeys: nil, options: options,
+        // Without Spotlight a search of "/" (a tag) would walk the whole system and every mounted disk: stay in the home folder.
+        let root = query.scope.standardizedFileURL.path == "/" ? FileManager.default.homeDirectoryForCurrentUser : query.scope
+        if let walker = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil, options: options,
                                                         errorHandler: { _, _ in true }) {
             for case let url as URL in walker {
                 if cancel.isCancelled { break }
@@ -299,7 +301,8 @@ final class SpotlightFind: NSObject {
 
     private func begin() {
         metadata.predicate = Self.predicate(for: query)
-        metadata.searchScopes = [query.scope]
+        // "/" is every local disk, not just the startup volume: tagged files may be on an external one
+        metadata.searchScopes = query.scope.standardizedFileURL.path == "/" ? [NSMetadataQueryIndexedLocalComputerScope] : [query.scope]
         NotificationCenter.default.addObserver(self, selector: #selector(gathered), name: .NSMetadataQueryDidFinishGathering, object: metadata)
         metadata.start()
         let started = Date()

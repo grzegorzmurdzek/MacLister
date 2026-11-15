@@ -341,10 +341,20 @@ enum SelfTestFeatures {
             check(!one.model.isVirtual && one.model.url.standardizedFileURL == dirA.standardizedFileURL, "the same command leaves the flat view for the folder")
             check(one.model.items.contains(where: { $0.name == "big" }), "the folder is listed normally again")
         }
+        // The sheet is as large as the form needs, whatever the controls measure in the macOS look in use.
+        var findFormSize = NSSize.zero
         later {
             let form = NSHostingView(rootView: FindView(initial: FindQuery(scope: dirC), onFind: { _ in }, close: { }))
-            DebugLog.write("features info Find form needs \(form.fittingSize)")
-            check(form.fittingSize.height <= 440 && form.fittingSize.width <= 500, "the Find form fits its sheet (\(form.fittingSize))")
+            findFormSize = form.fittingSize
+            DebugLog.write("features info Find form needs \(findFormSize)")
+            vc.promptFind()
+        }
+        later(0.5) {
+            let sheet = one.window?.attachedSheet
+            let size = sheet?.contentLayoutRect.size ?? .zero
+            check(size.height >= findFormSize.height && size.width >= findFormSize.width,
+                  "the Find form fits its sheet (form \(findFormSize), sheet \(size))")
+            if let sheet { one.window?.endSheet(sheet) }
         }
         // find with Spotlight: the query must at least start and answer (the index may know nothing about a temp folder)
         var spotlightAnswered = false

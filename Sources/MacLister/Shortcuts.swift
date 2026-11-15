@@ -179,13 +179,13 @@ enum BuiltInShortcuts {
         e(125, .command, "↓", tr("Open")), e(126, .command, "↑", tr("Parent folder")), e(51, [], "Delete", tr("Parent folder")),
         e(51, .command, "Delete", tr("Move to Trash")), e(47, [.command, .shift], ".", tr("Show hidden files")),
         e(120, [], "F2", tr("Rename")), e(96, [], "F5", tr("Copy")), e(97, [], "F6", tr("Move")),
-        e(96, .shift, "⇧F5", tr("Copy As")), e(97, .shift, "⇧F6", tr("Move As")),
+        e(96, .shift, "F5", tr("Copy As")), e(97, .shift, "F6", tr("Move As")),
         e(14, .command, "E", tr("Extract")), e(34, .command, "I", tr("Info")), e(34, [.command, .option], "I", tr("Attributes")),
         e(2, .command, "D", tr("Duplicate files")), e(2, [.command, .option], "D", tr("Duplicate lister")),
         e(3, .command, "F", tr("Filter")), e(3, [.command, .shift], "F", tr("Find")), e(17, [.command, .option], "T", tr("Folder tree")), e(11, .command, "B", tr("Bookmark")), e(37, [.command, .shift], "L", tr("Bring all listers to front")),
         e(37, .command, "L", tr("Type a path")), e(40, .command, "K", tr("Connect to Server")),
-        e(48, [], "Tab", tr("Next lister")), e(48, .shift, "⇧Tab", tr("Previous lister")),
-        e(17, .command, "T", tr("New tab")), e(48, .control, "⌃Tab", tr("Next tab")), e(48, [.control, .shift], "⌃⇧Tab", tr("Previous tab")),
+        e(48, [], "Tab", tr("Next lister")), e(48, .shift, "Tab", tr("Previous lister")),
+        e(17, .command, "T", tr("New tab")), e(48, .control, "Tab", tr("Next tab")), e(48, [.control, .shift], "Tab", tr("Previous tab")),
         e(30, [.command, .shift], "]", tr("Next tab")), e(33, [.command, .shift], "[", tr("Previous tab")),
     ]
 

@@ -29,10 +29,14 @@ enum SelfTestTabs {
         AppSupport.override = support
         let dirA = root.appendingPathComponent("Alpha"), dirB = root.appendingPathComponent("Beta"), dirC = root.appendingPathComponent("Gamma")
         for dir in [support, dirA.appendingPathComponent("inner"), dirB, dirC] { try? fm.createDirectory(at: dir, withIntermediateDirectories: true) }
-        let tabsBefore = Settings.listerTabs
+        // the stored value itself (nil: never set, so the default applies), put back as it was at the end
+        // (the persistent domain only: object(forKey:) would also answer with the registered default)
+        let tabsBefore = Bundle.main.bundleIdentifier.flatMap { UserDefaults.standard.persistentDomain(forName: $0)?["listerTabs"] }
         let manager = ListerManager.shared
 
-        // 0. With tabs off nothing changes: ⌘T only explains.
+        // 0. Tabs are on unless you turn them off. Off, nothing changes: ⌘T only explains.
+        UserDefaults.standard.removeObject(forKey: "listerTabs")
+        check(Settings.listerTabs, "tabs are on by default")
         Settings.listerTabs = false
         var one = manager.openLister(directory: dirA, anchor: .cursor(NSPoint(x: 300, y: 700), centered: false))
         check(one.window?.tabbingMode == .disallowed, "tabs off: the window takes no tabs")
@@ -210,7 +214,7 @@ enum SelfTestTabs {
         }
 
         runSteps {
-            Settings.listerTabs = tabsBefore
+            UserDefaults.standard.set(tabsBefore, forKey: "listerTabs")      // nil removes it
             manager.closeAll()
             AppSupport.override = nil
             try? fm.removeItem(at: root)

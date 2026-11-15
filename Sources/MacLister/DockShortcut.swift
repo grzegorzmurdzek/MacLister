@@ -181,9 +181,17 @@ enum DockShortcut {
         // A Dock that never saved a layout has no list: writing one would drop the default icons.
         guard var apps = CFPreferencesCopyAppValue(key, cfDomain) as? [[String: Any]] else { return .failed }
         let location = URL(fileURLWithPath: app.path, isDirectory: true).absoluteString
-        if apps.contains(where: { (($0["tile-data"] as? [String: Any])?["file-data"] as? [String: Any])?["_CFURLString"] as? String == location }) {
-            return .alreadyThere
+        // the Dock writes the address with or without the closing slash, or as a plain path: compare the paths
+        func path(of text: String) -> String {
+            let url = text.hasPrefix("file:") ? URL(string: text) : URL(fileURLWithPath: text)
+            return url?.standardizedFileURL.path ?? text
         }
+        let ours = path(of: location)
+        let present = apps.contains { tile in
+            let data = (tile["tile-data"] as? [String: Any])?["file-data"] as? [String: Any]
+            return (data?["_CFURLString"] as? String).map(path(of:)) == ours
+        }
+        if present { return .alreadyThere }
         apps.append([
             "tile-type": "file-tile",
             "tile-data": [

@@ -19,7 +19,12 @@ BIN="$(swift build -c "$CONFIG" ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"} --show-bin-p
 APP="build/MacLister.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN" "$APP/Contents/MacOS/MacLister"
+# SwiftPM writes the deployment target (13.0) into the binary as the SDK it was built with, and macOS then draws the
+# app as one made for macOS 13: old title bar, flat tab bar. Record the SDK that was really used, so the listers get
+# the current look, the same as Finder (it has no effect on older macOS versions).
+MIN_OS="$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' Support/Info.plist)"
+xcrun vtool -set-build-version macos "$MIN_OS" "$(xcrun --show-sdk-version)" -replace \
+    -output "$APP/Contents/MacOS/MacLister" "$BIN"
 cp Support/Info.plist "$APP/Contents/Info.plist"
 cp Support/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 # Interface languages: English is built in (the text is the key), Polish comes from pl.lproj.

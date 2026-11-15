@@ -504,9 +504,9 @@ akcjami (`nextLister`, `previousLister`), którym możesz przypisać inny klawis
 
 ### Karty
 
-Domyślnie wyłączone: **Ustawienia → Listery → Zezwalaj na karty w listerach**. Okno listera może wtedy mieścić kilka
-folderów jako karty, jak Finder czy przeglądarka. Każda karta to pełny lister (historia, sortowanie, filtr,
-zaznaczenie, drzewo folderów), więc wszystko inne działa osobno dla każdej karty.
+Okno listera może mieścić kilka folderów jako karty, jak Finder czy przeglądarka (**Ustawienia → Listery → Zezwalaj na
+karty w listerach**, domyślnie włączone; nowe listery nadal otwierają się jako osobne okna). Każda karta to pełny
+lister (historia, sortowanie, filtr, zaznaczenie, drzewo folderów), więc wszystko inne działa osobno dla każdej karty.
 
 - **⌘T** (albo **+** na końcu paska kart) otwiera bieżący folder w nowej karcie; **⌘ + dwuklik** na folderze albo
   **Otwórz w nowej karcie** z jego menu kontekstowego otwiera w niej ten folder. Pasek kart pojawia się, gdy okno ma dwie
@@ -704,6 +704,10 @@ open build/MacLister.app --args --selftest
 open build/MacLister.app --args --selftest-features
 open build/MacLister.app --args --selftest-tabs
 ```
+
+Dodaj `--quiet`, żeby test szedł, gdy pracujesz dalej: MacLister nie zabiera wtedy klawiatury, a jego okna są
+niewidoczne i przepuszczają kliknięcia (nadal są prawdziwymi oknami). Uruchom sam plik wykonywalny, żeby argumenty do
+niego dotarły także wtedy, gdy działa inny MacLister: `build/MacLister.app/Contents/MacOS/MacLister --selftest-features --quiet`.
 
 Testy serwerów działają na małych lokalnych serwerach FTP/FTPS (Python ze standardowej biblioteki,
 `Tools/mock_ftp_server.py`): uruchom go z `--port`, `--root` i opcjonalnie `--tls explicit|implicit --cert … --key …`,
