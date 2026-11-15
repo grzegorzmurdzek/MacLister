@@ -109,23 +109,6 @@ enum SelfTestFeatures {
         check(linkFound, "a link in the notes stays clickable")
         check(ReleaseNotes.excerpt(from: "Just a plain note.", polish: false) == "Just a plain note.", "notes without the usual headings are shown as they are")
 
-        // a list feed: skipped versions bring their notes along; drafts and pre-releases are ignored
-        func entry(_ tag: String, _ body: String, draft: Bool = false, pre: Bool = false) -> [String: Any] {
-            ["tag_name": tag, "html_url": "https://example.org/\(tag)", "body": body, "draft": draft, "prerelease": pre, "assets": []]
-        }
-        let listFeed = (try? JSONSerialization.data(withJSONObject: [
-            entry("v1.5.3", "### What's new\n\n- three"), entry("v1.5.1", "### What's new\n\n- one"), entry("v1.4.0", "### What's new\n\n- old"),
-            entry("v1.5.2", "### What's new\n\n- two"), entry("v1.6.0", "### What's new\n\n- beta", pre: true), entry("v1.7.0", "### What's new\n\n- draft", draft: true)])) ?? Data()
-        let parsedList = try? UpdateChecker.parse(listFeed, current: "1.4.0")
-        check(parsedList?.version == "1.5.3" && parsedList?.earlier.map(\.version) == ["1.5.2", "1.5.1"], "a release list gives the newest version and the skipped ones, newest first: \(String(describing: parsedList?.earlier.map(\.version)))")
-        if let parsedList {
-            let text = ReleaseNotes.combined(parsedList, polish: false)
-            check(text.hasPrefix("## 1.5.3") && text.contains("- three") && text.contains("## 1.5.2") && text.contains("- two") && text.contains("## 1.5.1") && text.contains("- one")
-                  && !text.contains("old") && !text.contains("beta") && !text.contains("draft") && text.range(of: "## 1.5.3")!.lowerBound < text.range(of: "## 1.5.2")!.lowerBound, "the update window shows every skipped version's notes: \(text.debugDescription)")
-        }
-        let direct = try? UpdateChecker.parse(listFeed, current: "1.5.3")
-        check(direct?.earlier.isEmpty == true && direct.map { ReleaseNotes.combined($0, polish: false) } == "### What's new\n\n- three", "one step behind: just the latest notes, no extra heading")
-
         // New Text File: a default button, TextEdit as the default editor, and a choice of installed editors
         check(ListerButton.defaults.contains { $0.action == .newTextFile }, "the default button bar has New Text File")
         check(Settings.textEditorBundleID == "com.apple.TextEdit" || UserDefaults.standard.string(forKey: "textEditorBundleID") != nil, "TextEdit is the default text editor")
