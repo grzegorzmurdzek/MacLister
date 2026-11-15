@@ -77,6 +77,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { Screenshots.run(outDir: out, dark: dark) }
             return
         }
+        if let flag = CommandLine.arguments.firstIndex(of: "--demo-video"), CommandLine.arguments.indices.contains(flag + 1) {
+            let out = URL(fileURLWithPath: CommandLine.arguments[flag + 1])
+            let dark = CommandLine.arguments.contains("dark")
+            if #available(macOS 15.0, *) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { DemoVideo.run(out: out, dark: dark) }
+            } else {
+                print("--demo-video needs macOS 15 or later")
+                NSApp.terminate(nil)
+            }
+            return
+        }
         if CommandLine.arguments.contains("--check-recents") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 PreviewRender.recentsCheck()

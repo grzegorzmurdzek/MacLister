@@ -866,3 +866,15 @@
 "Enter the password to open it. It is kept only until MacLister quits." = "Wpisz hasło, żeby je otworzyć. Jest pamiętane tylko do zamknięcia MacListera.";
 "Taking files out of the archive…" = "Wyciąganie plików z archiwum…";
 "This is too big to drag out of an archive: use Copy instead" = "To jest za duże, żeby przeciągać z archiwum: użyj Kopiuj";
+
+/* Demo video (--demo-video) */
+"Double-click the empty desktop" = "Dwuklik na pustym pulpicie";
+"Source and destination: F5 copies" = "Źródło i cel: F5 kopiuje";
+"Free file manager for macOS" = "Darmowy menedżer plików dla macOS";
+"Drag and drop, also to and from Finder" = "Przeciągnij i upuść, także do i z Findera";
+"Open archives like folders" = "Archiwa otwierasz jak foldery";
+"Find, find duplicates, synchronize" = "Szukaj, znajdź duplikaty, synchronizuj";
+"As many listers as you like" = "Tyle listerów, ile chcesz";
+"Folder tree" = "Drzewo folderów";
+"Light and dark" = "Jasny i ciemny motyw";
+"Your own buttons: left, right and middle click" = "Własne przyciski: lewy, prawy i środkowy klik";
