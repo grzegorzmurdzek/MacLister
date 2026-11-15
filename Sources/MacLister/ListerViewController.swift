@@ -1397,6 +1397,7 @@ extension ListerViewController: NSMenuDelegate {
         if !model.isVirtual && !isRemote && !model.isInArchive {
             add(tr("Snapshot This Folder"), to: lister) { [weak self] in self?.snapshotFolder() }
             if hasSnapshot { add(tr("Forget Snapshot"), to: lister) { [weak self] in self?.forgetSnapshot() } }
+            add(tr("Add to Dock…"), to: lister) { [weak self] in self?.addToDock() }
         }
         add(treeMenuTitle, to: lister) { [weak self] in self?.toggleTree() }
         add(tr("Duplicate Lister"), to: lister) { [weak self] in self?.duplicateLister() }
@@ -1590,6 +1591,7 @@ extension ListerViewController {
         add(tr("Lister Title…"), to: lister) { TitleFormatWindow.show() }
         add(tr("Snapshot This Folder"), to: lister, enabled: !isRemote && !model.isVirtual && !model.isInArchive) { [weak self] in self?.snapshotFolder() }
         if hasSnapshot { add(tr("Forget Snapshot"), to: lister) { [weak self] in self?.forgetSnapshot() } }
+        add(tr("Add to Dock…"), to: lister, enabled: canAddToDock) { [weak self] in self?.addToDock() }
         add(tr("Keyboard Shortcuts…"), to: lister) { ShortcutsWindowController.shared.show() }
         attach(lister)
         let all = submenu(tr("All Listers"))

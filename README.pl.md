@@ -230,6 +230,19 @@ pulpit** — w menu paska menu, w menu Docka, w menu listera albo globalnym skr�
 pulpitach** sprawia, że chodzą za Tobą wszędzie. Działa też sposób macOS: kliknij ikonę w Docku z Control → Opcje →
 Przypisz do → Ten pulpit.
 
+### Folder jako własna ikona w Docku
+
+**Dodaj do Docka…** (menu paska tytułu → **Lister**, albo **Ten lister** w menu listy plików) wstawia folder, który
+pokazuje lister, do Docka jako osobną ikonę — wygodne dla *Pobranych*, projektu albo udziału sieciowego, do którego
+zaglądasz cały dzień. MacLister najpierw pyta, potem tworzy dla folderu małą aplikację w
+`~/Applications/MacLister Folders` (ikona folderu z plakietką MacListera, podpisana nazwą listera) i dodaje ją do Docka,
+który na chwilę się restartuje. Kliknięcie ikony otwiera lister na tym folderze albo wynosi na wierzch ten, który już
+go pokazuje; MacLister uruchomi się sam, jeśli nie działa. *Tylko utwórz aplikację* pomija Dock i pokazuje aplikację w
+Finderze, żebyś przeciągnął ją, gdzie chcesz. Polecenie działa dla folderów na tym Macu, nie dla serwerów, archiwów ani
+list takich jak Ostatnie. Żeby usunąć ikonę, przeciągnij ją z Docka i skasuj jej aplikację. Aplikacje rozmawiają z
+MacListerem przez adres `maclister://open?path=/ścieżka/do/folderu`, którego możesz używać także w skryptach
+(`open "maclister://open?path=$HOME/Downloads"`).
+
 ### Czyszczenie historii
 
 **Ustawienia → Operacje → Historia** ma **Wyczyść ostatnie foldery…** (*Recent Folders* w menu Go) i **Wyczyść dziennik

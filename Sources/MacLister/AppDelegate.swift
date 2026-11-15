@@ -157,6 +157,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return false
     }
 
+    /// `maclister://open?path=…`, which the Dock apps made by "Add to Dock" send.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls { openFolder(from: url) }
+    }
+
+    /// Raises the lister that already shows the folder, or opens one; says so when the folder is gone.
+    @discardableResult
+    func openFolder(from url: URL) -> Bool {
+        guard let folder = DockShortcut.folder(from: url) else { return false }
+        var isFolder: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: folder.path, isDirectory: &isFolder), isFolder.boolValue else {
+            let alert = NSAlert()
+            alert.messageText = tr("Folder not found")
+            alert.informativeText = tr("“%@” does not exist any more, or is not a folder.", (folder.path as NSString).abbreviatingWithTildeInPath)
+            NSApp.bringToFront()
+            alert.runModal()
+            return true
+        }
+        let manager = ListerManager.shared
+        let key = ListerModel.comparisonKey(folder)
+        if let existing = manager.allControllers.first(where: { ListerModel.comparisonKey($0.model.url) == key }) {
+            manager.bringToFront(existing)
+        } else {
+            manager.openLister(directory: folder, anchor: dockAnchor())
+            NSApp.bringToFront()
+        }
+        return true
+    }
+
     /// The menu under a right-click on the Dock icon: the open listers, then the common commands.
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? { makeDockMenu() }
 

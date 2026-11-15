@@ -171,7 +171,7 @@ On many laptops F-keys need **fn**.
   create PDF and convert for images, plus your Automator Quick Action workflows from `~/Library/Services`) and
   **Services** (whatever the installed services offer for the selected files, e.g. “New iTerm2 Tab Here”),
   *Open in New Lister*, *Open in Destination*, *Reveal in Finder*, and **This Lister** (*New Folder…*, *New Text File*, *Terminal Here*,
-  *Show Hidden Files*, *Refresh*, *Snapshot This Folder*, *Show Folder Tree*, *Duplicate Lister*, *Name This Lister…*,
+  *Show Hidden Files*, *Refresh*, *Snapshot This Folder*, *Add to Dock…*, *Show Folder Tree*, *Duplicate Lister*, *Name This Lister…*,
   *Add Bookmark*). Clicking empty space gives the folder commands: the submenu **Select** (by pattern, by attributes,
   all, invert), Filter, Find, Find Duplicates, Flat View, Calculate Folder Sizes, Compare and Synchronize with the
   destination, New Folder, New Text File, Terminal Here, Copy Folder Path, Hidden Files, Refresh, and **This Lister**.
@@ -181,7 +181,7 @@ On many laptops F-keys need **fn**.
   *Parent*, *Back*, *Refresh*, **Bookmarks** and **Recent Folders**; **View** (*Show Hidden Files*, *Filter…*, *Flat View*,
   *Show Folder Tree*); **Search** (*Find…*, *Find Duplicates…*); **Source and Destination** (*Set as Source*, *Set as
   Destination*, *Lock Role*, *Swap*); *Undo*, *Operation Log…*, *Connect to Server…*, *Terminal Here*; **Lister**
-  (*Duplicate Lister*, *Name This Lister…*, *New Lister*, *Lister Title…*, *Snapshot This Folder*, *Keyboard
+  (*Duplicate Lister*, *Name This Lister…*, *New Lister*, *Lister Title…*, *Snapshot This Folder*, *Add to Dock…*, *Keyboard
   Shortcuts…*); **All Listers** (*Bring All Listers to Front*, *Move All Listers to This Desktop*, *Close All Listers*,
   *Save Layout*, *Restore Layout*); *Close Lister*.
 - **Menu-bar icon** – list of all open listers (click to bring one to the front; roles are shown as
@@ -226,6 +226,18 @@ Desktop** — in the menu-bar menu, the Dock menu, a lister's context menu, or w
 *Keyboard Shortcuts* (it is also an action, `gatherListers`, for buttons and keys). **Settings → General → Show listers
 on all desktops** makes them follow you everywhere instead. The macOS way works too: Control-click the Dock icon →
 Options → Assign To → This Desktop.
+
+### A folder as its own Dock icon
+
+**Add to Dock…** (title-bar menu → **Lister**, or **This Lister** in the file list's menu) puts the folder the lister
+shows into the Dock as an icon of its own — handy for *Downloads*, a project or a share you open all day. MacLister
+asks first, then makes a small app for the folder in `~/Applications/MacLister Folders` (the folder's icon with a
+MacLister badge, labelled with the lister's name) and adds it to the Dock, which restarts for a moment. Clicking the
+icon opens a lister on that folder, or brings forward the one that already shows it; MacLister starts first if it is
+not running. *Only Create the App* skips the Dock and shows the app in the Finder to drag wherever you like. The
+command works for folders on this Mac, not for servers, archives or lists like Recents. To remove an icon, drag it
+out of the Dock and delete its app. The apps talk to MacLister through the `maclister://open?path=/path/to/folder`
+address, which you can also use from scripts (`open "maclister://open?path=$HOME/Downloads"`).
 
 ### Clearing the history
 

@@ -17,6 +17,14 @@
     <key>NSHumanReadableCopyright</key><string>© 2026 Grzegorz Murdzek. MIT License.</string>
     <key>MacListerUpdateFeed</key>
     <string>https://api.github.com/repos/grzegorzmurdzek/MacLister/releases</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key><string>MacLister folder</string>
+            <key>CFBundleURLSchemes</key>
+            <array><string>maclister</string></array>
+        </dict>
+    </array>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>

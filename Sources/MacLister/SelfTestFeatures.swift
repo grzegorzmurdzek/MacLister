@@ -761,7 +761,7 @@ enum SelfTestFeatures {
                    "Parent", "Refresh", "Show Hidden Files", "Close Lister", "Close All Listers", "Save Layout", "Restore Layout",
                    "Name This Lister…", "Lister Title…", "Keyboard Shortcuts…", "Connect to Server…", "Terminal Here", "Undo", "Operation Log…",
                    "Filter…", "Find…", "Find Duplicates…", "Flat View", "Folder Tree", "Snapshot This Folder", "Bookmarks", "Recent Folders",
-                   "Bring All Listers to Front", "Move All Listers to This Desktop", "Lock Role"].allSatisfy { wanted in titles.contains { $0.hasPrefix(wanted) || $0.hasSuffix(wanted) } },
+                   "Bring All Listers to Front", "Move All Listers to This Desktop", "Lock Role", "Add to Dock…"].allSatisfy { wanted in titles.contains { $0.hasPrefix(wanted) || $0.hasSuffix(wanted) } },
                   "title-bar menu still has every lister command: \(titles.filter { !$0.isEmpty })")
             check((menu?.items.filter { !$0.isSeparatorItem }.count ?? 99) <= 16, "the title-bar menu is short on its first level: \(menu?.items.filter { !$0.isSeparatorItem }.map(\.title) ?? [])")
             let rolesMenu = menu?.items.first { $0.title == "Source and Destination" }?.submenu
@@ -783,6 +783,61 @@ enum SelfTestFeatures {
                 check(window.isInTitleBar(top), "a point in the title bar is recognised")
                 check(!window.isInTitleBar(NSPoint(x: 100, y: 100)), "a point in the content is not the title bar")
             } else { check(false, "lister window is a ListerWindow") }
+        }
+        // Add to Dock: the open URL, the little app, the Dock list (a scratch domain, never the real Dock) and the open handler
+        later {
+            let shortcutRoot = fm.temporaryDirectory.appendingPathComponent("maclister-dock-\(UUID().uuidString)")
+            defer { try? fm.removeItem(at: shortcutRoot) }
+            let odd = shortcutRoot.appendingPathComponent("it's a folder & more")
+            try? fm.createDirectory(at: odd, withIntermediateDirectories: true)
+            let url = DockShortcut.openURL(for: odd)
+            check(url.scheme == "maclister" && DockShortcut.folder(from: url)?.standardizedFileURL.path == odd.standardizedFileURL.path, "the open URL carries a path with spaces, a quote and an ampersand: \(url.absoluteString)")
+            check(DockShortcut.folder(from: URL(string: "https://example.com/?path=/tmp")!) == nil && DockShortcut.folder(from: URL(string: "maclister://open?path=relative")!) == nil, "other URLs and relative paths are not folders")
+
+            let apps = shortcutRoot.appendingPathComponent("apps")
+            do {
+                let app = try DockShortcut.createApp(for: odd, name: "Odd: one/two", in: apps)
+                let launcher = app.appendingPathComponent("Contents/MacOS/launcher")
+                check(app.lastPathComponent == "Odd- one-two.app", "the app name loses characters that cannot be in a file name: \(app.lastPathComponent)")
+                check(fm.isExecutableFile(atPath: launcher.path) && fm.fileExists(atPath: app.appendingPathComponent("Contents/Resources/AppIcon.icns").path), "the little app has a launcher and an icon")
+                check(DockShortcut.shortcutFolder(of: app) == odd.standardizedFileURL.path, "the app remembers its folder")
+                check((try? String(contentsOf: launcher, encoding: .utf8))?.contains(url.absoluteString) == true, "the launcher opens the folder's maclister:// URL")
+                let shell = Process()
+                shell.executableURL = URL(fileURLWithPath: "/bin/sh")
+                shell.arguments = ["-n", launcher.path]
+                try? shell.run(); shell.waitUntilExit()
+                check(shell.terminationStatus == 0, "the launcher script is valid shell")
+                let again = try DockShortcut.createApp(for: odd, name: "Odd: one/two", in: apps)
+                check(again == app, "making the app again for the same folder replaces it")
+                let other = shortcutRoot.appendingPathComponent("other")
+                try fm.createDirectory(at: other, withIntermediateDirectories: true)
+                let second = try DockShortcut.createApp(for: other, name: "Odd: one/two", in: apps)
+                check(second.lastPathComponent == "Odd- one-two 2.app", "another folder with the same name gets its own app: \(second.lastPathComponent)")
+
+                let domain = "com.example.MacLister.docktest"
+                CFPreferencesSetAppValue("persistent-apps" as CFString, [["tile-type": "file-tile"]] as CFArray, domain as CFString)
+                CFPreferencesAppSynchronize(domain as CFString)
+                check(DockShortcut.addToDock(app: app, label: "Odd", domain: domain, restart: false) == .added, "the app is added to the Dock list")
+                check(DockShortcut.addToDock(app: app, label: "Odd", domain: domain, restart: false) == .alreadyThere, "adding it twice changes nothing")
+                let list = CFPreferencesCopyAppValue("persistent-apps" as CFString, domain as CFString) as? [[String: Any]]
+                check(list?.count == 2 && list?.first?["tile-type"] as? String == "file-tile", "the Dock's own icons stay, ours comes last")
+                CFPreferencesSetAppValue("persistent-apps" as CFString, nil, domain as CFString)
+                CFPreferencesAppSynchronize(domain as CFString)
+                check(DockShortcut.addToDock(app: app, label: "Odd", domain: domain, restart: false) == .failed, "without a Dock list nothing is written (the default icons would be lost)")
+            } catch {
+                check(false, "making the Dock app: \(error)")
+            }
+
+            // the handler a running MacLister answers the URL with
+            let delegate = appDelegate
+            let before = manager.openCount
+            check(delegate.openFolder(from: DockShortcut.openURL(for: dirA)), "the open handler accepts a maclister:// URL")
+            check(manager.openCount == before + 1 || manager.allControllers.contains { ListerModel.comparisonKey($0.model.url) == ListerModel.comparisonKey(dirA) }, "it opens a lister on the folder")
+            let afterFirst = manager.openCount
+            delegate.openFolder(from: DockShortcut.openURL(for: dirA))
+            check(manager.openCount == afterFirst, "asking again raises the open lister instead of opening another")
+            check(!delegate.openFolder(from: URL(string: "https://example.com")!), "the handler ignores other URLs")
+            if let extra = manager.allControllers.last, manager.openCount > before { extra.close() }
         }
         // a synthetic right-click goes through sendEvent exactly like a real one
         later {
