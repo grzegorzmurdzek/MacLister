@@ -81,7 +81,8 @@ run `defaults delete com.example.MacLister`, and remove MacLister from the two P
   type a path instead, `~` works) and the **SRC** / **DST** badges.
 - **File list:** icon, name, size, modified date. Click a header to sort; folders come first by default, or switch *Keep folders above files when sorting* off (Settings → Listers, or the column header menu) to sort folders and files together.
   Double-click or Return opens a file or enters a folder. **Right-click the column header** to choose the
-  columns: Size, Modified, Created, Kind, Extension, Permissions, Tags, Comment.
+  columns: Size, Modified, Created, Kind, Extension, Permissions, Tags, Comment. The widths you drag are remembered
+  (Name always takes the space that is left).
 - **The list refreshes itself** when files are added, removed or changed on disk (FSEvents), and the window
   subtitle shows the free space of the volume.
 - **Button bar** above the path bar, as in Ambient on MorphOS (see *Configuration*): icons only, the name is in
