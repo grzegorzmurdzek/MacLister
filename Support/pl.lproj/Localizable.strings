@@ -276,6 +276,7 @@
 "Open a lister (in any application)" = "Otwórz lister (w dowolnej aplikacji)";
 "Open a terminal in this folder" = "Otwórz terminal w tym folderze";
 "Open in Destination" = "Otwórz w celu";
+"Open in New Lister" = "Otwórz w nowym listerze";
 "Open listers will be closed. Your layout can be restored with Restore Layout." = "Otwarte listery zostaną zamknięte. Układ możesz przywrócić poleceniem Przywróć układ.";
 "Opening…" = "Otwieranie…";
 "Others" = "Inni";

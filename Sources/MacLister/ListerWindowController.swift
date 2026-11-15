@@ -313,6 +313,16 @@ final class ListerManager {
         }
     }
 
+    /// A new lister on `folder`, beside `original`, with its size, sort and hidden-files settings (not its filter).
+    @discardableResult
+    func openFolder(_ folder: URL, inNewListerFrom original: ListerWindowController) -> ListerWindowController {
+        openLister(directory: folder, anchor: .cascade(from: original.window)) { copy in
+            let model = original.model
+            copy.model.apply(sort: model.sortKey, ascending: model.ascending, showHidden: model.showHidden, filter: "")
+            if let size = original.window?.contentLayoutRect.size { copy.window?.setContentSize(size) }
+        }
+    }
+
     fileprivate func remove(_ controller: ListerWindowController) {
         controllers.removeAll { $0 === controller }
         progressSubscriptions[ObjectIdentifier(controller)] = nil

@@ -1325,6 +1325,9 @@ extension ListerViewController: NSMenuDelegate {
                 }
             }
 
+            if items.count == 1, items[0].isNavigable, local, !model.isInArchive {
+                add(tr("Open in New Lister")) { [weak self] in self?.openFolderInNewLister() }
+            }
             if items.count == 1, items[0].isNavigable, let dst = ListerManager.shared.destinationController, dst.model !== model {
                 add(tr("Open in Destination")) { [weak self] in self?.showInDestination() }
             }

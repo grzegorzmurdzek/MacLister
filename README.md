@@ -106,6 +106,7 @@ Then:
 | **Compare** | selects, in both listers, items that are missing on the other side or differ (size / newer) |
 | **Synchronize…** | compares the two folders including everything below them and shows a list of what would be copied (or sent to the Trash); you tick what to do |
 | **Swap** | exchanges the roles |
+| **Open in New Lister** | context menu: opens the selected folder in a new lister beside this one |
 | **Open in Destination** | context menu: shows the selected folder in the destination lister |
 
 If no lister is marked SRC, the lister whose button you pressed is the source.
@@ -168,7 +169,7 @@ On many laptops F-keys need **fn**.
   *Move As…*), then **Share** (the system sharing menu), a row of **coloured tag dots**, **Quick Actions** (rotate,
   create PDF and convert for images, plus your Automator Quick Action workflows from `~/Library/Services`) and
   **Services** (whatever the installed services offer for the selected files, e.g. “New iTerm2 Tab Here”),
-  *Open in Destination*, *Reveal in Finder*, and **This Lister** (*New Folder…*, *New Text File*, *Terminal Here*,
+  *Open in New Lister*, *Open in Destination*, *Reveal in Finder*, and **This Lister** (*New Folder…*, *New Text File*, *Terminal Here*,
   *Show Hidden Files*, *Refresh*, *Snapshot This Folder*, *Show Folder Tree*, *Duplicate Lister*, *Name This Lister…*,
   *Add Bookmark*). Clicking empty space gives the folder commands: the submenu **Select** (by pattern, by attributes,
   all, invert), Filter, Find, Find Duplicates, Flat View, Calculate Folder Sizes, Compare and Synchronize with the

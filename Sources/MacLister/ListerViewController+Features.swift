@@ -209,6 +209,13 @@ extension ListerViewController {
         ListerManager.shared.duplicate(controller)
     }
 
+    /// Opens the selected folder in a new lister.
+    func openFolderInNewLister() {
+        guard let controller = view.window?.windowController as? ListerWindowController,
+              selectedItems.count == 1, selectedItems[0].isNavigable else { return }
+        ListerManager.shared.openFolder(selectedItems[0].url, inNewListerFrom: controller)
+    }
+
     func addBookmark() {
         if refuseInList(tr("Add Bookmark")) { return }
         if refuseInArchive(tr("Add Bookmark")) { return }
