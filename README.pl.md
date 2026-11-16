@@ -176,7 +176,7 @@ W wielu laptopach klawisze F wymagają **fn**.
 ### Menu
 
 - **Prawy przycisk na liście plików** – układ jak w menu Findera; rzadziej używane polecenia są w podmenu, więc menu
-  pozostaje krótkie. Na wierzchu: *Otwórz*, *Otwórz w aplikacji*, *Rozpakuj*, Kopiuj/Przenieś do listera docelowego,
+  pozostaje krótkie. Na wierzchu: *Otwórz*, *Otwórz w aplikacji*, *Rozpakuj*, **własne wpisy typu pliku** (patrz *Filetypes*), Kopiuj/Przenieś do listera docelowego,
   **Przenieś do Kosza** (z ikoną), *Informacje*, *Zmień nazwę*, *Szybki podgląd*, *Kopiuj* (pliki trafiają do schowka),
   *Kopiuj ścieżkę*, potem podmenu **Szczegóły** (*Atrybuty…*, *Sumy kontrolne…*, *Oblicz rozmiar folderu*, *Tagi…*) i
   **Utwórz** (**Kompresuj** – `nazwa.zip`, a dla kilku elementów `Archive.zip` –, *Powiel*, *Utwórz alias*, *Utwórz
@@ -326,19 +326,57 @@ Menu **Go** zawiera *miejsca* (Home, Desktop, Documents, Downloads, Applications
 **Prawy przycisk na przycisku Wstecz** (jak w Directory Opus) pokazuje foldery, z których przyszedł ten lister,
 od najbliższego — wybierz jeden, żeby skoczyć od razu tam.
 
-### Filetypes: co robi dwuklik
+### Filetypes: co robi dwuklik i własne wpisy w menu kontekstowym
 
 `filetypes.json` (**Ustawienia → Listery → Edit Filetypes…**) przypisuje akcje do rozszerzeń: `open` (domyślne
-zachowanie systemu), `extract`, `quicklook`, `app` (identyfikator lub ścieżka aplikacji) i `shell` (plik jest
-w `$LISTER_SELECTION`). Domyślnie archiwa są **rozpakowywane**, a nie otwierane. Przykład:
+zachowanie systemu), `extract`, `quicklook`, `app` (identyfikator lub ścieżka aplikacji), `shell` (polecenie, patrz
+niżej) i `lister` (dowolna akcja przycisku, np. `"lister": "checksums"`). Domyślnie archiwa są **rozpakowywane**, a nie
+otwierane. **Dwuklik** wykonuje pierwsza pasująca reguła, która ma `action`; `optionDoubleClick` (osobny krok) to to,
+co robi **⌥ + dwuklik**. Przykład:
 
 ```json
 [
   { "extensions": ["zip", "tar.gz", "7z", "rar"], "action": "extract" },
-  { "extensions": ["md", "txt"], "action": "app", "app": "com.apple.TextEdit" },
-  { "extensions": ["png", "jpg"], "action": "quicklook" }
+  { "extensions": ["md", "txt"], "action": "app", "app": "com.apple.TextEdit", "name": "Text",
+    "optionDoubleClick": { "action": "quicklook" },
+    "menu": [
+      { "title": "Edytuj w VS Code", "action": "app", "app": "com.microsoft.VSCode" },
+      { "title": "Policz wiersze", "action": "shell", "command": "wc -l {f}" },
+      { "action": "separator" },
+      { "title": "Sumy kontrolne…", "action": "lister", "lister": "checksums" }
+    ] },
+  { "extensions": ["png", "jpg"], "action": "quicklook",
+    "menu": [ { "title": "Zrób PDF", "action": "shell", "command": "sips -s format pdf {f} --out {f-}.pdf" } ] },
+  { "extensions": ["*"], "menu": [ { "title": "Kopiuj na Biurko", "action": "shell", "command": "cp -R {F} ~/Desktop" } ] }
 ]
 ```
+
+**`menu`** to wpisy, które **menu kontekstowe** pokazuje dla plików tego typu, zaraz po *Otwórz w aplikacji*
+(`title` jest opcjonalny dla `app`, `extract`, `quicklook` i `lister`). Pokazywane są wpisy **wszystkich** pasujących
+reguł, jedna reguła po drugiej; `"*"` pasuje do każdego pliku, a reguła bez `action` tylko dodaje wpisy do menu. Przy
+kilku zaznaczonych plikach wpis jest widoczny, gdy jego reguła pasuje do wszystkich. Więcej niż sześć wpisów trafia do
+podmenu nazwanego `name` reguły. Wpisy są tylko dla plików na tym Macu, nie dla folderów ani serwerów.
+
+**Kody w poleceniach `shell`**, jak w Directory Opus Magellan (*Function Editor*):
+
+| Kod | Oznacza |
+|---|---|
+| `{f}` · `{F}` | pełną ścieżkę zaznaczonego pliku · pełne ścieżki wszystkich |
+| `{o}` · `{O}` | nazwę zaznaczonego pliku · nazwy wszystkich |
+| `{df}` `{dF}` `{do}` `{dO}` | to samo dla zaznaczenia w listerze **docelowym** |
+| `{d}` · `{s}` | folder listera docelowego · tego listera |
+
+Mała litera uruchamia polecenie **osobno dla każdego pliku**, wielka **raz dla wszystkich**. Każda wartość jest sama
+ujmowana w cudzysłów (pisz `code {F}`, nie `code "{F}"`). `-` obcina rozszerzenie (`{o-}`, `{f-}`), `!` czyni kod
+opcjonalnym: jest pusty, gdy nie ma co wstawić (`{df!}`); bez niego polecenie się nie uruchomi i dostaniesz
+wyjaśnienie. Inne nawiasy klamrowe (`{}` z `find`, `${HOME}`) zostają bez zmian. Polecenie działa w folderze
+listera, a `$LISTER_DIR` i `$LISTER_SELECTION` są ustawione jak w poleceniach przycisków.
+
+**Ustawienia → Listery → Edit Filetypes…** otwiera edytor tego pliku: po lewej lista typów (dodawanie, usuwanie,
+zmiana kolejności), a dla wybranego jego nazwa i rozszerzenia, **dwuklik** i **⌥ + dwuklik** (wybierasz akcję, potem
+aplikację, polecenie lub akcję listera, której potrzebuje) oraz **wpisy menu kontekstowego** z tytułami. Przycisk
+**{ }** przy poleceniu wstawia kody. *Open filetypes.json* w edytorze otwiera surowy plik dla tych, którzy wolą edytor
+tekstu.
 
 Plik zastępuje reguły domyślne, a zmiany są wczytywane od razu.
 

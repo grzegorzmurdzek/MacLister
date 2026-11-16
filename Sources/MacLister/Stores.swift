@@ -189,6 +189,30 @@ final class FiletypeStore {
         try? encoder.encode(Self.defaults).write(to: configURL, options: .atomic)
     }
 
+    /// The rules as they are in filetypes.json now (for the editor).
+    func currentRules() -> [FiletypeRule] {
+        reloadIfNeeded()
+        return rules
+    }
+
+    /// Writes the rules to filetypes.json and uses them at once. Empty fields are left out of the file.
+    func save(_ edited: [FiletypeRule]) {
+        let cleaned = edited.map { rule -> FiletypeRule in
+            var rule = rule
+            rule.extensions = rule.extensions.filter { !$0.isEmpty }
+            if rule.name?.isEmpty == true { rule.name = nil }
+            if rule.menu?.isEmpty == true { rule.menu = nil }
+            return rule
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        guard let data = try? encoder.encode(cleaned) else { return }
+        try? data.write(to: configURL, options: .atomic)
+        rules = cleaned
+        loadedStamp = (try? FileManager.default.attributesOfItem(atPath: configURL.path)[.modificationDate]) as? Date
+        loadedPath = configURL.path
+    }
+
     /// The rule that decides what a double-click does: the first one that fits and has an action of its own.
     func rule(for url: URL) -> FiletypeRule? {
         rules(for: url).first { $0.action != nil }

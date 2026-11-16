@@ -1134,6 +1134,30 @@ enum SelfTestFeatures {
             check(ShortcutsWindowController.shared.window?.isVisible == true, "the Keyboard Shortcuts window opens")
             ShortcutsWindowController.shared.window?.close()
         }
+        // the filetype editor: its text parsing, saving, and the window
+        later {
+            check(FiletypeEditing.parseExtensions("md, TXT  .png;*.jpg\ntar.gz") == ["md", "txt", "png", "jpg", "tar.gz"], "editor: extensions are split, lower-cased and lose the dot and the *.")
+            check(FiletypeEditing.parseExtensions("*") == ["*"] && FiletypeEditing.parseExtensions(" , ") == [], "editor: * stays, empty text gives nothing")
+            check(FiletypeEditing.applicationSpec(for: URL(fileURLWithPath: "/System/Applications/TextEdit.app")) == "com.apple.TextEdit", "editor: an application is stored by its bundle identifier")
+            let url = FiletypeStore.shared.configURL
+            let previous = try? String(contentsOf: url, encoding: .utf8)
+            var rule = FiletypeRule(extensions: ["abc", ""], action: .app)
+            rule.app = "com.apple.TextEdit"
+            rule.name = ""
+            rule.menu = []
+            var menuOnly = FiletypeRule(extensions: ["*"])
+            menuOnly.menu = [FiletypeStep(action: .shell, command: "echo {f}", title: "Echo")]
+            FiletypeStore.shared.save([rule, menuOnly])
+            let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+            check(!text.contains("\"menu\" : [\n\n") && !text.contains("\"name\"") && text.contains("\"Echo\""), "editor: empty name and menu are left out of the file")
+            let reread = (try? JSONDecoder().decode([FiletypeRule].self, from: Data(text.utf8))) ?? []
+            check(reread.count == 2 && reread[0].extensions == ["abc"] && reread[1].menu?.first?.title == "Echo", "editor: the saved file reads back")
+            check(FiletypeStore.shared.rule(for: URL(fileURLWithPath: "/x/f.ABC"))?.app == "com.apple.TextEdit" && FiletypeStore.shared.currentRules().count == 2, "editor: saved filetypes are used at once")
+            FiletypeEditorWindow.show()
+            check(FiletypeEditorWindow.window?.isVisible == true, "the Edit Filetypes window opens")
+            FiletypeEditorWindow.window?.close()
+            if let previous { try? previous.write(to: url, atomically: true, encoding: .utf8) }
+        }
         // progress on the menu-bar icon
         later {
             let a = TransferStatus(text: "Copying 1 of 2", fraction: 0.4, cancel: {})

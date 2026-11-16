@@ -105,7 +105,7 @@ private struct ListersSettingsView: View {
             }
             Section("Customize") {
                 LabeledContent("Keyboard") { Button("Keyboard Shortcuts…") { ShortcutsWindowController.shared.show() } }
-                LabeledContent("Double-click and menu of a file") { Button("Edit Filetypes…") { FiletypeStore.openInEditor() } }
+                LabeledContent("Double-click and menu of a file") { Button("Edit Filetypes…") { FiletypeEditorWindow.show() } }
             }
         }
         .formStyle(.grouped)

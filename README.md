@@ -173,7 +173,7 @@ On many laptops F-keys need **fn**.
 ### Menus
 
 - **Right-click the file list** – laid out like Finder's menu; the commands you use less often are in submenus so the
-  menu stays short. On top: *Open*, *Open With*, *Extract*, Copy/Move to the destination lister, **Move to Trash**
+  menu stays short. On top: *Open*, *Open With*, *Extract*, **your own entries for the file's filetype** (see *Filetypes*), Copy/Move to the destination lister, **Move to Trash**
   (with its icon), *Info*, *Rename*, *Quick Look*, *Copy* (puts the files on the pasteboard), *Copy Path*, then the
   submenu **Details** (*Attributes…*, *Checksums…*, *Calculate Folder Size*, *Tags…*) and **Make** (**Compress** –
   `name.zip`, or `Archive.zip` for several items –, *Duplicate*, *Make Alias*, *Make Symbolic Link*, *Copy As…*,
@@ -319,19 +319,57 @@ The **Go** menu has *Places* (Home, Desktop, Documents, Downloads, Applications,
 **Right-click the Back button** (as in Directory Opus) for the folders this lister came from, nearest first — pick
 one to jump straight there.
 
-### Filetypes: what a double-click does
+### Filetypes: what a double-click does, and your own context-menu entries
 
 `filetypes.json` (**Settings → Listers → Edit Filetypes…**) maps extensions to actions: `open` (system default),
-`extract`, `quicklook`, `app` (bundle identifier or path of an application) and `shell` (the file is in
-`$LISTER_SELECTION`). By default archives are **extracted** instead of opened. Example:
+`extract`, `quicklook`, `app` (bundle identifier or path of an application), `shell` (a command, see below) and
+`lister` (any button action, e.g. `"lister": "checksums"`). By default archives are **extracted** instead of opened.
+The first rule that fits and has an `action` decides the **double-click**; `optionDoubleClick` (a step of its own)
+is what **⌥ + double-click** does. Example:
 
 ```json
 [
   { "extensions": ["zip", "tar.gz", "7z", "rar"], "action": "extract" },
-  { "extensions": ["md", "txt"], "action": "app", "app": "com.apple.TextEdit" },
-  { "extensions": ["png", "jpg"], "action": "quicklook" }
+  { "extensions": ["md", "txt"], "action": "app", "app": "com.apple.TextEdit", "name": "Text",
+    "optionDoubleClick": { "action": "quicklook" },
+    "menu": [
+      { "title": "Edit in VS Code", "action": "app", "app": "com.microsoft.VSCode" },
+      { "title": "Count lines", "action": "shell", "command": "wc -l {f}" },
+      { "action": "separator" },
+      { "title": "Checksums…", "action": "lister", "lister": "checksums" }
+    ] },
+  { "extensions": ["png", "jpg"], "action": "quicklook",
+    "menu": [ { "title": "Make a PDF", "action": "shell", "command": "sips -s format pdf {f} --out {f-}.pdf" } ] },
+  { "extensions": ["*"], "menu": [ { "title": "Copy to Desktop", "action": "shell", "command": "cp -R {F} ~/Desktop" } ] }
 ]
 ```
+
+**`menu`** lists the entries that the **context menu** shows for files of this type, right after *Open With* (a
+*title* is optional for `app`, `extract`, `quicklook` and `lister`). The entries of **every** rule that fits the
+file are shown, one rule after another; `"*"` fits every file, and a rule without `action` only adds menu entries.
+With several files selected an entry is shown when its rule fits all of them. More than six entries go into a
+submenu named after the rule's `name`. The entries are only there for files on this Mac, not for folders or servers.
+
+**Codes in `shell` commands**, as in Directory Opus Magellan (*Function Editor*):
+
+| Code | Stands for |
+|---|---|
+| `{f}` · `{F}` | the full path of a selected file · the full paths of all of them |
+| `{o}` · `{O}` | the name of a selected file · the names of all of them |
+| `{df}` `{dF}` `{do}` `{dO}` | the same for the selection of the **destination** lister |
+| `{d}` · `{s}` | the folder of the destination lister · of this lister |
+
+Lower case runs the command **once for every file**, upper case **once for all of them**. Every value is put in
+quotes for you (write `code {F}`, not `code "{F}"`). `-` cuts the extension (`{o-}`, `{f-}`), `!` makes a code
+optional: it is empty when there is nothing to put in (`{df!}`), otherwise the command is not run and you are told
+why. Anything else in braces (`{}` of `find`, `${HOME}`) is left alone. The command runs in the lister's folder;
+`$LISTER_DIR` and `$LISTER_SELECTION` are set as for button commands.
+
+**Settings → Listers → Edit Filetypes…** opens an editor for this file: the list of filetypes on the left (add, remove,
+reorder), and for the chosen one its name and extensions, the **double-click** and **⌥ + double-click** (pick the
+action, then the application, command or lister action it needs) and the **context-menu entries** with their titles.
+A **{ }** button next to a command inserts the codes. *Open filetypes.json* in the editor opens the raw file for those
+who prefer a text editor.
 
 The file replaces the defaults; changes are picked up immediately.
 
