@@ -939,3 +939,7 @@
 "Hold the button down for a moment and these actions open as a menu. A plain click still does the button's own action. With \"Show an arrow on buttons that have a menu\" (Settings → Buttons) a click on the arrow opens the menu at once." = "Przytrzymaj przycisk na chwilę, a te akcje otworzą się jako menu. Zwykłe kliknięcie nadal wykonuje własną akcję przycisku. Z opcją „Pokaż strzałkę na przyciskach z menu” (Ustawienia → Przyciski) kliknięcie w strzałkę otwiera menu od razu.";
 "First lister is the source, the next the destination" = "Pierwszy lister jest źródłem, następny celem";
 "A new lister becomes the source when there is none, then the destination. When the source is closed, the destination takes its place. Off: set SRC and DST yourself." = "Nowy lister zostaje źródłem, gdy go nie ma, potem celem. Po zamknięciu źródła jego miejsce zajmuje cel. Wyłączone: SRC i DST ustawiasz sam.";
+"Automatic (above when the bar is at the bottom)" = "Automatycznie (nad, gdy pasek jest na dole)";
+"Below the Button" = "Pod przyciskiem";
+"Above the Button" = "Nad przyciskiem";
+"Menu opens" = "Menu otwiera się";

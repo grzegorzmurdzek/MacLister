@@ -120,6 +120,7 @@ private struct ButtonsSettingsView: View {
     @AppStorage("buttonBarPosition") private var position = ButtonBarPosition.abovePath.rawValue
     @AppStorage("showButtonLabels") private var labels = false
     @AppStorage("showButtonMenuArrows") private var menuArrows = false
+    @AppStorage("buttonMenuDirection") private var menuDirection = ButtonMenuDirection.automatic.rawValue
     @State private var confirmReset = false
     @AppStorage("terminalBundleID") private var terminal = "com.apple.Terminal"
     @AppStorage("textEditorBundleID") private var editor = "com.apple.TextEdit"
@@ -159,6 +160,9 @@ private struct ButtonsSettingsView: View {
                 Toggle("Show an arrow on buttons that have a menu", isOn: $menuArrows)
                 Text("A button can have a menu of more actions (Edit Buttons…). Hold the button down for a moment and the menu opens; a plain click still does the button's own action. With the arrow, a click on it opens the menu at once.")
                     .font(.caption).foregroundStyle(.secondary)
+                Picker("Menu opens", selection: $menuDirection) {
+                    ForEach(ButtonMenuDirection.allCases, id: \.rawValue) { Text($0.menuTitle).tag($0.rawValue) }
+                }
                 LabeledContent("Buttons") {
                     HStack {
                         Button("Edit Buttons…") { ButtonEditorWindow.show() }

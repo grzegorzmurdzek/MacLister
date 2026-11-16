@@ -93,7 +93,8 @@ wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list 
   **Show Button Labels** dodaje napisy.
   Przycisk może mieć **menu z dodatkowymi akcjami**: przytrzymaj go chwilę, a menu się otworzy (zwykłe kliknięcie
   nadal wykonuje własną akcję przycisku). Wpisy ustawisz w *Edytuj przyciski…*; opcja *Pokaż strzałkę na przyciskach
-  z menu* w **Ustawienia → Przyciski** dodaje strzałkę otwierającą menu jednym kliknięciem.
+  z menu* w **Ustawienia → Przyciski** dodaje strzałkę otwierającą menu jednym kliknięciem, a *Menu otwiera się* wybiera, czy menu otwiera się pod
+  przyciskiem, czy nad nim (automatycznie: nad, gdy pasek przycisków jest na dole).
 - Cienka **linia stanu** na dole: liczba elementów, rozmiar zaznaczenia, filtr, postęp i błędy.
 - Nowe listery mają 560 × 400 i pamiętają rozmiar, który ostatnio nadałeś listerowi przeciągając krawędź.
 - Opcjonalny **pasek boczny i drzewo folderów** po lewej (⌥⌘T albo *Pokaż drzewo folderów* w menu). Jest w nim to, co w pasku bocznym Findera, odczytane z samego Findera, więc oba zawsze się zgadzają: *Ostatnie*, *Udostępniane*, *Ulubione*, *Miejsca* (iCloud Drive, folder domowy, dyski, AirDrop, Kosz) i *Tagi* (kliknięcie pokazuje pliki z danym tagiem; *Wszystkie tagi…* wymienia pozostałe). Pod nimi jest drzewo: folder domowy i wszystkie woluminy, tylko foldery. Wybranie folderu pokazuje go w listerze, drzewo podąża za listerem, nowe foldery pojawiają się w nim, a pliki upuszczone na folder są kopiowane lub przenoszone tak jak przy każdym innym upuszczeniu. Szerokość, na którą przeciągniesz podział, jest zapamiętywana.
@@ -674,6 +675,7 @@ Ustawiane przez `defaults write com.example.MacLister <klucz> <wartość>`:
 | `desktopTrigger` | `doubleClick` | `doubleClick`, `middleClick` albo `both` (także: Ustawienia → Ogólne) |
 | `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` albo `bottom` |
 | `showButtonLabels` | false | napisy obok ikon przycisków |
+| `buttonMenuDirection` | `automatic` | gdzie otwiera się menu przycisku: `automatic` (nad, gdy pasek jest na dole), `below`, `above` (także: Ustawienia → Przyciski) |
 | `relativeDates` | true | *Dzisiaj / Wczoraj* w kolumnach z datami (także: menu nagłówka kolumn) |
 | `springLoadedFolders` | true | otwieraj folder, nad którym spoczywają przeciągane pliki (także: Ustawienia → Listery) |
 | `springLoadedDelay` | 0.8 | ile sekund pliki muszą spoczywać nad folderem (od 0,2 do 5) |

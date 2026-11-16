@@ -97,10 +97,18 @@ struct ButtonMenuTrigger: NSViewRepresentable {
             return menu
         }
 
+        /// The point the menu is shown at: its top-left corner goes there. Below the button that is the button's bottom
+        /// edge; above it, the top edge raised by the height of the menu (the view is not flipped: y grows upwards).
+        static func menuAnchor(above: Bool, buttonHeight: CGFloat, menuHeight: CGFloat) -> NSPoint {
+            NSPoint(x: 0, y: above ? buttonHeight + menuHeight : 0)
+        }
+
         func showMenu() {
             onPress(false)
-            // Just below the button (the view is not flipped, so its bottom edge is y = 0).
-            makeMenu().popUp(positioning: nil, at: NSPoint(x: 0, y: bounds.minY), in: self)
+            let menu = makeMenu()
+            let above = Settings.buttonMenuDirection.opensAbove(barPosition: Settings.buttonBarPosition)
+            let anchor = Self.menuAnchor(above: above, buttonHeight: bounds.height, menuHeight: menu.size.height)
+            menu.popUp(positioning: nil, at: anchor, in: self)
         }
     }
 

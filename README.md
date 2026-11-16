@@ -90,7 +90,8 @@ run `defaults delete com.example.MacLister`, and remove MacLister from the two P
   **Show Button Labels** adds text.
   A button can have a **menu of more actions**: hold it down for a moment and the menu opens (a plain click still does
   the button's own action). *Edit Buttons…* sets the entries; *Show an arrow on buttons that have a menu* in
-  **Settings → Buttons** adds an arrow that opens the menu with one click.
+  **Settings → Buttons** adds an arrow that opens the menu with one click, and *Menu opens* chooses whether it opens
+  below or above the button (automatic: above when the button bar is at the bottom).
 - A thin **status line** at the bottom: item count, selection size, filter, progress and errors.
 - An optional **sidebar and folder tree** on the left (⌥⌘T, or *Show Folder Tree* in the menus). It has what Finder's sidebar has, read from Finder itself so the two stay the same: *Recents*, *Shared*, your *Favorites*, the *Locations* (iCloud Drive, home, disks, AirDrop, Trash) and your *Tags* (a click shows the files with that tag; *All Tags…* lists the rest). Below them is the tree: your home folder and every volume, folders only. Choosing a folder shows it in the lister, the tree follows the lister, new folders appear in it, and files dropped on a folder are copied or moved there like any other drop. The width you drag the divider to is remembered.
 - New listers open at 560 × 400 and remember the size you last gave a lister by dragging its edge.
@@ -663,6 +664,7 @@ Set with `defaults write com.example.MacLister <key> <value>`:
 | `desktopTrigger` | `doubleClick` | `doubleClick`, `middleClick` or `both` (also: Settings → General) |
 | `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` or `bottom` (also: Settings → Listers) |
 | `showButtonLabels` | false | text next to the button icons |
+| `buttonMenuDirection` | `automatic` | where a button's menu opens: `automatic` (above when the bar is at the bottom), `below`, `above` (also: Settings → Buttons) |
 | `relativeDates` | true | *Today / Yesterday* in the date columns (also: column header menu) |
 | `springLoadedFolders` | true | open a folder that dragged files rest on (also: Settings → Listers) |
 | `springLoadedDelay` | 0.8 | seconds the files must rest on the folder first (0.2 to 5) |

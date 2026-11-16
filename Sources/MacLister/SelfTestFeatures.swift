@@ -983,6 +983,14 @@ enum SelfTestFeatures {
             check(!hold.isOnArrow(NSPoint(x: 38, y: 10)), "without the arrow setting no part of the button opens the menu")
             hold.arrowWidth = ButtonMenuTrigger.arrowWidth
             check(hold.isOnArrow(NSPoint(x: 38, y: 10)) && !hold.isOnArrow(NSPoint(x: 10, y: 10)), "with the arrow, only its edge of the button opens the menu")
+            check(ButtonMenuDirection.automatic.opensAbove(barPosition: .bottom) && !ButtonMenuDirection.automatic.opensAbove(barPosition: .abovePath)
+                  && !ButtonMenuDirection.automatic.opensAbove(barPosition: .belowPath), "automatic: the menu opens above only when the button bar is at the bottom")
+            check(!ButtonMenuDirection.below.opensAbove(barPosition: .bottom) && ButtonMenuDirection.above.opensAbove(barPosition: .abovePath), "below and above ignore the bar position")
+            let below = Hold.menuAnchor(above: false, buttonHeight: 30, menuHeight: 120)
+            let aboveAnchor = Hold.menuAnchor(above: true, buttonHeight: 30, menuHeight: 120)
+            check(below.y == 0 && aboveAnchor.y == 150, "the menu's top-left is at the button's bottom edge, or one menu height above its top edge")
+            check(Settings.buttonMenuDirection == (ButtonMenuDirection(rawValue: UserDefaults.standard.string(forKey: "buttonMenuDirection") ?? "") ?? .automatic),
+                  "the menu direction's key is the one the app reads")
             check(UserDefaults.standard.object(forKey: "showButtonMenuArrows") == nil || UserDefaults.standard.bool(forKey: "showButtonMenuArrows") == Settings.showButtonMenuArrows,
                   "the arrow setting's key is the one the app reads")
             func geometry() -> (button: NSView, path: NSView, scroll: NSView)? {

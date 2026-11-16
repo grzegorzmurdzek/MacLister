@@ -12,6 +12,28 @@ enum ButtonBarPosition: String, CaseIterable {
     }
 }
 
+/// Where the menu of a button opens.
+enum ButtonMenuDirection: String, CaseIterable {
+    case automatic, below, above
+
+    var menuTitle: String {
+        switch self {
+        case .automatic: return tr("Automatic (above when the bar is at the bottom)")
+        case .below:     return tr("Below the Button")
+        case .above:     return tr("Above the Button")
+        }
+    }
+
+    /// Does the menu open above the button? Automatic: when the button bar is at the bottom of the window.
+    func opensAbove(barPosition: ButtonBarPosition) -> Bool {
+        switch self {
+        case .automatic: return barPosition == .bottom
+        case .below:     return false
+        case .above:     return true
+        }
+    }
+}
+
 /// What on the empty desktop opens a lister.
 enum DesktopTrigger: String, CaseIterable {
     case doubleClick, middleClick, both
@@ -69,6 +91,7 @@ enum Settings {
             "showButtonLabels": false,
             "buttonBarPosition": ButtonBarPosition.abovePath.rawValue,
             "showButtonMenuArrows": false,
+            "buttonMenuDirection": ButtonMenuDirection.automatic.rawValue,
             "autoAssignRoles": true,
             "desktopTrigger": DesktopTrigger.doubleClick.rawValue,
             "terminalBundleID": "com.apple.Terminal",
@@ -103,6 +126,12 @@ enum Settings {
     static var showButtonMenuArrows: Bool {
         get { defaults.bool(forKey: "showButtonMenuArrows") }
         set { defaults.set(newValue, forKey: "showButtonMenuArrows") }
+    }
+
+    /// Where a button's menu opens: below the button, above it, or automatic (above when the button bar is at the bottom).
+    static var buttonMenuDirection: ButtonMenuDirection {
+        get { ButtonMenuDirection(rawValue: defaults.string(forKey: "buttonMenuDirection") ?? "") ?? .automatic }
+        set { defaults.set(newValue.rawValue, forKey: "buttonMenuDirection") }
     }
 
     /// A new lister becomes the source when there is none, else the destination when there is none (see ListerManager).
