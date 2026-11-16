@@ -265,32 +265,70 @@ extension ListerViewController {
 
     // MARK: - Filetypes
 
-    /// Runs a filetype rule for a double-clicked file. Returns false to fall back to the default open.
-    func runFiletype(_ rule: FiletypeRule, on item: FileItem) -> Bool {
-        switch rule.action {
-        case .open:
+    /// Runs a filetype rule for a double-clicked file (⌥ + double-click: its `optionDoubleClick`, when it has one).
+    /// Returns false to fall back to the default open.
+    func runFiletype(_ rule: FiletypeRule, on item: FileItem, option: Bool = false) -> Bool {
+        runFiletypeStep((option ? rule.optionDoubleClick : nil) ?? rule.doubleClick, on: [item])
+    }
+
+    /// Does what one step of a filetype says with these files. Returns false when there is nothing to do and the
+    /// caller should open them the usual way (`open`, or `extract` for something that is no archive).
+    func runFiletypeStep(_ step: FiletypeStep, on items: [FileItem]) -> Bool {
+        let urls = items.map(\.url)
+        switch step.action {
+        case .open, .separator:
             return false
         case .extract:
-            guard ArchiveExtractor.isArchive(item.url) else { return false }
-            extractArchives([item.url], from: model)
+            let archives = urls.filter { ArchiveExtractor.isArchive($0) }
+            guard !archives.isEmpty else { return false }
+            extractArchives(archives, from: model)
             return true
         case .quicklook:
             toggleQuickLook()
             return true
         case .app:
-            guard let spec = rule.app, let app = Self.applicationURL(spec) else {
-                model.errorMessage = tr("Filetype application not found: %@", rule.app ?? tr("(none)"))
+            guard let spec = step.app, let app = Self.applicationURL(spec) else {
+                model.errorMessage = tr("Filetype application not found: %@", step.app ?? tr("(none)"))
                 return true
             }
-            NSWorkspace.shared.open([item.url], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
+            open(urls, with: app)
             return true
         case .shell:
-            runShell(rule.command)
+            guard let command = step.command, !command.isEmpty else {
+                model.errorMessage = tr("Filetype has no \"command\"")
+                return true
+            }
+            runFiletypeCommand(command, on: urls)
+            return true
+        case .lister:
+            guard let name = step.lister, let action = ListerAction(rawValue: name) else {
+                model.errorMessage = tr("Unknown filetype action: %@", step.lister ?? tr("(none)"))
+                return true
+            }
+            if action == .open { return false }     // that would come back here through the double-click
+            perform(ListerButton(title: action.title, symbol: nil, action: action, command: step.command))
             return true
         }
     }
 
-    private static func applicationURL(_ spec: String) -> URL? {
+    /// A shell command of a filetype: {f}, {F}, {o}, {O} … stand for the files, see FiletypeCommand.
+    func runFiletypeCommand(_ template: String, on urls: [URL]) {
+        if remoteUnavailable(tr("Shell commands")) { return }
+        let destination = ListerManager.shared.destinationController?.model
+        let usable = destination.map { $0 !== model && !$0.isRemote && $0.virtualPlace == nil } ?? false
+        let context = FiletypeCommand.Context(
+            directory: model.virtualPlace == nil ? model.url : (urls.first?.deletingLastPathComponent() ?? model.url),
+            selection: urls,
+            destinationDirectory: usable ? destination?.url : nil,
+            destinationSelection: usable ? (destination?.selectedURLs ?? []) : [])
+        let expansion = FiletypeCommand.expand(template, in: context)
+        if let error = expansion.error { model.errorMessage = error; return }
+        materialized(urls) { [weak self] in
+            self?.runShellCommands(expansion.commands, directory: context.directory, selection: urls)
+        }
+    }
+
+    static func applicationURL(_ spec: String) -> URL? {
         if let byID = NSWorkspace.shared.urlForApplication(withBundleIdentifier: spec) { return byID }
         let path = (spec as NSString).expandingTildeInPath
         return FileManager.default.fileExists(atPath: path) ? URL(fileURLWithPath: path) : nil

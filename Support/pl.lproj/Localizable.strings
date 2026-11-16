@@ -163,6 +163,13 @@
 "Files" = "Pliki";
 "Files: %d" = "Pliki: %d";
 "Filetype application not found: %@" = "Nie znaleziono aplikacji dla typu pliku: %@";
+"Filetype Actions" = "Akcje typu pliku";
+"Filetype has no \"command\"" = "Typ pliku nie ma \"command\"";
+"Unknown filetype action: %@" = "Nieznana akcja typu pliku: %@";
+"%@ needs a destination lister" = "%@ wymaga listera docelowego";
+"%@ needs a selected file" = "%@ wymaga zaznaczonego pliku";
+"Open in %@" = "Otwórz w %@";
+"Run Command" = "Uruchom polecenie";
 "Filter" = "Filtr";
 "Filter…" = "Filtr…";
 "Filter… (%@)" = "Filtr… (%@)";
@@ -664,7 +671,7 @@
 "Start folder" = "Folder startowy";
 "Window title" = "Tytuł okna";
 "Keyboard" = "Klawiatura";
-"Double-click on a file" = "Dwuklik na pliku";
+"Double-click and menu of a file" = "Dwuklik i menu pliku";
 "Reset the buttons to the defaults?" = "Przywrócić domyślne przyciski?";
 "Version" = "Wersja";
 "Last checked" = "Ostatnie sprawdzenie";

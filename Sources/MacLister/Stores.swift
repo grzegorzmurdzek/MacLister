@@ -114,18 +114,44 @@ enum HistoryClearing {
 
 // MARK: - Filetypes (what a double-click does)
 
-struct FiletypeRule: Codable {
+/// What a filetype does: on a double-click, or as an entry of the context menu.
+struct FiletypeStep: Codable, Equatable {
     enum Action: String, Codable {
         case open        // default system behaviour
         case extract     // unpack into a sub-folder
         case quicklook
         case app         // open with `app` (bundle identifier or path to an .app)
-        case shell       // run `command` (the file is in $LISTER_SELECTION)
+        case shell       // run `command` (see FiletypeCommand for {f}, {F}, {o}, {O} …)
+        case lister      // a button action of the lister (`lister`: "checksums", "batchRename" …)
+        case separator   // menu only: a divider
     }
-    var extensions: [String]       // "zip", "tar.gz" … matched against the end of the name
     var action: Action
     var app: String?
     var command: String?
+    /// Menu only: the text of the entry (a default is made from the action when missing).
+    var title: String?
+    /// For `lister`: the name of a ListerAction.
+    var lister: String?
+}
+
+struct FiletypeRule: Codable {
+    typealias Action = FiletypeStep.Action
+    /// "zip", "tar.gz" … matched against the end of the name; "*" matches every file.
+    var extensions: [String]
+    /// The double-click. Without it the rule has nothing to say about it (a rule that only adds menu entries).
+    var action: Action?
+    var app: String?
+    var command: String?
+    var lister: String?
+    /// A name for the type (shown in the context menu when it has many entries).
+    var name: String?
+    /// ⌥ + double-click.
+    var optionDoubleClick: FiletypeStep?
+    /// Entries of the context menu for files of this type.
+    var menu: [FiletypeStep]?
+
+    /// The double-click as a step.
+    var doubleClick: FiletypeStep { FiletypeStep(action: action ?? .open, app: app, command: command, title: nil, lister: lister) }
 }
 
 /// filetypes.json — Magellan's filetype definitions. Re-read whenever the file changes.
@@ -163,12 +189,37 @@ final class FiletypeStore {
         try? encoder.encode(Self.defaults).write(to: configURL, options: .atomic)
     }
 
+    /// The rule that decides what a double-click does: the first one that fits and has an action of its own.
     func rule(for url: URL) -> FiletypeRule? {
+        rules(for: url).first { $0.action != nil }
+    }
+
+    /// Every rule that fits the file, in the order of the file.
+    func rules(for url: URL) -> [FiletypeRule] {
         reloadIfNeeded()
         let name = url.lastPathComponent.lowercased()
-        return rules.first { rule in
-            rule.extensions.contains { name.hasSuffix("." + $0.lowercased()) && name.count > $0.count + 1 }
+        return rules.filter { Self.matches($0, name: name) }
+    }
+
+    private static func matches(_ rule: FiletypeRule, name: String) -> Bool {
+        rule.extensions.contains { ext in
+            ext == "*" || (name.hasSuffix("." + ext.lowercased()) && name.count > ext.count + 1)
         }
+    }
+
+    /// The context-menu entries for these files: those of every rule that fits all of them, one rule after another
+    /// with a divider between rules.
+    func menuSteps(for urls: [URL]) -> [FiletypeStep] {
+        guard let first = urls.first else { return [] }
+        reloadIfNeeded()
+        let names = urls.map { $0.lastPathComponent.lowercased() }
+        var steps: [FiletypeStep] = []
+        for rule in rules(for: first) where names.allSatisfy({ Self.matches(rule, name: $0) }) {
+            guard let menu = rule.menu, !menu.isEmpty else { continue }
+            if !steps.isEmpty { steps.append(FiletypeStep(action: .separator)) }
+            steps.append(contentsOf: menu)
+        }
+        return steps
     }
 
     private func reloadIfNeeded() {
