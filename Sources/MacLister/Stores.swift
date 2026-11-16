@@ -237,6 +237,8 @@ enum LayoutStore {
         guard let data = try? Data(contentsOf: url),
               let snapshots = try? JSONDecoder().decode([ListerSnapshot].self, from: data) else { return 0 }
         var opened: [(controller: ListerWindowController, snapshot: ListerSnapshot)] = []
+        manager.restoringLayout = true      // the layout brings its own roles
+        defer { manager.restoringLayout = false }
         var groupHosts: [Int: ListerWindowController] = [:]
         for snapshot in snapshots {
             let folder = URL(fileURLWithPath: snapshot.path)

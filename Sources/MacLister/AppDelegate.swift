@@ -39,6 +39,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             NSApp.terminate(nil)
             return
         }
+        // The test, screenshot and demo modes (any `--option`) start from listers without roles and set the roles
+        // themselves; the automatic roles have their own test.
+        if CommandLine.arguments.dropFirst().contains(where: { $0.hasPrefix("--") }) { ListerManager.autoRolesOverride = false }
         if let flag = CommandLine.arguments.firstIndex(of: "--selftest-remote") {
             let rest = Array(CommandLine.arguments.dropFirst(flag + 1))
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestRemote.run(arguments: rest) }

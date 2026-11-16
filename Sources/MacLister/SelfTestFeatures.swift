@@ -2018,6 +2018,38 @@ enum SelfTestFeatures {
             one.updateTitle()
             check(one.model.labelColor == nil && one.model.label.isEmpty && one.window?.title.contains("—") == false || one.window?.title.hasPrefix("NAS") == false, "removing the label restores the title: \(one.window?.title ?? "")")
         }
+        // automatic roles: the first lister is the source, the next the destination
+        later {
+            let saved = manager.allControllers.map { ($0, $0.model.role, $0.model.roleLocked) }
+            for (controller, _, _) in saved { controller.model.role = .none; controller.model.roleLocked = false }
+            ListerManager.autoRolesOverride = true
+            let a = manager.openLister(directory: dirA, anchor: .cursor(NSPoint(x: 240, y: 520), centered: false))
+            check(a.model.role == .source, "the first lister is the source")
+            let b = manager.openLister(directory: dirB, anchor: .cursor(NSPoint(x: 260, y: 500), centered: false))
+            check(b.model.role == .destination, "the next lister is the destination")
+            let c = manager.openLister(directory: dirA, anchor: .cursor(NSPoint(x: 280, y: 480), centered: false))
+            check(c.model.role == .none, "a third lister gets no role")
+            a.window?.close()
+            check(b.model.role == .source && c.model.role == .none, "closing the source: the destination becomes the source (\(b.model.role), \(c.model.role))")
+            let d = manager.openLister(directory: dirB, anchor: .cursor(NSPoint(x: 300, y: 460), centered: false))
+            check(d.model.role == .destination, "a new lister takes the free destination role")
+            d.model.roleLocked = true
+            b.window?.close()
+            check(d.model.role == .destination, "a locked destination is not promoted to source")
+            d.model.roleLocked = false
+            manager.restoringLayout = true
+            let e = manager.openLister(directory: dirA, anchor: .cursor(NSPoint(x: 320, y: 440), centered: false))
+            manager.restoringLayout = false
+            check(e.model.role == .none, "while a layout is restored the roles come from the layout")
+            ListerManager.autoRolesOverride = false
+            let f = manager.openLister(directory: dirA, anchor: .cursor(NSPoint(x: 340, y: 420), centered: false))
+            check(f.model.role == .none, "with the setting off a new lister gets no role")
+            for extra in [c, d, e, f] { extra.window?.close() }
+            for (controller, role, locked) in saved where manager.allControllers.contains(where: { $0 === controller }) {
+                controller.model.role = role; controller.model.roleLocked = locked
+            }
+            check(Settings.autoAssignRoles == UserDefaults.standard.bool(forKey: "autoAssignRoles"), "the roles setting's key is the one the app reads")
+        }
         // Recents and Shared
         later {
             guard let vc = one.listerViewController else { check(false, "lister for the places test"); return }

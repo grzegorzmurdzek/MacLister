@@ -217,6 +217,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         manager.remove(self)
         // Closing the tab that holds the window's role leaves the role with the tab that is shown next.
         let role = model.role, locked = model.roleLocked
+        if role == .source, siblings.isEmpty { manager.promoteDestinationAfterSourceClosed() }
         guard role != .none, !siblings.isEmpty else { return }
         DispatchQueue.main.async {
             let open = siblings.filter { sibling in manager.allControllers.contains { $0 === sibling } }
@@ -357,6 +358,7 @@ final class ListerManager {
             if case .cascade = anchor, let x = snapshot.x, let y = snapshot.y { snapshotOrigin = visibleOrigin(NSPoint(x: x, y: y), size: window.frame.size) }
         }
         configure?(controller)
+        assignRoleToNewLister(controller)
 
         if let window = controller.window {
             window.setFrameOrigin(snapshotOrigin ?? origin(for: window.frame.size, anchor: anchor))
@@ -533,6 +535,33 @@ final class ListerManager {
     }
 
     // MARK: Source / destination
+
+    /// Tests set this to switch the automatic roles off (or on) whatever Settings says.
+    static var autoRolesOverride: Bool?
+    /// Set while a saved layout comes back: it brings its own roles.
+    var restoringLayout = false
+    private var automaticRoles: Bool { Self.autoRolesOverride ?? Settings.autoAssignRoles }
+
+    /// Settings → General → Opening listers: the first lister is the source, the next one the destination. A lister
+    /// that opens while there is no source becomes the source; else, while there is no destination, the destination;
+    /// any further lister gets no role. A tab shares its window's role, so only a window of its own counts here.
+    func assignRoleToNewLister(_ controller: ListerWindowController) {
+        guard automaticRoles, !restoringLayout, controller.model.role == .none else { return }
+        let others = controllers.filter { $0 !== controller }
+        if !others.contains(where: { $0.model.role == .source }) {
+            controller.model.role = .source
+        } else if !others.contains(where: { $0.model.role == .destination }) {
+            controller.model.role = .destination
+        }
+    }
+
+    /// The source lister was closed: the destination takes its place, so Copy and Move keep a source. A locked
+    /// destination stays as it is.
+    func promoteDestinationAfterSourceClosed() {
+        guard automaticRoles, !controllers.contains(where: { $0.model.role == .source }),
+              let destination = destinationController, !destination.model.roleLocked else { return }
+        destination.model.role = .source
+    }
 
     var sourceController: ListerWindowController? { controllers.first { $0.model.role == .source } }
     var destinationController: ListerWindowController? { controllers.first { $0.model.role == .destination } }

@@ -69,6 +69,7 @@ enum Settings {
             "showButtonLabels": false,
             "buttonBarPosition": ButtonBarPosition.abovePath.rawValue,
             "showButtonMenuArrows": false,
+            "autoAssignRoles": true,
             "desktopTrigger": DesktopTrigger.doubleClick.rawValue,
             "terminalBundleID": "com.apple.Terminal",
             "textEditorBundleID": "com.apple.TextEdit",
@@ -102,6 +103,12 @@ enum Settings {
     static var showButtonMenuArrows: Bool {
         get { defaults.bool(forKey: "showButtonMenuArrows") }
         set { defaults.set(newValue, forKey: "showButtonMenuArrows") }
+    }
+
+    /// A new lister becomes the source when there is none, else the destination when there is none (see ListerManager).
+    static var autoAssignRoles: Bool {
+        get { defaults.bool(forKey: "autoAssignRoles") }
+        set { defaults.set(newValue, forKey: "autoAssignRoles") }
     }
 
     /// Which mouse gesture on the empty desktop opens a lister.

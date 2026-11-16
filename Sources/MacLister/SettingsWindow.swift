@@ -8,6 +8,7 @@ private struct GeneralSettingsView: View {
     @AppStorage("centerOnCursor") private var center = false
     @AppStorage("startDirectory") private var startDirectory = ""
     @AppStorage("restoreLayoutAtLaunch") private var restoreLayout = false
+    @AppStorage("autoAssignRoles") private var autoRoles = true
     @AppStorage("showDockIcon") private var showDockIcon = true
     @AppStorage("listersOnAllDesktops") private var allDesktops = false
     @State private var language = AppLanguage.current
@@ -23,6 +24,9 @@ private struct GeneralSettingsView: View {
                     ForEach(DesktopTrigger.allCases, id: \.rawValue) { Text($0.menuTitle).tag($0.rawValue) }
                 }
                 Toggle("Center the lister on the pointer", isOn: $center)
+                Toggle("First lister is the source, the next the destination", isOn: $autoRoles)
+                Text("A new lister becomes the source when there is none, then the destination. When the source is closed, the destination takes its place. Off: set SRC and DST yourself.")
+                    .font(.caption).foregroundStyle(.secondary)
                 LabeledContent("Start folder") {
                     HStack {
                         Text(startFolderText).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)

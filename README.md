@@ -98,7 +98,10 @@ run `defaults delete com.example.MacLister`, and remove MacLister from the two P
 
 ### Source and destination
 
-Mark one lister as **SRC** and another as **DST** with the badges in the path bar (click again to clear).
+Mark one lister as **SRC** and another as **DST** with the badges in the path bar (click again to clear). You do not
+have to: **the first lister you open is the source and the next one the destination**, and when the source is closed
+the destination takes its place (a locked one stays as it is). **Settings → General → First lister is the source, the
+next the destination** turns this off. A saved layout brings its own roles back.
 Then:
 
 | Action | What it does |
@@ -656,6 +659,7 @@ Set with `defaults write com.example.MacLister <key> <value>`:
 | `startDirectory` | `~` | folder a desktop double-click opens |
 | `terminalBundleID` | `com.apple.Terminal` | terminal used by *Terminal Here* (also: Settings → Buttons) |
 | `restoreLayoutAtLaunch` | false | reopen the saved layout at start |
+| `autoAssignRoles` | true | the first lister is the source, the next the destination (also: Settings → General) |
 | `desktopTrigger` | `doubleClick` | `doubleClick`, `middleClick` or `both` (also: Settings → General) |
 | `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` or `bottom` (also: Settings → Listers) |
 | `showButtonLabels` | false | text next to the button icons |

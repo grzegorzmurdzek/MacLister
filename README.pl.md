@@ -101,7 +101,10 @@ wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list 
 
 ### Źródło i cel
 
-Oznacz jeden lister jako **SRC**, a drugi jako **DST** znaczkami w pasku ścieżki (ponowne kliknięcie zdejmuje rolę).
+Oznacz jeden lister jako **SRC**, a drugi jako **DST** znaczkami w pasku ścieżki (ponowne kliknięcie zdejmuje rolę). Nie
+musisz: **pierwszy otwarty lister jest źródłem, a następny celem**, a po zamknięciu źródła jego miejsce zajmuje cel
+(zablokowany zostaje, jak jest). Wyłączysz to w **Ustawienia → Ogólne → Pierwszy lister jest źródłem, następny celem**.
+Zapisany układ przywraca własne role.
 Potem:
 
 | Akcja | Co robi |
@@ -667,6 +670,7 @@ Ustawiane przez `defaults write com.example.MacLister <klucz> <wartość>`:
 | `startDirectory` | `~` | folder otwierany dwuklikiem na pulpicie |
 | `terminalBundleID` | `com.apple.Terminal` | terminal dla *Terminal Here* (także: Ustawienia → Przyciski) |
 | `restoreLayoutAtLaunch` | false | otwórz zapisany układ przy starcie |
+| `autoAssignRoles` | true | pierwszy lister jest źródłem, następny celem (także: Ustawienia → Ogólne) |
 | `desktopTrigger` | `doubleClick` | `doubleClick`, `middleClick` albo `both` (także: Ustawienia → Ogólne) |
 | `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` albo `bottom` |
 | `showButtonLabels` | false | napisy obok ikon przycisków |
