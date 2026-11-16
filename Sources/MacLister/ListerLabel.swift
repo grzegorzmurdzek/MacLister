@@ -64,8 +64,12 @@ struct ListerLabelView: View {
             }
 
             HStack {
-                if !initialName.isEmpty || initialColor != nil {
-                    Button(forTab ? "Use the Folder's Name" : "Remove Name") { onApply("", nil); close() }
+                if forTab ? !initialName.isEmpty : (!initialName.isEmpty || initialColor != nil) {
+                    Button(forTab ? "Use the Folder's Name" : "Remove Name") {
+                        let result = Self.afterRemovingName(forTab: forTab, chosenColor: color)
+                        onApply(result.name, result.color)
+                        close()
+                    }
                 }
                 Spacer()
                 Button("Cancel", role: .cancel) { close() }.keyboardShortcut(.cancelAction)
@@ -79,6 +83,12 @@ struct ListerLabelView: View {
             color = initialColor
             DispatchQueue.main.async { focused = true }
         }
+    }
+
+    /// What "Use the Folder's Name" (a tab) and "Remove Name" (a lister) apply. A tab only gives up its name, so the
+    /// colour you have chosen stays; "Remove Name" takes the whole label away.
+    static func afterRemovingName(forTab: Bool, chosenColor: String?) -> (name: String, color: String?) {
+        ("", forTab ? chosenColor : nil)
     }
 
     private func swatch(_ value: String?) -> some View {

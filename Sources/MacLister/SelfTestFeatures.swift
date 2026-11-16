@@ -2009,6 +2009,10 @@ enum SelfTestFeatures {
             // the sheet and the badge draw
             let hosting = NSHostingView(rootView: ListerLabelView(initialName: "NAS", initialColor: "orange", onApply: { _, _ in }, close: { }))
             check(hosting.fittingSize.width >= 380 && hosting.fittingSize.height > 150, "the label sheet lays out: \(hosting.fittingSize)")
+            let tabReset = ListerLabelView.afterRemovingName(forTab: true, chosenColor: "red")
+            let listerReset = ListerLabelView.afterRemovingName(forTab: false, chosenColor: "red")
+            check(tabReset.name.isEmpty && tabReset.color == "red", "Use the Folder's Name on a tab keeps the chosen colour")
+            check(listerReset.name.isEmpty && listerReset.color == nil, "Remove Name on a lister removes the whole label")
             LocalizationAudit.touch(PathBarView(model: one.model, onToggleRole: { _ in }, onConnect: { _ in }), size: NSSize(width: 700, height: 80))
             one.model.setLabel("", color: nil)
             one.updateTitle()
