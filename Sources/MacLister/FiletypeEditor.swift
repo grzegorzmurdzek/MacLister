@@ -23,6 +23,13 @@ enum FiletypeEditing {
         return rule.extensions.count > 4 ? list + "…" : list
     }
 
+    /// The copy made by Duplicate: the same, with " copy" added to the name (or to the extensions when it has none).
+    static func duplicate(of rule: FiletypeRule) -> FiletypeRule {
+        var copy = rule
+        copy.name = tr("%@ copy", title(of: rule))
+        return copy
+    }
+
     /// A line the editor shows about how a filetype relates to the others (priority).
     struct Note: Equatable {
         var text: String
@@ -135,11 +142,17 @@ struct FiletypeEditorView: View {
                         Spacer(minLength: 0)
                     }
                     .tag(index)
+                    .contextMenu {
+                        Button("Duplicate") { duplicate(index) }
+                        Button("Remove") { remove(index) }
+                    }
                 }
             }
             Divider()
             HStack(spacing: 4) {
                 Button { insert() } label: { Image(systemName: "plus") }.help("Add a filetype")
+                Button { duplicate(selection) } label: { Image(systemName: "plus.square.on.square") }
+                    .disabled(selection == nil).help("Duplicate the filetype")
                 Button { remove() } label: { Image(systemName: "trash") }.disabled(selection == nil).help("Remove")
                 Spacer()
                 Button { move(-1) } label: { Image(systemName: "arrow.up") }.disabled(!canMove(-1)).help("Move up (higher priority)")
@@ -160,8 +173,17 @@ struct FiletypeEditorView: View {
         selection = min(index, rules.count - 1)
     }
 
-    private func remove() {
-        guard let index = selection, rules.indices.contains(index) else { return }
+    /// A copy right below the original, with the same extensions (the notes under them say which one wins).
+    private func duplicate(_ index: Int?) {
+        guard let index, rules.indices.contains(index) else { return }
+        rules.insert(FiletypeEditing.duplicate(of: rules[index]), at: index + 1)
+        selection = index + 1
+    }
+
+    private func remove() { remove(selection) }
+
+    private func remove(_ index: Int?) {
+        guard let index, rules.indices.contains(index) else { return }
         rules.remove(at: index)
         selection = rules.isEmpty ? nil : min(index, rules.count - 1)
     }

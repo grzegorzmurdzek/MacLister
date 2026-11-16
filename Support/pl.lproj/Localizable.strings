@@ -996,3 +996,5 @@
 "Filetypes higher in the list come first: the first one that fits the file and has a double-click decides. The context-menu entries of all that fit are shown, from top to bottom." = "Typy wyżej na liście mają pierwszeństwo: dwuklik wykonuje pierwszy typ, który pasuje do pliku i ma dwuklik. Wpisy menu kontekstowego pokazują się ze wszystkich pasujących typów, od góry do dołu.";
 "Move up (higher priority)" = "W górę (wyższy priorytet)";
 "Move down (lower priority)" = "W dół (niższy priorytet)";
+"Duplicate the filetype" = "Powiel typ pliku";
+"%@ copy" = "%@ — kopia";

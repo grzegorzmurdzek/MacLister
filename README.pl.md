@@ -374,7 +374,7 @@ opcjonalnym: jest pusty, gdy nie ma co wstawić (`{df!}`); bez niego polecenie s
 wyjaśnienie. Inne nawiasy klamrowe (`{}` z `find`, `${HOME}`) zostają bez zmian. Polecenie działa w folderze
 listera, a `$LISTER_DIR` i `$LISTER_SELECTION` są ustawione jak w poleceniach przycisków.
 
-**Ustawienia → Typy plików** to edytor tego pliku: po lewej lista typów (dodawanie, usuwanie, zmiana kolejności), a dla
+**Ustawienia → Typy plików** to edytor tego pliku: po lewej lista typów (dodawanie, **powielanie** – także w menu prawego przycisku –, usuwanie, zmiana kolejności), a dla
 wybranego jego nazwa i rozszerzenia, **dwuklik** i **⌥ + dwuklik** (wybierasz akcję, potem aplikację, polecenie lub
 akcję listera, której potrzebuje) oraz **wpisy menu kontekstowego** z tytułami. Przycisk **{ }** przy poleceniu wstawia
 kody. Każda zmiana zapisuje się od razu; *Open filetypes.json* otwiera surowy plik dla tych, którzy wolą edytor tekstu.

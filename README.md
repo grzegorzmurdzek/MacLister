@@ -367,7 +367,7 @@ optional: it is empty when there is nothing to put in (`{df!}`), otherwise the c
 why. Anything else in braces (`{}` of `find`, `${HOME}`) is left alone. The command runs in the lister's folder;
 `$LISTER_DIR` and `$LISTER_SELECTION` are set as for button commands.
 
-**Settings → Filetypes** is an editor for this file: the list of filetypes on the left (add, remove, reorder), and for
+**Settings → Filetypes** is an editor for this file: the list of filetypes on the left (add, **duplicate** – also in the right-click menu –, remove, reorder), and for
 the chosen one its name and extensions, the **double-click** and **⌥ + double-click** (pick the action, then the
 application, command or lister action it needs) and the **context-menu entries** with their titles. A **{ }** button
 next to a command inserts the codes. Every change is saved at once; *Open filetypes.json* opens the raw file for those

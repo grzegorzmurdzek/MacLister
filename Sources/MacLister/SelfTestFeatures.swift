@@ -1145,6 +1145,10 @@ enum SelfTestFeatures {
             var second = FiletypeRule(extensions: ["txt", "log"], action: .quicklook); second.menu = menuStep
             var wild = FiletypeRule(extensions: ["*"], action: .open)
             let noMenu = FiletypeRule(extensions: ["txt"])
+            let copy = FiletypeEditing.duplicate(of: first)
+            var sameExceptName = copy; sameExceptName.name = first.name
+            check(copy.name == "Text copy" && sameExceptName == first, "editor: Duplicate copies everything and renames: \(copy.name ?? "nil")")
+            check(FiletypeEditing.duplicate(of: FiletypeRule(extensions: ["a", "b"])).name == "a, b copy", "editor: an unnamed filetype is named after its extensions")
             let lower = FiletypeEditing.notes(for: 1, in: [first, second])
             check(lower.count == 2 && lower[0].warning && lower[0].text.contains("Text") && lower[0].text.contains("txt") && !lower[1].warning, "editor: a filetype below one with the same extension is told its double-click loses: \(lower.map(\.text))")
             let upper = FiletypeEditing.notes(for: 0, in: [first, second])
