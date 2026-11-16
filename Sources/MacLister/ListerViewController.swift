@@ -1640,9 +1640,17 @@ extension ListerViewController {
         if controller?.isPane == true {
             add(tr("Split into Two Listers"), to: lister) { [weak self] in self?.splitTwoPanel() }
         } else {
-            add(tr("Join into Two-Panel Window"), to: lister, enabled: controller.map { manager.joinPartner(for: $0) != nil } ?? false) {
-                if let controller { manager.joinIntoTwoPanel(controller) }
+            // which lister it joins with: the usual partner (the destination of a source…) first, the others below
+            let candidates = controller.map { manager.joinCandidates(for: $0) } ?? []
+            let join = submenu(tr("Join into Two-Panel Window With"))
+            if candidates.isEmpty { add(tr("No other listers"), to: join, enabled: false) { } }
+            for (index, partner) in candidates.enumerated() {
+                if index == 1 { join.addItem(.separator()) }
+                add(partner.menuTitle, to: join) { if let controller { manager.joinIntoTwoPanel(controller, with: partner) } }
             }
+            let joinItem = NSMenuItem(title: join.title, action: nil, keyEquivalent: "")
+            joinItem.submenu = join
+            lister.addItem(joinItem)
         }
         add(tr("Lister Title…"), to: lister) { TitleFormatWindow.show() }
         add(tr("Snapshot This Folder"), to: lister, enabled: !isRemote && !model.isVirtual && !model.isInArchive) { [weak self] in self?.snapshotFolder() }

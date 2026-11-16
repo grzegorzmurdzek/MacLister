@@ -156,8 +156,10 @@ Dock icon then open a two-panel window instead of a lister (the *New Lister* com
   can copy from either pane into it. Make a pane the destination again and the roles follow the panes once more.
   **Lock Role** on a pane stops the roles from moving.
 - A two-panel window takes no tabs. Closing it closes both panes; **Save Layout** remembers it with both folders.
-- **Join into Two-Panel Window** (title-bar menu → Lister, or a button) puts a lister and its partner side by side in one
-  window: the destination of a source, the source of a destination, else the lister opened last. The one further left
+- **Join into Two-Panel Window With** (title-bar menu → Lister) lists the other listers and puts the one you choose
+  beside this one in one window. The usual partner is at the top: the destination of a source, the source of a
+  destination, else the destination, the source or the lister opened last; the *Join into a two-panel window* button
+  action takes that one. The one further left
   goes into the left pane, and each keeps its folder, history, filter, name and role. **Split into Two Listers** does
   the opposite: each pane becomes a lister window of its own, where the pane was.
 

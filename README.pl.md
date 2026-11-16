@@ -159,8 +159,9 @@ Docku otwierają wtedy okno dwupanelowe zamiast listera (polecenia *Nowy lister*
   kopiować do niego z każdego panelu. Ustaw znów panel jako cel, a role znowu będą podążać za panelami.
   **Zablokuj rolę** na panelu zatrzymuje role w miejscu.
 - Okno dwupanelowe nie przyjmuje kart. Zamknięcie go zamyka oba panele; **Zapisz układ** pamięta je z oboma folderami.
-- **Połącz w okno dwupanelowe** (menu paska tytułu → Lister albo przycisk) umieszcza lister i jego partnera obok siebie w
-  jednym oknie: cel źródła, źródło celu, a jeśli ich nie ma, ostatnio otwarty lister. Ten, który stoi bardziej na lewo,
+- **Połącz w okno dwupanelowe z** (menu paska tytułu → Lister) pokazuje pozostałe listery i umieszcza wybrany obok tego
+  w jednym oknie. Na górze jest zwykły partner: cel źródła, źródło celu, a poza tym cel, źródło albo ostatnio otwarty
+  lister; akcja przycisku *Połącz w okno dwupanelowe* bierze właśnie jego. Ten, który stoi bardziej na lewo,
   trafia do lewego panelu, a każdy zachowuje folder, historię, filtr, nazwę i rolę. **Rozdziel na dwa listery** robi
   odwrotnie: każdy panel staje się osobnym oknem listera, tam gdzie był.
 

@@ -177,8 +177,19 @@ extension ListerManager {
     /// of the source, the source of the destination), else the destination, the source, or the lister opened last.
     /// Only listers of their own (not panes) that are shown (a tab: the one you see) take part.
     func joinPartner(for controller: ListerWindowController) -> ListerWindowController? {
-        guard !controller.isPane else { return nil }
+        joinCandidates(for: controller).first
+    }
+
+    /// The listers `controller` can be joined with, for the Join With menu: the usual partner first (see joinPartner),
+    /// then the rest in the order they were opened.
+    func joinCandidates(for controller: ListerWindowController) -> [ListerWindowController] {
+        guard !controller.isPane else { return [] }
         let others = allControllers.filter { $0 !== controller && !$0.isPane && isSelectedTab($0) }
+        guard let partner = usualPartner(for: controller, among: others) else { return [] }
+        return [partner] + others.filter { $0 !== partner }
+    }
+
+    private func usualPartner(for controller: ListerWindowController, among others: [ListerWindowController]) -> ListerWindowController? {
         func among(_ lister: ListerWindowController?) -> ListerWindowController? {
             lister.flatMap { lister in others.contains { $0 === lister } ? lister : nil }
         }
@@ -193,9 +204,11 @@ extension ListerManager {
     /// Join into Two-Panel Window: `controller` and its partner (see joinPartner) become the two panes of one window,
     /// each with its folder, history, filter, name and role; the one further left on screen is the left pane. The
     /// window covers both listers. `controller` is the pane you work in.
+    /// `partner`: the lister chosen in the Join With menu; nil: the usual partner.
     @discardableResult
-    func joinIntoTwoPanel(_ controller: ListerWindowController) -> DualListerWindowController? {
-        guard let partner = joinPartner(for: controller) else {
+    func joinIntoTwoPanel(_ controller: ListerWindowController, with chosen: ListerWindowController? = nil) -> DualListerWindowController? {
+        guard let partner = chosen.flatMap({ chosen in joinCandidates(for: controller).first { $0 === chosen } })
+                ?? joinPartner(for: controller) else {
             controller.model.flash(controller.isPane ? tr("This lister is already a pane of a two-panel window")
                                                      : tr("Open another lister to join this one with"))
             return nil

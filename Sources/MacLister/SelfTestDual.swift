@@ -180,7 +180,17 @@ enum SelfTestDual {
             check(contents.count == 2 && zip(contents, paneFrames).allSatisfy { abs($0.minX - $1.minX) < 2 && abs($0.width - $1.width) < 2 },
                   "each lister is where its pane was: \(contents) \(paneFrames)")
             check(manager.joinPartner(for: parted[1]) === parted[0], "the partner of the destination is the source")
-            let joined = manager.joinIntoTwoPanel(parted[1])
+            let candidates = manager.joinCandidates(for: parted[1])
+            check(candidates.count == 2 && candidates.first === parted[0] && candidates.last === single,
+                  "Join With lists the usual partner first, then the other listers")
+            if let menu = parted[1].listerViewController?.makeTitleBarMenu(),
+               let join = menu.items.compactMap(\.submenu).flatMap(\.items).first(where: { $0.title == "Join into Two-Panel Window With" })?.submenu {
+                let titles = join.items.filter { !$0.isSeparatorItem }.map(\.title)
+                check(titles == candidates.map(\.menuTitle), "the Join With menu names the listers: \(titles)")
+            } else {
+                check(false, "the title-bar menu has Join into Two-Panel Window With")
+            }
+            let joined = manager.joinIntoTwoPanel(parted[1], with: parted[0])
             check(joined != nil && joined?.leftPane.model === parted[0].model && joined?.rightPane.model === parted[1].model,
                   "Join puts the left lister in the left pane, the right one in the right")
             check(joined?.activePane === joined?.rightPane && parted[1].model.role == .source && parted[0].model.role == .destination,

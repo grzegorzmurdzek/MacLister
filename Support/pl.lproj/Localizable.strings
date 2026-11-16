@@ -1008,7 +1008,8 @@
 "Opens" = "Otwiera się";
 "Two-panel window" = "Okno dwupanelowe";
 "What the desktop click, the global shortcut and the Dock icon open. ⌥⌘N opens a two-panel window either way." = "Co otwiera kliknięcie na biurku, globalny skrót i ikona w Docku. ⌥⌘N i tak otwiera okno dwupanelowe.";
-"Join into Two-Panel Window" = "Połącz w okno dwupanelowe";
+"Join into Two-Panel Window With" = "Połącz w okno dwupanelowe z";
+"No other listers" = "Brak innych listerów";
 "Split into Two Listers" = "Rozdziel na dwa listery";
 "This lister is already a pane of a two-panel window" = "Ten lister jest już panelem okna dwupanelowego";
 "Open another lister to join this one with" = "Otwórz drugi lister, żeby połączyć go z tym";
