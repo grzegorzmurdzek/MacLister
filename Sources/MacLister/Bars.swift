@@ -251,7 +251,8 @@ extension PathBarView {
                 .background(RoundedRectangle(cornerRadius: 4).fill(active ? tint : tint.opacity(0.15)))
         }
         .buttonStyle(.plain)
-        .help(tr(help) + "\n" + tr("⌥-click or right-click: lock the role so no other lister can take it"))
+        .overlay(MiddleClickCatcher { onToggleRoleLock(role) })
+        .help(tr(help) + "\n" + tr("⌥-click, middle-click or right-click: lock the role so no other lister can take it"))
         .contextMenu {
             Button(active && model.roleLocked ? tr("Unlock Role") : tr("Lock Role")) { onToggleRoleLock(role) }
         }
@@ -533,5 +534,26 @@ struct MouseButtonCatcher: NSViewRepresentable {
 
         override func rightMouseDown(with event: NSEvent) { onClick(.right) }
         override func otherMouseDown(with event: NSEvent) { if event.buttonNumber == 2 { onClick(.middle) } }
+    }
+}
+
+/// Reports a click with the middle mouse button on the view it sits over. SwiftUI buttons only know the left button;
+/// this transparent view takes part in hit testing for the middle button alone, so every other click passes through.
+struct MiddleClickCatcher: NSViewRepresentable {
+    var action: () -> Void
+
+    func makeNSView(context: Context) -> CatcherView { CatcherView() }
+    func updateNSView(_ view: CatcherView, context: Context) { view.action = action }
+
+    final class CatcherView: NSView {
+        var action: () -> Void = {}
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            guard let type = NSApp.currentEvent?.type, type == .otherMouseDown || type == .otherMouseUp else { return nil }
+            return super.hitTest(point)
+        }
+        override func otherMouseDown(with event: NSEvent) {}
+        override func otherMouseUp(with event: NSEvent) {
+            if event.buttonNumber == 2, bounds.contains(convert(event.locationInWindow, from: nil)) { action() }
+        }
     }
 }
