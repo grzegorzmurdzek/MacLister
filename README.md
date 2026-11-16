@@ -373,6 +373,12 @@ application, command or lister action it needs) and the **context-menu entries**
 next to a command inserts the codes. Every change is saved at once; *Open filetypes.json* opens the raw file for those
 who prefer a text editor.
 
+**Order is priority.** An extension may be in several filetypes. The first filetype (from the top) that fits the file
+*and has a double-click* decides the double-click and ⌥ + double-click; a filetype without a double-click is skipped. The
+context-menu entries of **all** the filetypes that fit are shown, top to bottom. The editor says so under the
+extensions: which filetype above wins the double-click for the same extension (a warning), which one below loses, and
+whose menu entries are shown as well. Use the arrows under the list to change the order.
+
 The file replaces the defaults; changes are picked up immediately.
 
 ### Layouts

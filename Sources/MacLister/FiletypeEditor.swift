@@ -23,6 +23,42 @@ enum FiletypeEditing {
         return rule.extensions.count > 4 ? list + "…" : list
     }
 
+    /// A line the editor shows about how a filetype relates to the others (priority).
+    struct Note: Equatable {
+        var text: String
+        var warning: Bool
+    }
+
+    /// What the order of the list means for the filetype at `index`: another filetype that fits the same extensions and
+    /// has a double-click wins or loses against it; menu entries of both are shown.
+    static func notes(for index: Int, in rules: [FiletypeRule]) -> [Note] {
+        guard rules.indices.contains(index) else { return [] }
+        let me = rules[index]
+        let mine = Set(me.extensions.map { $0.lowercased() })
+        func hasMenu(_ rule: FiletypeRule) -> Bool { rule.menu?.contains { $0.action != .separator } == true }
+        var notes: [Note] = []
+        for (position, other) in rules.enumerated() where position != index {
+            let theirs = Set(other.extensions.map { $0.lowercased() })
+            let shared = mine.intersection(theirs)
+            let list = shared.sorted().map { $0 == "*" ? tr("every file") : $0 }.joined(separator: ", ")
+            let name = title(of: other)
+            let above = position < index
+            if me.action != nil, other.action != nil {
+                if above, theirs.contains("*") {
+                    notes.append(Note(text: tr("“%@” above fits every file and has a double-click: this filetype's double-click is never used.", name), warning: true))
+                } else if above, !shared.isEmpty {
+                    notes.append(Note(text: tr("“%@” above also fits %@ and has a double-click: it wins, so this filetype's double-click is not used for them.", name, list), warning: true))
+                } else if !above, !shared.isEmpty {
+                    notes.append(Note(text: tr("This filetype's double-click wins over “%@” below for %@.", name, list), warning: false))
+                }
+            }
+            if !shared.isEmpty, hasMenu(me), hasMenu(other) {
+                notes.append(Note(text: tr("Context-menu entries of “%@” are shown as well for %@.", name, list), warning: false))
+            }
+        }
+        return notes
+    }
+
     /// The codes of a shell command with a short explanation (see FiletypeCommand).
     static let codes: [(code: String, help: String)] = [
         ("{f}", tr("the full path of the file (one command for each file)")),
@@ -106,11 +142,15 @@ struct FiletypeEditorView: View {
                 Button { insert() } label: { Image(systemName: "plus") }.help("Add a filetype")
                 Button { remove() } label: { Image(systemName: "trash") }.disabled(selection == nil).help("Remove")
                 Spacer()
-                Button { move(-1) } label: { Image(systemName: "arrow.up") }.disabled(!canMove(-1)).help("Move up")
-                Button { move(1) } label: { Image(systemName: "arrow.down") }.disabled(!canMove(1)).help("Move down")
+                Button { move(-1) } label: { Image(systemName: "arrow.up") }.disabled(!canMove(-1)).help("Move up (higher priority)")
+                Button { move(1) } label: { Image(systemName: "arrow.down") }.disabled(!canMove(1)).help("Move down (lower priority)")
             }
             .buttonStyle(.borderless)
             .padding(6)
+            Text("Order matters: a filetype higher in the list is tried first.")
+                .font(.caption).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding([.horizontal, .bottom], 8)
         }
     }
 
@@ -170,11 +210,20 @@ struct FiletypeEditorView: View {
                 ExtensionsField(extensions: Binding(get: { rule.wrappedValue.extensions }, set: { rule.wrappedValue.extensions = $0 }))
                 Text("Extensions without the dot, separated by commas or spaces: md, txt, tar.gz. A * stands for every file.")
                     .font(.caption).foregroundStyle(.secondary)
+                ForEach(Array(FiletypeEditing.notes(for: index, in: rules).enumerated()), id: \.offset) { _, note in
+                    Label {
+                        Text(note.text)
+                    } icon: {
+                        Image(systemName: note.warning ? "exclamationmark.triangle.fill" : "info.circle")
+                            .foregroundStyle(note.warning ? Color.orange : Color.secondary)
+                    }
+                    .font(.caption)
+                }
             }
             Section("Opening") {
                 FiletypeStepEditor(title: "Double-click", step: doubleClick, noneLabel: "None (another filetype or the system decides)")
                 FiletypeStepEditor(title: "⌥ + double-click", step: optionDoubleClick, noneLabel: "Same as double-click")
-                Text("The first filetype in the list that fits the file and has a double-click decides.")
+                Text("Filetypes higher in the list come first: the first one that fits the file and has a double-click decides. The context-menu entries of all that fit are shown, from top to bottom.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Context menu") {

@@ -1139,6 +1139,21 @@ enum SelfTestFeatures {
             check(FiletypeEditing.parseExtensions("md, TXT  .png;*.jpg\ntar.gz") == ["md", "txt", "png", "jpg", "tar.gz"], "editor: extensions are split, lower-cased and lose the dot and the *.")
             check(FiletypeEditing.parseExtensions("*") == ["*"] && FiletypeEditing.parseExtensions(" , ") == [], "editor: * stays, empty text gives nothing")
             check(FiletypeEditing.applicationSpec(for: URL(fileURLWithPath: "/System/Applications/TextEdit.app")) == "com.apple.TextEdit", "editor: an application is stored by its bundle identifier")
+            // priority notes: the first filetype wins the double-click, menus add up
+            let menuStep = [FiletypeStep(action: .shell, command: "true", title: "X")]
+            var first = FiletypeRule(extensions: ["md", "txt"], action: .app); first.name = "Text"; first.menu = menuStep
+            var second = FiletypeRule(extensions: ["txt", "log"], action: .quicklook); second.menu = menuStep
+            var wild = FiletypeRule(extensions: ["*"], action: .open)
+            let noMenu = FiletypeRule(extensions: ["txt"])
+            let lower = FiletypeEditing.notes(for: 1, in: [first, second])
+            check(lower.count == 2 && lower[0].warning && lower[0].text.contains("Text") && lower[0].text.contains("txt") && !lower[1].warning, "editor: a filetype below one with the same extension is told its double-click loses: \(lower.map(\.text))")
+            let upper = FiletypeEditing.notes(for: 0, in: [first, second])
+            check(upper.count == 2 && !upper[0].warning && upper[0].text.contains("wins over") && upper[1].text.contains("Context-menu"), "editor: the one above is told it wins, and that both menus show: \(upper.map(\.text))")
+            check(FiletypeEditing.notes(for: 1, in: [first, FiletypeRule(extensions: ["png"], action: .quicklook)]).isEmpty, "editor: different extensions give no note")
+            check(FiletypeEditing.notes(for: 1, in: [first, noMenu]).isEmpty, "editor: a filetype without a double-click and a menu is not in conflict")
+            wild.menu = nil
+            check(FiletypeEditing.notes(for: 1, in: [wild, first]).first?.warning == true, "editor: a * filetype with a double-click above shadows the one below")
+            check(FiletypeEditing.notes(for: 7, in: [first]).isEmpty, "editor: an index out of range gives nothing")
             let url = FiletypeStore.shared.configURL
             let previous = try? String(contentsOf: url, encoding: .utf8)
             var rule = FiletypeRule(extensions: ["abc", ""], action: .app)

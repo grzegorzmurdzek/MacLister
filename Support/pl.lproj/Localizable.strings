@@ -961,7 +961,6 @@
 "⌥ + double-click" = "⌥ + dwuklik";
 "None (another filetype or the system decides)" = "Brak (decyduje inny typ pliku lub system)";
 "Same as double-click" = "Tak samo jak dwuklik";
-"The first filetype in the list that fits the file and has a double-click decides." = "Decyduje pierwszy typ z listy, który pasuje do pliku i ma dwuklik.";
 "Context menu" = "Menu kontekstowe";
 "Open (system default)" = "Otwórz (domyślnie w systemie)";
 "Open with application" = "Otwórz w aplikacji";
@@ -988,3 +987,12 @@
 "Reset the filetypes to the defaults?" = "Przywrócić domyślne typy plików?";
 "Reset Filetypes" = "Przywróć typy plików";
 "Your own filetypes are replaced by the standard ones." = "Twoje typy plików zostaną zastąpione standardowymi.";
+"“%@” above fits every file and has a double-click: this filetype's double-click is never used." = "„%@” wyżej pasuje do każdego pliku i ma dwuklik: dwuklik tego typu nigdy nie zostanie użyty.";
+"“%@” above also fits %@ and has a double-click: it wins, so this filetype's double-click is not used for them." = "„%@” wyżej pasuje także do: %@ i ma dwuklik. Wygrywa on, więc dwuklik tego typu nie działa dla tych rozszerzeń.";
+"This filetype's double-click wins over “%@” below for %@." = "Dwuklik tego typu wygrywa z „%@” niżej dla: %@.";
+"Context-menu entries of “%@” are shown as well for %@." = "Wpisy menu kontekstowego „%@” też są pokazywane dla: %@.";
+"every file" = "każdy plik";
+"Order matters: a filetype higher in the list is tried first." = "Kolejność ma znaczenie: typ wyżej na liście jest sprawdzany pierwszy.";
+"Filetypes higher in the list come first: the first one that fits the file and has a double-click decides. The context-menu entries of all that fit are shown, from top to bottom." = "Typy wyżej na liście mają pierwszeństwo: dwuklik wykonuje pierwszy typ, który pasuje do pliku i ma dwuklik. Wpisy menu kontekstowego pokazują się ze wszystkich pasujących typów, od góry do dołu.";
+"Move up (higher priority)" = "W górę (wyższy priorytet)";
+"Move down (lower priority)" = "W dół (niższy priorytet)";

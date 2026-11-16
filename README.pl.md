@@ -379,6 +379,12 @@ wybranego jego nazwa i rozszerzenia, **dwuklik** i **⌥ + dwuklik** (wybierasz 
 akcję listera, której potrzebuje) oraz **wpisy menu kontekstowego** z tytułami. Przycisk **{ }** przy poleceniu wstawia
 kody. Każda zmiana zapisuje się od razu; *Open filetypes.json* otwiera surowy plik dla tych, którzy wolą edytor tekstu.
 
+**Kolejność to priorytet.** To samo rozszerzenie może być w kilku typach. Dwuklik i ⌥ + dwuklik wykonuje pierwszy typ
+(od góry), który pasuje do pliku *i ma dwuklik*; typ bez dwukliku jest pomijany. Wpisy menu kontekstowego pokazują się ze
+**wszystkich** pasujących typów, od góry do dołu. Edytor mówi o tym pod rozszerzeniami: który typ wyżej wygrywa dwuklik
+dla tego samego rozszerzenia (ostrzeżenie), który niżej przegrywa i czyje wpisy menu też są pokazywane. Kolejność
+zmieniasz strzałkami pod listą.
+
 Plik zastępuje reguły domyślne, a zmiany są wczytywane od razu.
 
 ### Układy
