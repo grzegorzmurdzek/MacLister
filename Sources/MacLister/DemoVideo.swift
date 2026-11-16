@@ -85,6 +85,7 @@ enum DemoVideo {
         try await sceneTools()
         try await sceneMany()
         try await sceneTabs()
+        try await sceneTwoPanel()
         try await sceneTree()
         try await sceneDark()
         try await sceneButtons()
@@ -326,6 +327,56 @@ enum DemoVideo {
         key.dismiss()
         caption.dismiss()
         mark("end", "tabs")
+        try await pause(0.2)
+    }
+
+    /// The two-panel window: ⌥⌘N, F5 copies to the other pane, Tab moves to it and the roles go along.
+    private static func sceneTwoPanel() async throws {
+        clear()
+        await cursor?.move(to: restPoint, duration: 0.01)
+        mark("scene", "twoPanel")
+        let caption = Overlay.caption(tr("Two-panel window, like a classic file manager"), in: region)
+        try await pause(0.3)
+        var key = Overlay.key("⌥⌘N", label: tr("New two-panel window"), in: region)
+        try await pause(0.45)
+        let size = NSSize(width: 1180, height: 440)
+        let dual = ListerManager.shared.openDual(left: demo.projects, right: demo.backup,
+                                                 anchor: .origin(NSPoint(x: region.midX - size.width / 2, y: region.maxY - 124 - size.height))) { dual in
+            dual.window?.setContentSize(size)
+        }
+        dual.splitEvenly()
+        let left = dual.leftPane, right = dual.rightPane
+        left.model.setLabel(tr("Work"), color: "blue")
+        right.model.setLabel("NAS", color: "orange")
+        NSApp.activate(ignoringOtherApps: true)
+        dual.window?.makeKeyAndOrderFront(nil)
+        try await pause(0.5)
+        NSApp.activate(ignoringOtherApps: true)            // once more: after the scene before, the first one is not always taken
+        dual.window?.makeKeyAndOrderFront(nil)
+        dual.focus(left)
+        try await pause(0.4)
+        key.dismiss()
+
+        guard let vc = left.listerViewController else { return }
+        // the notes and the file below them (in both languages one that the NAS does not have yet), so the copy shows
+        guard let firstRow = vc.rows.firstIndex(where: { $0.name == demo.name("notes") }) else { return }
+        let urls = await dragSelect(Array(firstRow..<min(firstRow + 2, vc.rows.count)), in: vc)
+        try await pause(0.3)
+        key = Overlay.key("F5", label: tr("Copy to the other pane"), in: region)
+        if let window = dual.window { mark("zoom", "twoPanel", focus: NSPoint(x: window.frame.midX, y: window.frame.minY + 40)) }
+        let copied = try await fakeCopy(urls, from: left, to: right, seconds: 1.6)
+        key.dismiss()
+        try await pause(0.5)
+        mark("zoomEnd", "twoPanel")
+
+        key = Overlay.key("Tab", label: tr("The other pane is the source now"), in: region)
+        try await pause(0.4)
+        dual.focus(right)
+        try await pause(1.3)
+        key.dismiss()
+        for url in copied { try? FileManager.default.removeItem(at: url) }      // the next scenes start from the same files
+        caption.dismiss()
+        mark("end", "twoPanel")
         try await pause(0.2)
     }
 

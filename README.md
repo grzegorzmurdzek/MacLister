@@ -143,6 +143,13 @@ a button the lister does not hold yet takes the role and locks it in one go.
 
 ### Two-panel window (classic file manager)
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/two-panel-dark.jpg">
+    <img src="docs/screenshots/two-panel.jpg" alt="A two-panel window: Projects as the source with three files selected, a NAS as the destination" width="760">
+  </picture>
+</p>
+
 Prefer two panels side by side, as in Norton Commander or Total Commander? **New Two-Panel Window** (⌥⌘N, in the
 menu-bar, Dock and title-bar menus) opens one window with two listers in it. To have it every time, choose
 **Settings → Listers → Two-panel window → Opens → A two-panel window**: the desktop click, the global *Open a lister* shortcut and the

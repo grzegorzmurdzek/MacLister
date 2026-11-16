@@ -6,7 +6,7 @@
 <title>MacLister - a lister file manager for macOS</title>
 <meta name="description" content="MacLister is a lister-based file manager for macOS in the spirit of Directory Opus Magellan: double-click the empty desktop and a lister opens where you clicked.">
 <meta property="og:title" content="MacLister - a lister file manager for macOS">
-<meta property="og:description" content="Source and destination listers, tabs, find and duplicates, synchronize, folder tree with a Finder-style sidebar, FTP/FTPS/SFTP, undo, operation log and more. Free and open source.">
+<meta property="og:description" content="Source and destination listers, a classic two-panel window, tabs, filetype actions, find and duplicates, synchronize, folder tree with a Finder-style sidebar, FTP/FTPS/SFTP, undo, operation log and more. Free and open source.">
 <meta property="og:image" content="https://maclister.github.io/screenshots/lister-pair.jpg">
 <meta name="theme-color" content="#eef2fb" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#14161f" media="(prefers-color-scheme: dark)">
@@ -65,6 +65,18 @@ header.nav { position: sticky; top: 0; z-index: 5; backdrop-filter: blur(16px); 
               box-shadow: 0 10px 30px rgba(0, 0, 0, .25); }
 .shot .play[aria-pressed="true"]::before { content: "▶"; margin-right: 10px; }
 .shot .play[aria-pressed="true"]:hover { transform: translate(-50%, -50%) scale(1.05); }
+/* full screen: a corner button (shown only where the browser can do it), and the video filling the screen */
+.shot .full { position: absolute; right: 14px; top: 14px; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 999px; cursor: pointer;
+              display: grid; place-items: center; color: #fff; background: rgba(20, 22, 40, .55); backdrop-filter: blur(6px); opacity: .75; }
+.shot .full:hover, .shot .full:focus-visible { opacity: 1; }
+.shot .full[hidden] { display: none; }
+.shot .full svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.shot .full .i-exit, .shot.is-full .full .i-enter { display: none; }
+.shot.is-full .full .i-exit { display: block; }
+.shot.video:fullscreen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; margin: 0; background: #000; }
+.shot.video:fullscreen video { width: 100%; height: 100%; aspect-ratio: auto; object-fit: contain; border-radius: 0; box-shadow: none; background: #000; }
+.shot.video:-webkit-full-screen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; margin: 0; background: #000; }
+.shot.video:-webkit-full-screen video { width: 100%; height: 100%; aspect-ratio: auto; object-fit: contain; border-radius: 0; box-shadow: none; background: #000; }
 
 section { padding: 64px 0 8px; }
 h2 { font-size: clamp(28px, 4vw, 40px); letter-spacing: -.01em; margin: 0 0 8px; text-align: center; }
@@ -153,6 +165,10 @@ html[lang="en"] [data-l="en"], html[lang="pl"] [data-l="pl"] { display: revert; 
     <button class="play" id="demo-toggle" type="button" aria-pressed="true">
       <span data-l="en">Play</span><span data-l="pl">Odtwórz</span>
     </button>
+    <button class="full" id="demo-full" type="button" hidden>
+      <svg class="i-enter" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
+      <svg class="i-exit" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5"/></svg>
+    </button>
   </div>
 </div>
 
@@ -222,6 +238,8 @@ const ICON = {
   tag: '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.2"/>',
   chart: '<path d="M4 20V4M4 20h16"/><path d="m7 15 4-5 3 3 5-7"/>',
   title: '<path d="M4 6h16M12 6v13M8 19h8"/>',
+  split: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16M6 9h3M15 9h3"/>',
+  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
   tabs: '<path d="M3 9h18V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/><rect x="3" y="9" width="18" height="11" rx="2"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
   tree: '<path d="M4 4h6v4H4zM14 10h6v4h-6zM14 16h6v4h-6z"/><path d="M7 8v10h7M7 12h7"/>',
@@ -229,7 +247,8 @@ const ICON = {
   sync: '<path d="M21 12a9 9 0 0 0-15-6.7L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"/><path d="M16 16h5v5"/>'
 };
 const CARDS = [
-  ['copy', '#0a84ff', 'Source and destination', 'Źródło i cel', 'Mark one lister as the source and one as the destination, then Copy (F5), Move (F6), Extract, Compare and Swap between them. Drag and drop works with Finder too.', 'Oznacz jeden lister jako źródło, drugi jako cel i używaj Kopiuj (F5), Przenieś (F6), Rozpakuj, Porównaj i Zamień. Przeciąganie działa też z Finderem.'],
+  ['copy', '#0a84ff', 'Source and destination', 'Źródło i cel', 'The first lister you open is the source and the next one the destination (or mark them yourself, and lock a role), then Copy (F5), Move (F6), Extract, Compare and Swap between them. Drag and drop works with Finder too.', 'Pierwszy otwarty lister jest źródłem, a następny celem (albo oznacz je sam i zablokuj rolę); potem Kopiuj (F5), Przenieś (F6), Rozpakuj, Porównaj i Zamień. Przeciąganie działa też z Finderem.'],
+  ['split', '#7c3aed', 'Classic two-panel window', 'Klasyczne okno dwupanelowe', 'Prefer two panels, as in Norton or Total Commander? ⌥⌘N opens one window with two listers: the pane you work in is the source, F5 copies to the other one and Tab switches panes. Join two listers into one window, or split it into listers again.', 'Wolisz dwa panele, jak w Nortonie czy Total Commanderze? ⌥⌘N otwiera jedno okno z dwoma listerami: panel, w którym pracujesz, jest źródłem, F5 kopiuje do drugiego, a Tab przełącza panele. Połącz dwa listery w jedno okno albo rozdziel je z powrotem.'],
   ['menu', '#8e5cf0', 'Finder-style menus', 'Menu jak w Finderze', 'Compress, Share, colored tags, Quick Actions and Services in the right-click menu, plus MacLister\'s own commands.', 'Kompresuj, Udostępnij, kolorowe tagi, Szybkie czynności i Usługi pod prawym przyciskiem, plus własne polecenia MacListera.'],
   ['undo', '#ff7a1a', 'Undo and operation log', 'Cofanie i dziennik operacji', 'Take back the last copy, move, duplicate or trash with ⌘Z. A log with retention keeps the history, and you can clear it.', 'Cofnij ostatnie kopiowanie, przeniesienie, duplikat lub Kosz przez ⌘Z. Dziennik z retencją trzyma historię i można go wyczyścić.'],
   ['cursor', '#2fb67c', 'Drag-select and Tab', 'Zaznaczanie i Tab', 'Press a row and drag to select the rows in between, like in Opus. Tab jumps between listers, and Back has a history menu.', 'Naciśnij wiersz i ciągnij, żeby zaznaczyć wiersze pomiędzy, jak w Opusie. Tab przeskakuje między listerami, a Wstecz ma menu historii.'],
@@ -237,17 +256,19 @@ const CARDS = [
   ['chart', '#e5484d', 'Transfer details', 'Szczegóły postępu', 'Click the progress bar for a speed graph, average and peak speed, remaining time, Pause and a queue per disk.', 'Kliknij pasek postępu, by zobaczyć wykres prędkości, prędkość średnią i szczytową, pozostały czas, Pauzę i kolejkę na dysk.'],
   ['tag', '#d9a000', 'Named, colored listers', 'Nazwy i kolory listerów', 'Give listers names and colors so you can tell them apart; they show in menus such as Copy to "NAS".', 'Nadawaj listerom nazwy i kolory, żeby je rozróżniać; widać je w menu, np. Kopiuj do "NAS".'],
   ['key', '#5b6bd6', 'Your own shortcuts', 'Własne skróty', 'Assign any key to any action, including a global shortcut that opens a lister from any application.', 'Przypisz dowolny klawisz do dowolnej akcji, także globalny skrót otwierający lister w każdej aplikacji.'],
-  ['gear', '#6b7280', 'Buttons, clicks, titles', 'Przyciski, kliknięcia, tytuły', 'Edit the button bar, give each button separate left, right and middle click actions, and format the title with variables.', 'Edytuj belkę przycisków, daj każdemu przyciskowi osobne akcje lewego, prawego i środkowego przycisku i formatuj tytuł zmiennymi.'],
+  ['gear', '#6b7280', 'Buttons, clicks, titles', 'Przyciski, kliknięcia, tytuły', 'Edit the button bar, give each button separate left, right and middle click actions and a menu of more actions (hold the button), and format the title with variables.', 'Edytuj belkę przycisków, daj każdemu przyciskowi osobne akcje lewego, prawego i środkowego przycisku oraz menu kolejnych akcji (przytrzymaj przycisk) i formatuj tytuł zmiennymi.'],
+  ['file', '#db2777', 'Filetypes', 'Typy plików', 'Decide what a double-click and ⌥ + double-click do for each kind of file, and add your own context-menu entries: an app, Quick Look, a button action or a shell command with codes such as {f} and {d}, as in Opus.', 'Zdecyduj, co robi dwuklik i ⌥ + dwuklik dla każdego rodzaju pliku, i dodaj własne pozycje menu kontekstowego: aplikację, Quick Look, akcję przycisku albo polecenie powłoki z kodami takimi jak {f} i {d}, jak w Opusie.'],
   ['dock', '#3b82f6', 'Dock and desktops', 'Dock i pulpity', 'A Dock icon with a menu of your listers (optional), and one command to move all listers to the desktop you are on.', 'Ikona w Docku z menu listerów (opcjonalna) i jedno polecenie przenoszące wszystkie listery na bieżący pulpit.'],
   ['title', '#c026d3', 'Batch rename and filters', 'Zbiorcza zmiana nazw i filtry', 'Batch rename with live preview, select by pattern or attributes, filter, folder sizes and an attributes editor.', 'Zbiorcza zmiana nazw z podglądem, zaznaczanie wzorcem lub atrybutami, filtr, rozmiary folderów i edytor atrybutów.'],
   ['search', '#0ea5e9', 'Find, duplicates and checksums', 'Szukanie, duplikaty i sumy kontrolne', 'Search a folder by name, by the text inside files, size and date (Spotlight does the work), find duplicate files by content and move the extra copies to the Trash, and check MD5, SHA-1, SHA-256 or SHA-512 of any file.', 'Szukaj w folderze po nazwie, tekście wewnątrz plików, rozmiarze i dacie (pracuje Spotlight), znajduj duplikaty po zawartości i przenoś nadmiarowe kopie do Kosza oraz sprawdzaj MD5, SHA-1, SHA-256 lub SHA-512 dowolnego pliku.'],
-  ['tabs', '#16a34a', 'Tabs in a lister', 'Karty w listerze', 'Open folders as tabs of one lister window, like in Finder: ⌘T, ⌃Tab to switch, tabs with names and colors. The source or destination role goes along with the tab you see, so a copy never lands in a folder you cannot see.', 'Otwieraj foldery jako karty jednego okna listera, jak w Finderze: ⌘T, przełączanie przez ⌃Tab, karty z nazwami i kolorami. Rola źródła lub celu przechodzi razem z widoczną kartą, więc kopia nigdy nie trafi do folderu, którego nie widzisz.'],
+  ['tabs', '#16a34a', 'Tabs in a lister', 'Karty w listerze', 'Open folders as tabs of one lister window, like in Finder: ⌘T, ⌃Tab to switch, tabs with names and colors (double-click a tab to name it). The source or destination role goes along with the tab you see, so a copy never lands in a folder you cannot see.', 'Otwieraj foldery jako karty jednego okna listera, jak w Finderze: ⌘T, przełączanie przez ⌃Tab, karty z nazwami i kolorami (dwuklik na karcie ją nazywa). Rola źródła lub celu przechodzi razem z widoczną kartą, więc kopia nigdy nie trafi do folderu, którego nie widzisz.'],
   ['tree', '#f59e0b', 'Folder tree, Finder sidebar and archives', 'Drzewo folderów, panel Findera i archiwa', 'An optional pane beside the list: Finder\'s own sidebar (Recents, Shared, Favorites, Locations, Tags, kept in step with Finder) above the folder tree. Plus a flat view of every file below a folder, and zip, tar, 7z or rar archives that open like folders (read-only).', 'Opcjonalny panel obok listy: panel boczny Findera (Ostatnie, Udostępniane, Ulubione, Miejsca, Tagi, zgodny z Finderem) nad drzewem folderów. Do tego widok płaski wszystkich plików pod folderem oraz archiwa zip, tar, 7z i rar otwierane jak foldery (tylko do odczytu).'],
   ['sync', '#10b981', 'Synchronize and Copy As', 'Synchronizacja i Kopiuj jako', 'Compare two folders and see what would be copied before anything happens, one way or both ways. Copy or move with new names in one step. Snapshots remember a folder\'s window and sort order.', 'Porównaj dwa foldery i zobacz, co zostanie skopiowane, zanim cokolwiek się stanie, w jedną stronę albo w obie. Kopiuj lub przenoś pod nowymi nazwami w jednym kroku. Migawki pamiętają okno i sortowanie folderu.'],
   ['check', '#16a34a', 'A proper Mac app', 'Prawdziwa aplikacja na Maca', 'A normal Settings window, English and Polish interface, light and dark mode, and optional update checks (off by default).', 'Zwykłe okno Ustawień, interfejs po polsku i angielsku, tryb jasny i ciemny oraz opcjonalne sprawdzanie aktualizacji (domyślnie wyłączone).']
 ];
 const SHOTS = [
   ['lister-pair', 'Source and destination listers', 'Listery źródłowy i docelowy', true, true],
+  ['two-panel', 'A classic two-panel window', 'Klasyczne okno dwupanelowe', false, true],
   ['tabs', 'Tabs in a lister', 'Karty w listerze'],
   ['context-menu', 'Finder-style context menu', 'Menu jak w Finderze', false, true],
   ['folder-tree', 'The folder tree beside the list', 'Drzewo folderów obok listy'],
@@ -268,6 +289,9 @@ const SHOTS = [
   ['title-bar-menu', 'Lister menu on the title bar', 'Menu listera na belce okna'],
   ['settings-general', 'Settings: General', 'Ustawienia: Ogólne'],
   ['settings-listers', 'Settings: Listers', 'Ustawienia: Listery'],
+  ['settings-tabs', 'Settings: Tabs', 'Ustawienia: Karty'],
+  ['settings-buttons', 'Settings: Buttons', 'Ustawienia: Przyciski'],
+  ['settings-filetypes', 'Settings: Filetypes', 'Ustawienia: Typy plików'],
   ['settings-operations', 'Settings: Operations', 'Ustawienia: Operacje'],
   ['settings-updates', 'Settings: Updates', 'Ustawienia: Aktualizacje']
 ];
@@ -289,6 +313,7 @@ function setLang(l) {
   document.querySelectorAll('.lang button').forEach(b => b.setAttribute('aria-pressed', b.dataset.set === l));
   try { localStorage.setItem('lang', l); } catch (e) {}
   setVideoLang(l);
+  if (typeof setFullLabel === 'function') setFullLabel();
 }
 
 // the demo video: the language of the page; it waits for the visitor to press Play
@@ -317,6 +342,41 @@ function toggleDemo() {
 demoToggle.addEventListener('click', toggleDemo);
 demo.addEventListener('click', toggleDemo);
 showDemoState();
+
+// full screen: the whole frame where the browser allows it (Android, iPad, desktop), so our Play button stays;
+// iPhone cannot full-screen an element, only the video itself (its own player takes over)
+const demoBox = demo.parentElement;
+const demoFull = document.getElementById('demo-full');
+const fsElement = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+const canBoxFull = !!(demoBox.requestFullscreen || demoBox.webkitRequestFullscreen);
+const canVideoFull = !!(demo.webkitEnterFullscreen || demo.webkitSupportsFullscreen);
+function setFullLabel() {
+  const full = fsElement() === demoBox, pl = html.lang === 'pl';
+  demoFull.setAttribute('aria-label', full ? (pl ? 'Zamknij pełny ekran' : 'Exit full screen') : (pl ? 'Wideo na pełnym ekranie' : 'Full screen video'));
+  demoFull.title = demoFull.getAttribute('aria-label');
+}
+function onFullChange() {
+  demoBox.classList.toggle('is-full', fsElement() === demoBox);
+  setFullLabel();
+  try {   // phones: the demo is landscape, turn the screen to match
+    if (fsElement() === demoBox) screen.orientation.lock('landscape').catch(() => {});
+    else screen.orientation.unlock();
+  } catch (e) {}
+}
+function toggleFull() {
+  if (fsElement()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+  if (demoPaused) { demoPaused = false; demo.play().catch(() => {}); showDemoState(); }   // watching it full screen means playing it
+  if (canBoxFull) (demoBox.requestFullscreen || demoBox.webkitRequestFullscreen).call(demoBox);
+  else demo.webkitEnterFullscreen();
+}
+if (canBoxFull || canVideoFull) {
+  demoFull.hidden = false;
+  demoFull.addEventListener('click', toggleFull);
+  document.addEventListener('fullscreenchange', onFullChange);
+  document.addEventListener('webkitfullscreenchange', onFullChange);
+  demo.addEventListener('webkitendfullscreen', () => { demoPaused = demo.paused; showDemoState(); });   // iPhone's player closed
+  setFullLabel();
+}
 let saved = null; try { saved = localStorage.getItem('lang'); } catch (e) {}
 setLang(saved || ((navigator.language || '').toLowerCase().startsWith('pl') ? 'pl' : 'en'));
 document.querySelectorAll('.lang button').forEach(b => b.addEventListener('click', () => setLang(b.dataset.set)));

@@ -32,6 +32,7 @@ enum Screenshots {
         queue("lister-pair\(suffix)") { pair(named: "lister-pair\(suffix)") }
         queue("context-menu\(suffix)") { contextMenu(named: "context-menu\(suffix)") }
         queue("transfer-details\(suffix)") { transferDetails(named: "transfer-details\(suffix)") }
+        queue("two-panel\(suffix)") { twoPanel(named: "two-panel\(suffix)") }
         if !dark {
             queue("title-bar-menu") { titleBarMenu(named: "title-bar-menu") }
             queue("folder-tree") { folderTree(named: "folder-tree") }
@@ -125,6 +126,32 @@ enum Screenshots {
                 left.model.progress = nil
                 right.model.progress = nil
                 finishScene()
+            }
+        }
+    }
+
+    /// A two-panel window: Projects (the pane you work in, the source, with a selection) beside a NAS (the destination).
+    private static func twoPanel(named name: String) {
+        let area = screen()
+        let size = NSSize(width: min(1420, area.width - 120), height: 470)        // each pane as wide as a lister of lister-pair
+        let origin = NSPoint(x: area.minX + 60, y: area.maxY - size.height - 120)
+        let dual = ListerManager.shared.openDual(left: demo.projects, right: demo.backup, anchor: .origin(origin)) { dual in
+            dual.window?.setContentSize(size)
+        }
+        dual.window?.setFrameOrigin(origin)
+        dual.splitEvenly()
+        dual.leftPane.model.setLabel(tr("Work"), color: "blue")
+        dual.rightPane.model.setLabel("NAS", color: "orange")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            dual.leftPane.listerViewController?.setSelectionForSheetTest(["report", "budget", "video"].map { demo.project($0) })
+            NSApp.activate(ignoringOtherApps: true)
+            dual.window?.makeKeyAndOrderFront(nil)
+            dual.focus(dual.leftPane)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                // once more: after the scene before, the app is not always the active one yet (a dimmed window)
+                NSApp.activate(ignoringOtherApps: true)
+                dual.window?.makeKeyAndOrderFront(nil)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { capture(to: name); finishScene() }
             }
         }
     }

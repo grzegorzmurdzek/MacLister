@@ -146,6 +146,13 @@ Cofania; wyjmij je z Kosza). Puste foldery nie są kopiowane.
 
 ### Okno dwupanelowe (klasyczny menedżer plików)
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/two-panel-dark.jpg">
+    <img src="docs/screenshots/two-panel.jpg" alt="Okno dwupanelowe: Projekty jako źródło z trzema zaznaczonymi plikami, NAS jako cel" width="760">
+  </picture>
+</p>
+
 Wolisz dwa panele obok siebie, jak w Norton Commanderze czy Total Commanderze? **Nowe okno dwupanelowe** (⌥⌘N, w menu
 ikony na pasku menu, Docku i paska tytułu) otwiera jedno okno z dwoma listerami. Żeby było tak za każdym razem, wybierz
 **Ustawienia → Listery → Okno dwupanelowe → Otwiera się → Okno dwupanelowe**: kliknięcie na biurku, globalny skrót *Otwórz lister* i ikona w
