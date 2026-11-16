@@ -47,6 +47,7 @@ enum ListerAction: String, Codable, CaseIterable, Identifiable {
     /// A thin divider between groups of buttons (no action).
     case separator
     /// Runs `command` with /bin/zsh in the current folder.
+    /// Codes: {f} {F} {o} {O} {df} {dF} {do} {dO} {d} {s} (see FiletypeCommand), quoted for the shell.
     /// Environment: LISTER_DIR (current folder), LISTER_SELECTION (selected paths, newline separated).
     case shell
 

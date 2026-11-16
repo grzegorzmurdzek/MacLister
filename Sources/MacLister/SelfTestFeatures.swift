@@ -1247,6 +1247,19 @@ enum SelfTestFeatures {
         later(1.0) {
             check(fm.fileExists(atPath: ftDir.appendingPathComponent("my file's.copy").path), "a filetype command runs with the quoted name of the file")
         }
+        // the same codes in a button's shell command, and a command without codes still sees the environment
+        later {
+            let file = ftDir.appendingPathComponent("my file's.txt")
+            one.model.selectedURLs = [file]
+            one.listerViewController?.perform(ListerButton(title: "t", symbol: nil, action: .shell, command: "cp {f} {f-}.button"))
+            one.listerViewController?.perform(ListerButton(title: "t", symbol: nil, action: .shell, command: "printf %s \"$LISTER_SELECTION\" > \"$LISTER_DIR/env.out\""))
+        }
+        later(1.0) {
+            check(fm.fileExists(atPath: ftDir.appendingPathComponent("my file's.button").path), "a button's shell command takes the codes, quoted")
+            let env = try? String(contentsOf: one.model.url.appendingPathComponent("env.out"), encoding: .utf8)
+            check(env?.hasSuffix("my file's.txt") == true, "a button's command without codes still gets LISTER_SELECTION: \(env ?? "nil")")
+            try? fm.removeItem(at: one.model.url.appendingPathComponent("env.out"))
+        }
         // role lock, aliases and links, attribute filter, Open With
         later {
             one.model.role = .none; two.model.role = .none

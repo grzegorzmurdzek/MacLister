@@ -228,7 +228,7 @@ struct ButtonEditorView: View {
     }
 
     private func commandField(_ command: Binding<String?>) -> some View {
-        TextField("Shell command (LISTER_DIR, LISTER_SELECTION)", text: Binding(get: { command.wrappedValue ?? "" }, set: { command.wrappedValue = $0.isEmpty ? nil : $0 }))
+        TextField("Shell command ({f} {F} {o} {O} {d} {s}, LISTER_DIR, LISTER_SELECTION)", text: Binding(get: { command.wrappedValue ?? "" }, set: { command.wrappedValue = $0.isEmpty ? nil : $0 }))
             .font(.system(.body, design: .monospaced))
     }
 }
@@ -258,7 +258,7 @@ struct MenuEntriesEditor: View {
                     if entry.action == .shell {
                         TextField("Title", text: Binding(get: { entries.indices.contains(index) ? entries[index].title : "" },
                                                          set: { if entries.indices.contains(index) { entries[index].title = $0 } }))
-                        TextField("Shell command (LISTER_DIR, LISTER_SELECTION)",
+                        TextField("Shell command ({f} {F} {o} {O} {d} {s}, LISTER_DIR, LISTER_SELECTION)",
                                   text: Binding(get: { entries.indices.contains(index) ? entries[index].command ?? "" : "" },
                                                 set: { if entries.indices.contains(index) { entries[index].command = $0.isEmpty ? nil : $0 } }))
                             .font(.system(.body, design: .monospaced))

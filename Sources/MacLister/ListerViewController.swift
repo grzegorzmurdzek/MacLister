@@ -1208,6 +1208,8 @@ extension ListerViewController {
             model.errorMessage = tr("Button has no \"command\"")
             return
         }
+        // {f}, {F}, {o}, {O}, {d}, {s} … stand for the files and folders (see FiletypeCommand), as in a filetype
+        if FiletypeCommand.hasCodes(command) { runFiletypeCommand(command, on: model.selectedURLs); return }
         runShellCommands([command], directory: model.url, selection: model.selectedURLs)
     }
 

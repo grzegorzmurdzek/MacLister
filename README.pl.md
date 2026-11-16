@@ -696,6 +696,10 @@ duplicateLister duplicateFile selectPattern deselectPattern selectAll selectNone
 clearFilter calcSizes compare info showInDestination destinationHere addBookmark makeAlias makeSymlink selectByAttributes toggleRoleLock batchRename attributes separator shell`.
 `shell` uruchamia `command` w `/bin/zsh` w bieżącym folderze; `$LISTER_DIR` to ten folder, a `$LISTER_SELECTION`
 to zaznaczone ścieżki, po jednej w wierszu.
+Polecenie może też używać **kodów** poleceń typów plików (patrz *Filetypes*): `{f}` / `{F}` to zaznaczone pliki
+(osobne polecenie dla każdego / jedno dla wszystkich), `{o}` / `{O}` ich nazwy, `{df}` `{dF}` `{do}` `{dO}`
+zaznaczenie w listerze docelowym, `{d}` jego folder, `{s}` ten folder; `{f-}` obcina rozszerzenie, `{df!}` jest
+opcjonalny. Są same ujmowane w cudzysłów: `"command": "zip -j out.zip {F}"`.
 
 ### Ustawienia ukryte
 

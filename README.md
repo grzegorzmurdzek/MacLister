@@ -685,6 +685,10 @@ duplicateFile selectPattern deselectPattern selectAll selectNone invertSelection
 compare info showInDestination destinationHere addBookmark makeAlias makeSymlink selectByAttributes toggleRoleLock batchRename attributes nameLister showRecents showShared undo showLog nextLister previousLister separator shell`.
 `shell` runs `command` with `/bin/zsh` in the current folder; `$LISTER_DIR` is that folder and
 `$LISTER_SELECTION` the selected paths, one per line.
+The command may also use the **codes** of filetype commands (see *Filetypes*): `{f}` / `{F}` the selected files
+(one command each / one command for all), `{o}` / `{O}` their names, `{df}` `{dF}` `{do}` `{dO}` the selection of the
+destination lister, `{d}` its folder, `{s}` this folder; `{f-}` cuts the extension, `{df!}` is optional. They are
+quoted for you: `"command": "zip -j out.zip {F}"`.
 
 ### Hidden settings
 

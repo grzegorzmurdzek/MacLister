@@ -598,7 +598,7 @@
 "Reset" = "Przywróć";
 "Reset to Defaults…" = "Przywróć domyślne…";
 "Save" = "Zapisz";
-"Shell command (LISTER_DIR, LISTER_SELECTION)" = "Polecenie powłoki (LISTER_DIR, LISTER_SELECTION)";
+"Shell command ({f} {F} {o} {O} {d} {s}, LISTER_DIR, LISTER_SELECTION)" = "Polecenie powłoki ({f} {F} {o} {O} {d} {s}, LISTER_DIR, LISTER_SELECTION)";
 "Title" = "Tytuł";
 "Tooltip" = "Podpowiedź";
 "Under the title" = "Pod tytułem";
