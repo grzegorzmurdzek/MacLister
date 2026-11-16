@@ -23,27 +23,6 @@ enum FiletypeEditing {
         return rule.extensions.count > 4 ? list + "…" : list
     }
 
-    /// One or two lines about a rule: its extensions, the double-click, how many menu entries it adds.
-    static func summary(of rule: FiletypeRule) -> String {
-        var parts: [String] = []
-        let list = rule.extensions.joined(separator: ", ")
-        if !list.isEmpty { parts.append(list) }
-        if let action = rule.action {
-            switch action {
-            case .open: parts.append(tr("Open (system default)"))
-            case .extract: parts.append(tr("Extract"))
-            case .quicklook: parts.append(tr("Quick Look"))
-            case .app: parts.append(rule.app.map { tr("Open in %@", $0) } ?? tr("Open with application"))
-            case .shell: parts.append(rule.command ?? tr("Run shell command"))
-            case .lister: parts.append(rule.lister.flatMap(ListerAction.init(rawValue:))?.title ?? tr("Lister action"))
-            case .separator: break
-            }
-        }
-        let entries = rule.menu?.filter { $0.action != .separator }.count ?? 0
-        if entries > 0 { parts.append(tr("Menu: %d", entries)) }
-        return parts.joined(separator: " · ")
-    }
-
     /// The codes of a shell command with a short explanation (see FiletypeCommand).
     static let codes: [(code: String, help: String)] = [
         ("{f}", tr("the full path of the file (one command for each file)")),
@@ -63,42 +42,48 @@ enum FiletypeEditing {
     }
 }
 
-/// Edits filetypes.json: what a double-click does, what ⌥ + double-click does, and the context-menu entries of every type.
+/// The Filetypes tab of the Settings window: edits filetypes.json (what a double-click does, what ⌥ + double-click
+/// does, and the context-menu entries of every type). Every change is saved at once, as in the other tabs.
 struct FiletypeEditorView: View {
     @State private var rules: [FiletypeRule]
     @State private var selection: Int?
-    let close: () -> Void
+    @State private var confirmReset = false
 
-    init(initial: [FiletypeRule]? = nil, selection: Int? = 0, close: @escaping () -> Void) {
+    init(initial: [FiletypeRule]? = nil, selection: Int? = 0) {
         _rules = State(initialValue: initial ?? FiletypeStore.shared.currentRules())
         _selection = State(initialValue: selection)
-        self.close = close
     }
 
     var body: some View {
         VStack(spacing: 0) {
             HSplitView {
-                list.frame(minWidth: 190, idealWidth: 210, maxWidth: 260)
+                list.frame(minWidth: 170, idealWidth: 190, maxWidth: 240)
                 detail.frame(minWidth: 380)
             }
             Divider()
             HStack {
-                Button("Reset to Defaults…") {
-                    rules = FiletypeStore.defaults
-                    selection = rules.isEmpty ? nil : 0
-                }
+                Button("Reset to Defaults…") { confirmReset = true }
                 Button("Open filetypes.json") { FiletypeStore.openInEditor() }
                 Spacer()
-                Button("Cancel", role: .cancel) { close() }
-                Button("Save") {
-                    FiletypeStore.shared.save(rules)
-                    close()
-                }
-                .keyboardShortcut(.defaultAction)
+                Text("Changes are saved at once.").font(.caption).foregroundStyle(.secondary)
             }
             .padding(10)
         }
-        .frame(minWidth: 680, minHeight: 480)
+        .frame(width: 700, height: 500)
+        .onChange(of: rules) { FiletypeStore.shared.save($0) }
+        .onAppear {
+            // the file may have been edited by hand since this tab was made
+            let current = FiletypeStore.shared.currentRules()
+            if current != rules { rules = current; selection = rules.isEmpty ? nil : min(selection ?? 0, rules.count - 1) }
+        }
+        .confirmationDialog("Reset the filetypes to the defaults?", isPresented: $confirmReset) {
+            Button("Reset Filetypes", role: .destructive) {
+                rules = FiletypeStore.defaults
+                selection = rules.isEmpty ? nil : 0
+            }
+        } message: {
+            Text("Your own filetypes are replaced by the standard ones.")
+        }
     }
 
     // MARK: List
@@ -362,24 +347,5 @@ struct MenuStepsEditor: View {
         let target = index + delta
         guard steps.indices.contains(index), steps.indices.contains(target) else { return }
         steps.swapAt(index, target)
-    }
-}
-
-enum FiletypeEditorWindow {
-    static var window: NSWindow?
-
-    static func show() {
-        if let window { NSApp.bringToFront(); window.makeKeyAndOrderFront(nil); return }
-        let host = NSHostingController(rootView: FiletypeEditorView(close: { window?.close() }))
-        let created = NSWindow(contentViewController: host)
-        created.styleMask = [.titled, .closable, .resizable]
-        created.title = tr("Edit Filetypes")
-        created.isReleasedWhenClosed = false
-        created.setContentSize(NSSize(width: 760, height: 540))
-        created.center()
-        NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: created, queue: .main) { _ in window = nil }
-        window = created
-        NSApp.bringToFront()
-        created.makeKeyAndOrderFront(nil)
     }
 }

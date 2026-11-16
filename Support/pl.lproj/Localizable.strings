@@ -671,7 +671,6 @@
 "Start folder" = "Folder startowy";
 "Window title" = "Tytuł okna";
 "Keyboard" = "Klawiatura";
-"Double-click and menu of a file" = "Dwuklik i menu pliku";
 "Reset the buttons to the defaults?" = "Przywrócić domyślne przyciski?";
 "Version" = "Wersja";
 "Last checked" = "Ostatnie sprawdzenie";
@@ -951,7 +950,6 @@
 "Above the Button" = "Nad przyciskiem";
 "Menu opens" = "Menu otwiera się";
 "⌥-click, middle-click or right-click: lock the role so no other lister can take it" = "⌥-klik, środkowy klik lub prawy klik: zablokuj rolę, żeby żaden inny lister jej nie przejął";
-"Edit Filetypes" = "Edytuj typy plików";
 "New Filetype" = "Nowy typ pliku";
 "Add a filetype" = "Dodaj typ pliku";
 "Choose a filetype" = "Wybierz typ pliku";
@@ -986,7 +984,7 @@
 "the full paths of the files selected in the destination lister" = "pełne ścieżki plików zaznaczonych w listerze docelowym";
 "Opening" = "Otwieranie";
 "Filetypes" = "Typy plików";
-"A filetype says what a double-click and ⌥ + double-click do for files with certain extensions, and adds its own entries to the context menu of those files. Commands can use {f}, {F}, {o}, {O}, {d} and {s} for the files and folders." = "Typ pliku mówi, co robi dwuklik i ⌥ + dwuklik dla plików o danych rozszerzeniach, i dodaje własne wpisy do menu kontekstowego tych plików. W poleceniach można używać {f}, {F}, {o}, {O}, {d} i {s} dla plików i folderów.";
-"Defined filetypes" = "Zdefiniowane typy plików";
-"None: every file opens the usual way" = "Brak: każdy plik otwiera się zwykłym sposobem";
-"Menu: %d" = "Menu: %d";
+"Changes are saved at once." = "Zmiany zapisują się od razu.";
+"Reset the filetypes to the defaults?" = "Przywrócić domyślne typy plików?";
+"Reset Filetypes" = "Przywróć typy plików";
+"Your own filetypes are replaced by the standard ones." = "Twoje typy plików zostaną zastąpione standardowymi.";

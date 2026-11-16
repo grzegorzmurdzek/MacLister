@@ -316,52 +316,6 @@ private struct UpdatesSettingsView: View {
     }()
 }
 
-// MARK: - Filetypes
-
-/// What a double-click on a file does and which entries its context menu gets: the list of what is defined, and the
-/// way into the editor.
-private struct FiletypesSettingsView: View {
-    @State private var rules = FiletypeStore.shared.currentRules()
-
-    var body: some View {
-        Form {
-            Section {
-                Text("A filetype says what a double-click and ⌥ + double-click do for files with certain extensions, and adds its own entries to the context menu of those files. Commands can use {f}, {F}, {o}, {O}, {d} and {s} for the files and folders.")
-                    .font(.caption).foregroundStyle(.secondary)
-                LabeledContent("Filetypes") {
-                    HStack {
-                        Button("Edit Filetypes…") { FiletypeEditorWindow.show() }
-                        Button("Open filetypes.json") { FiletypeStore.openInEditor() }
-                    }
-                }
-            }
-            Section("Defined filetypes") {
-                if rules.isEmpty {
-                    Text("None: every file opens the usual way").foregroundStyle(.secondary)
-                } else {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 6) {
-                            ForEach(Array(rules.enumerated()), id: \.offset) { _, rule in
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(FiletypeEditing.title(of: rule))
-                                    Text(FiletypeEditing.summary(of: rule)).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-                                }
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .frame(maxHeight: 200)
-                }
-            }
-        }
-        .formStyle(.grouped)
-        .frame(width: 520)
-        .fixedSize(horizontal: false, vertical: true)
-        .onAppear { rules = FiletypeStore.shared.currentRules() }
-        .onReceive(NotificationCenter.default.publisher(for: FiletypeStore.didChange)) { _ in rules = FiletypeStore.shared.currentRules() }
-    }
-}
-
 // MARK: - Window
 
 /// The Settings window: a toolbar of tabs, as every Mac app has it (⌘,).
@@ -372,7 +326,7 @@ enum SettingsWindow {
     static func tabViews() -> [(title: String, view: AnyView)] {
         [(tr("General"), AnyView(GeneralSettingsView())), (tr("Listers"), AnyView(ListersSettingsView())),
          (tr("Tabs"), AnyView(TabsSettingsView())), (tr("Buttons"), AnyView(ButtonsSettingsView())),
-         (tr("Filetypes"), AnyView(FiletypesSettingsView())), (tr("Operations"), AnyView(OperationsSettingsView())), (tr("Updates"), AnyView(UpdatesSettingsView()))]
+         (tr("Filetypes"), AnyView(FiletypeEditorView())), (tr("Operations"), AnyView(OperationsSettingsView())), (tr("Updates"), AnyView(UpdatesSettingsView()))]
     }
 
     static func show(tab: Int = 0) {
@@ -388,7 +342,7 @@ enum SettingsWindow {
             (tr("Listers"), "macwindow", AnyView(ListersSettingsView())),
             (tr("Tabs"), "rectangle.stack", AnyView(TabsSettingsView())),
             (tr("Buttons"), "square.grid.2x2", AnyView(ButtonsSettingsView())),
-            (tr("Filetypes"), "doc.badge.gearshape", AnyView(FiletypesSettingsView())),
+            (tr("Filetypes"), "doc.badge.gearshape", AnyView(FiletypeEditorView())),
             (tr("Operations"), "clock.arrow.circlepath", AnyView(OperationsSettingsView())),
             (tr("Updates"), "arrow.down.circle", AnyView(UpdatesSettingsView())),
         ]

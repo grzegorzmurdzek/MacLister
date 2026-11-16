@@ -1153,9 +1153,12 @@ enum SelfTestFeatures {
             let reread = (try? JSONDecoder().decode([FiletypeRule].self, from: Data(text.utf8))) ?? []
             check(reread.count == 2 && reread[0].extensions == ["abc"] && reread[1].menu?.first?.title == "Echo", "editor: the saved file reads back")
             check(FiletypeStore.shared.rule(for: URL(fileURLWithPath: "/x/f.ABC"))?.app == "com.apple.TextEdit" && FiletypeStore.shared.currentRules().count == 2, "editor: saved filetypes are used at once")
-            FiletypeEditorWindow.show()
-            check(FiletypeEditorWindow.window?.isVisible == true, "the Edit Filetypes window opens")
-            FiletypeEditorWindow.window?.close()
+            SettingsWindow.show(tab: 4)
+            if let window = NSApp.windows.first(where: { $0.contentViewController is NSTabViewController }),
+               let controller = window.contentViewController as? NSTabViewController {
+                check(controller.selectedTabViewItemIndex == 4 && window.title == tr("Filetypes"), "the Filetypes tab holds the editor: \(window.title)")
+                window.close()
+            } else { check(false, "the Settings window opens on the Filetypes tab") }
             if let previous { try? previous.write(to: url, atomically: true, encoding: .utf8) }
         }
         // progress on the menu-bar icon

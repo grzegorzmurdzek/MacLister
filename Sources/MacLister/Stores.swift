@@ -134,7 +134,7 @@ struct FiletypeStep: Codable, Equatable {
     var lister: String?
 }
 
-struct FiletypeRule: Codable {
+struct FiletypeRule: Codable, Equatable {
     typealias Action = FiletypeStep.Action
     /// "zip", "tar.gz" … matched against the end of the name; "*" matches every file.
     var extensions: [String]
@@ -170,8 +170,6 @@ extension FiletypeStore {
 
 final class FiletypeStore {
     static let shared = FiletypeStore()
-    /// Posted after the editor saved the filetypes.
-    static let didChange = Notification.Name("MacListerFiletypesChanged")
 
     static let defaults: [FiletypeRule] = [
         FiletypeRule(extensions: ["zip", "tar", "tar.gz", "tgz", "tar.bz2", "tbz2", "tar.xz", "txz", "tar.zst", "7z", "rar", "gz", "bz2"],
@@ -213,7 +211,6 @@ final class FiletypeStore {
         rules = cleaned
         loadedStamp = (try? FileManager.default.attributesOfItem(atPath: configURL.path)[.modificationDate]) as? Date
         loadedPath = configURL.path
-        NotificationCenter.default.post(name: Self.didChange, object: nil)
     }
 
     /// The rule that decides what a double-click does: the first one that fits and has an action of its own.
