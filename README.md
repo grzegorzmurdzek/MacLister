@@ -100,8 +100,8 @@ run `defaults delete com.example.MacLister`, and remove MacLister from the two P
 ### Source and destination
 
 Mark one lister as **SRC** and another as **DST** with the badges in the path bar (click again to clear). You do not
-have to: **the first lister you open is the source and the next one the destination**, and when the source is closed
-the destination takes its place (a locked one stays as it is). **Settings → General → First lister is the source, the
+have to: **the first lister you open is the source and the next one the destination**, and when one of them is closed
+the gap is filled: the destination becomes the source and the next lister the destination (a locked one stays as it is). **Settings → General → First lister is the source, the
 next the destination** turns this off. A saved layout brings its own roles back.
 Then:
 

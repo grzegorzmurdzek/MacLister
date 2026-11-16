@@ -217,7 +217,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         manager.remove(self)
         // Closing the tab that holds the window's role leaves the role with the tab that is shown next.
         let role = model.role, locked = model.roleLocked
-        if role == .source, siblings.isEmpty { manager.promoteDestinationAfterSourceClosed() }
+        if role != .none, siblings.isEmpty { manager.fillRolesAfterClose() }
         guard role != .none, !siblings.isEmpty else { return }
         DispatchQueue.main.async {
             let open = siblings.filter { sibling in manager.allControllers.contains { $0 === sibling } }
@@ -555,12 +555,19 @@ final class ListerManager {
         }
     }
 
-    /// The source lister was closed: the destination takes its place, so Copy and Move keep a source. A locked
-    /// destination stays as it is.
-    func promoteDestinationAfterSourceClosed() {
-        guard automaticRoles, !controllers.contains(where: { $0.model.role == .source }),
-              let destination = destinationController, !destination.model.roleLocked else { return }
-        destination.model.role = .source
+    /// A lister that held a role was closed: the gap is filled, so Copy and Move keep a source and a destination.
+    /// With no source, the destination takes its place (a locked one stays as it is); then the lister without a role
+    /// that was opened first (and shows in its window) becomes the destination, when there is none.
+    func fillRolesAfterClose() {
+        guard automaticRoles else { return }
+        if !controllers.contains(where: { $0.model.role == .source }),
+           let destination = destinationController, !destination.model.roleLocked {
+            destination.model.role = .source
+        }
+        for role in [ListerRole.source, .destination] where !controllers.contains(where: { $0.model.role == role }) {
+            guard let next = controllers.first(where: { $0.model.role == .none && isSelectedTab($0) }) else { return }
+            next.model.role = role
+        }
     }
 
     var sourceController: ListerWindowController? { controllers.first { $0.model.role == .source } }

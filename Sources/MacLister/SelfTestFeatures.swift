@@ -2038,13 +2038,17 @@ enum SelfTestFeatures {
             let c = manager.openLister(directory: dirA, anchor: .cursor(NSPoint(x: 280, y: 480), centered: false))
             check(c.model.role == .none, "a third lister gets no role")
             a.window?.close()
-            check(b.model.role == .source && c.model.role == .none, "closing the source: the destination becomes the source (\(b.model.role), \(c.model.role))")
+            let promoted = manager.destinationController
+            check(b.model.role == .source && promoted != nil && promoted !== b && promoted?.model.role == .destination,
+                  "closing the source: the destination becomes the source and a lister without a role the destination")
             let d = manager.openLister(directory: dirB, anchor: .cursor(NSPoint(x: 300, y: 460), centered: false))
-            check(d.model.role == .destination, "a new lister takes the free destination role")
-            d.model.roleLocked = true
+            check(d.model.role == .none, "with both roles taken a new lister gets none")
+            let holder = manager.destinationController
+            holder?.model.roleLocked = true
             b.window?.close()
-            check(d.model.role == .destination, "a locked destination is not promoted to source")
-            d.model.roleLocked = false
+            check(holder?.model.role == .destination && manager.sourceController != nil && manager.sourceController !== holder,
+                  "a locked destination is not promoted; another lister becomes the source")
+            holder?.model.roleLocked = false
             manager.restoringLayout = true
             let e = manager.openLister(directory: dirA, anchor: .cursor(NSPoint(x: 320, y: 440), centered: false))
             manager.restoringLayout = false

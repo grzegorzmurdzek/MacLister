@@ -25,7 +25,7 @@ private struct GeneralSettingsView: View {
                 }
                 Toggle("Center the lister on the pointer", isOn: $center)
                 Toggle("First lister is the source, the next the destination", isOn: $autoRoles)
-                Text("A new lister becomes the source when there is none, then the destination. When the source is closed, the destination takes its place. Off: set SRC and DST yourself.")
+                Text("A new lister becomes the source when there is none, then the destination. When the source is closed, the destination takes its place and the next lister becomes the destination. Off: set SRC and DST yourself.")
                     .font(.caption).foregroundStyle(.secondary)
                 LabeledContent("Start folder") {
                     HStack {

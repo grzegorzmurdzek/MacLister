@@ -103,8 +103,8 @@ wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list 
 ### Źródło i cel
 
 Oznacz jeden lister jako **SRC**, a drugi jako **DST** znaczkami w pasku ścieżki (ponowne kliknięcie zdejmuje rolę). Nie
-musisz: **pierwszy otwarty lister jest źródłem, a następny celem**, a po zamknięciu źródła jego miejsce zajmuje cel
-(zablokowany zostaje, jak jest). Wyłączysz to w **Ustawienia → Ogólne → Pierwszy lister jest źródłem, następny celem**.
+musisz: **pierwszy otwarty lister jest źródłem, a następny celem**, a po zamknięciu któregoś z nich luka się wypełnia:
+cel zostaje źródłem, a celem następny lister (zablokowany zostaje, jak jest). Wyłączysz to w **Ustawienia → Ogólne → Pierwszy lister jest źródłem, następny celem**.
 Zapisany układ przywraca własne role.
 Potem:
 
