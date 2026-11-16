@@ -504,9 +504,12 @@ listers**, on by default; new listers still open as windows of their own). Each 
 - **⌃Tab / ⌃⇧Tab** (or ⇧⌘] / ⇧⌘[) go to the next / previous tab, **⌘W** closes a tab. **Tab** still goes between
   lister windows and skips the tabs you cannot see.
 - **Names.** A tab shows the name of its folder and follows it as you navigate. Right-click a tab (or the title bar)
-  → **Tabs → Name This Tab…** to give it a name of its own and a colour (a dot in the tab); the name stays when the tab
+  → **Tabs → Name This Tab…**, or just **double-click the tab**, to give it a name of its own and a colour (a dot in the
+  tab); the name stays when the tab
   goes to another folder. *Use the Folder's Name* returns to the default. This is the same name as
   [Name This Lister…](#naming-listers), so it also shows in the title and in *Copy to “…”*.
+  The double-click is a setting: **Settings → Listers → Tabs → Double-click on a tab** can also open a new tab on the
+  same folder, close the tab, or do nothing.
 - **Source and destination belong to the window.** Only the tab you see can be the source or the destination: when you
   switch tabs, the role (and its lock) goes along to the tab you switch to, so a copy never lands in a folder you
   cannot see. Closing that tab leaves the role with the tab shown next. Merging windows that both had a role keeps the

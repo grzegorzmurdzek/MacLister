@@ -35,6 +35,17 @@ final class ListerWindow: NSWindow {
                 return
             }
         }
+        // A double-click on a tab does what Settings → Listers → Tabs says (Name This Tab… by default).
+        if event.type == .leftMouseDown, event.clickCount == 2, event.modifierFlags.intersection([.control, .command, .shift, .option]).isEmpty,
+           isInTitleBar(event.locationInWindow), let tab = tab(at: event.locationInWindow) as? ListerWindow,
+           let controller = tab.windowController as? ListerWindowController {
+            let action = Settings.tabDoubleClick
+            if action != .nothing {
+                ListerManager.shared.select(controller)
+                DispatchQueue.main.async { controller.performTabDoubleClick(action) }
+            }
+            return
+        }
         super.sendEvent(event)
     }
 
@@ -149,6 +160,16 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
             if let dot = tab.accessoryView as? TabColorDot { dot.color = color } else { tab.accessoryView = TabColorDot(color: color) }
         } else if tab.accessoryView != nil {
             tab.accessoryView = nil
+        }
+    }
+
+    /// A double-click on this lister's tab (Settings → Listers → Tabs → Double-click on a tab).
+    func performTabDoubleClick(_ action: TabDoubleClickAction) {
+        switch action {
+        case .nameTab:      listerViewController?.promptLabel()
+        case .duplicateTab: ListerManager.shared.newTab(from: self)
+        case .closeTab:     window?.performClose(nil)
+        case .nothing:      break
         }
     }
 

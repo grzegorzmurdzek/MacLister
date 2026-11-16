@@ -896,7 +896,7 @@
 /* Tabs */
 "Tabs" = "Karty";
 "Allow tabs in listers" = "Zezwalaj na karty w listerach";
-"⌘T opens the folder in a new tab, ⌘-double-click opens a folder in one, ⌃Tab goes to the next tab and ⌘W closes it. A tab shows the folder's name; Name This Tab… in the title-bar menu gives it a name of its own. Source and destination belong to the window: the tab you see has the role, and it goes along to the tab you switch to. Off: every tab becomes a lister of its own again." = "⌘T otwiera folder w nowej karcie, ⌘ + dwuklik otwiera w niej folder, ⌃Tab przechodzi do następnej karty, a ⌘W ją zamyka. Karta pokazuje nazwę folderu; Nazwij tę kartę… w menu paska tytułu nadaje jej własną nazwę. Źródło i cel należą do okna: rolę ma karta, którą widzisz, i przechodzi ona na kartę, na którą się przełączysz. Wyłączone: każda karta znów staje się osobnym listerem.";
+"⌘T opens the folder in a new tab, ⌘-double-click opens a folder in one, ⌃Tab goes to the next tab and ⌘W closes it. A double-click on a tab does what you choose above (by default it names the tab). A tab shows the folder's name; Name This Tab… in the title-bar menu gives it a name of its own. Source and destination belong to the window: the tab you see has the role, and it goes along to the tab you switch to. Off: every tab becomes a lister of its own again." = "⌘T otwiera folder w nowej karcie, ⌘ + dwuklik otwiera w niej folder, ⌃Tab przechodzi do następnej karty, a ⌘W ją zamyka. Dwuklik na karcie robi to, co wybierzesz powyżej (domyślnie nadaje karcie nazwę). Karta pokazuje nazwę folderu; Nazwij tę kartę… w menu paska tytułu nadaje jej własną nazwę. Źródło i cel należą do okna: rolę ma karta, którą widzisz, i przechodzi ona na kartę, na którą się przełączysz. Wyłączone: każda karta znów staje się osobnym listerem.";
 "New Tab" = "Nowa karta";
 "New tab" = "Nowa karta";
 "Next Tab" = "Następna karta";
@@ -904,6 +904,9 @@
 "Previous Tab" = "Poprzednia karta";
 "Previous tab" = "Poprzednia karta";
 "Close Tab" = "Zamknij kartę";
+"Double-click on a tab" = "Dwuklik na karcie";
+"New Tab on This Folder" = "Nowa karta z tym folderem";
+"Do Nothing" = "Nic nie rób";
 "Close Other Tabs" = "Zamknij pozostałe karty";
 "Move Tab to New Lister" = "Przenieś kartę do nowego listera";
 "Move tab to new lister" = "Przenieś kartę do nowego listera";

@@ -111,6 +111,70 @@ enum SelfTestTabs {
             third?.close()
         }
 
+        // 2c. A double-click on a tab does what Settings says: Name This Tab… (the default), or what you chose.
+        let doubleClickBefore = Bundle.main.bundleIdentifier.flatMap { UserDefaults.standard.persistentDomain(forName: $0)?["tabDoubleClick"] }
+        /// Sends a double-click on the button of `tab` in the tab bar (which the shown tab's window draws).
+        func doubleClick(_ tab: ListerWindowController) {
+            guard let window = manager.tabs(of: tab).first(where: manager.isSelectedTab)?.window as? ListerWindow,
+                  let frameView = window.contentView?.superview, let title = tab.window?.tab.title else { check(false, "tab bar reachable"); return }
+            func buttons(_ view: NSView) -> [NSView] {
+                view.subviews.flatMap { String(describing: type(of: $0)).contains("TabButton") ? [$0] : buttons($0) }
+            }
+            func text(_ view: NSView) -> String {
+                if let field = view as? NSTextField { return field.stringValue }
+                return view.subviews.map(text).joined()
+            }
+            guard let button = buttons(frameView).first(where: { text($0) == title && !$0.isHidden }) else { check(false, "button of the tab “\(title)”"); return }
+            let frame = button.convert(button.bounds, to: nil)
+            let point = NSPoint(x: frame.midX, y: frame.midY)
+            // the second press of the double-click: a first one would start AppKit's own tracking of the tab button
+            if let event = NSEvent.mouseEvent(with: .leftMouseDown, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                              windowNumber: window.windowNumber, context: nil, eventNumber: 2, clickCount: 2, pressure: 1) {
+                window.sendEvent(event)
+            }
+        }
+        UserDefaults.standard.removeObject(forKey: "tabDoubleClick")
+        later(1.0) {
+            check(Settings.tabDoubleClick == .nameTab, "a double-click on a tab names it unless you choose otherwise")
+            manager.select(one)
+        }
+        later(0.5) {
+            doubleClick(two)
+        }
+        later(0.5) {
+            check(manager.isSelectedTab(two) && two.window?.attachedSheet != nil, "double-click on a tab: shows it and asks for its name")
+            if let sheet = two.window?.attachedSheet { two.window?.endSheet(sheet) }
+            Settings.tabDoubleClick = .nothing
+            manager.select(one)
+        }
+        later(0.5) {
+            doubleClick(two)
+        }
+        later(0.5) {
+            check(two.window?.attachedSheet == nil && manager.tabs(of: one).count == 2, "double-click on a tab, set to do nothing: nothing opens")
+            Settings.tabDoubleClick = .duplicateTab
+            doubleClick(two)
+        }
+        later(0.8) {
+            check(manager.tabs(of: one).count == 3, "double-click on a tab, set to new tab: a third tab opens (\(manager.tabs(of: one).count))")
+            Settings.tabDoubleClick = .closeTab
+            manager.tabs(of: one).last?.model.setLabel("Copy", color: nil)      // the new tab has the folder's name, like the one it came from
+        }
+        later(0.5) {
+            if let copy = manager.tabs(of: one).last { doubleClick(copy) }
+        }
+        later(0.8) {
+            let titles = manager.tabs(of: one).map { $0.window?.tab.title ?? "?" }
+            check(titles == ["Alpha", "Gamma"], "double-click on a tab, set to close: that tab closes, the others stay (\(titles))")
+            UserDefaults.standard.set(doubleClickBefore, forKey: "tabDoubleClick")      // nil removes it
+        }
+        later(0.8) {
+            manager.select(two)                                                         // as the steps below expect
+        }
+        later(0.6) {
+            check(manager.isSelectedTab(two) && !manager.isSelectedTab(one), "the second tab is shown again")
+        }
+
         // 3. Roles belong to the window: they go to the tab you see.
         later {
             manager.toggleRole(.source, for: two)

@@ -126,6 +126,7 @@ private struct ListersSettingsView: View {
     @AppStorage("browseArchives") private var browseArchives = true
     @AppStorage("springLoadedFolders") private var springLoaded = true
     @AppStorage("listerTabs") private var tabs = true
+    @AppStorage("tabDoubleClick") private var tabDoubleClick = TabDoubleClickAction.nameTab.rawValue
     @State private var confirmReset = false
 
     var body: some View {
@@ -146,10 +147,14 @@ private struct ListersSettingsView: View {
             Section {
                 Toggle("Allow tabs in listers", isOn: $tabs)
                     .onChange(of: tabs) { _ in ListerManager.shared.applyTabSetting() }
+                Picker("Double-click on a tab", selection: $tabDoubleClick) {
+                    ForEach(TabDoubleClickAction.allCases, id: \.rawValue) { Text($0.menuTitle).tag($0.rawValue) }
+                }
+                .disabled(!tabs)
             } header: {
                 Text("Tabs")
             } footer: {
-                Text("⌘T opens the folder in a new tab, ⌘-double-click opens a folder in one, ⌃Tab goes to the next tab and ⌘W closes it. A tab shows the folder's name; Name This Tab… in the title-bar menu gives it a name of its own. Source and destination belong to the window: the tab you see has the role, and it goes along to the tab you switch to. Off: every tab becomes a lister of its own again.")
+                Text("⌘T opens the folder in a new tab, ⌘-double-click opens a folder in one, ⌃Tab goes to the next tab and ⌘W closes it. A double-click on a tab does what you choose above (by default it names the tab). A tab shows the folder's name; Name This Tab… in the title-bar menu gives it a name of its own. Source and destination belong to the window: the tab you see has the role, and it goes along to the tab you switch to. Off: every tab becomes a lister of its own again.")
             }
             Section("File list") {
                 Toggle("Keep folders above files when sorting", isOn: $foldersFirst)

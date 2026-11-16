@@ -35,6 +35,20 @@ enum DesktopTrigger: String, CaseIterable {
     }
 }
 
+/// What a double-click on a tab in the tab bar does.
+enum TabDoubleClickAction: String, CaseIterable {
+    case nameTab, duplicateTab, closeTab, nothing
+
+    var menuTitle: String {
+        switch self {
+        case .nameTab:      return tr("Name This Tab…")
+        case .duplicateTab: return tr("New Tab on This Folder")
+        case .closeTab:     return tr("Close Tab")
+        case .nothing:      return tr("Do Nothing")
+        }
+    }
+}
+
 /// Small preferences layer on top of UserDefaults.
 ///
 /// Hidden switches (set with `defaults write com.example.MacLister <key> ...`):
@@ -64,6 +78,7 @@ enum Settings {
             "showDockIcon": true,
             "listersOnAllDesktops": false,
             "listerTabs": true,
+            "tabDoubleClick": TabDoubleClickAction.nameTab.rawValue,
             "foldersFirst": true,
         ])
     }
@@ -156,6 +171,12 @@ enum Settings {
     static var listerTabs: Bool {
         get { defaults.bool(forKey: "listerTabs") }
         set { defaults.set(newValue, forKey: "listerTabs") }
+    }
+
+    /// What a double-click on a tab does (Name This Tab… unless you choose otherwise).
+    static var tabDoubleClick: TabDoubleClickAction {
+        get { TabDoubleClickAction(rawValue: defaults.string(forKey: "tabDoubleClick") ?? "") ?? .nameTab }
+        set { defaults.set(newValue.rawValue, forKey: "tabDoubleClick") }
     }
 
     /// Folders stay above the files whatever the sort column is. Off: folders and files are sorted together.

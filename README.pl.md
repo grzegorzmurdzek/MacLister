@@ -517,9 +517,12 @@ lister (historia, sortowanie, filtr, zaznaczenie, drzewo folderów), więc wszys
 - **⌃Tab / ⌃⇧Tab** (albo ⇧⌘] / ⇧⌘[) przechodzą do następnej / poprzedniej karty, **⌘W** zamyka kartę. **Tab** nadal
   przechodzi między oknami listerów i pomija karty, których nie widać.
 - **Nazwy.** Karta pokazuje nazwę swojego folderu i zmienia ją razem z nim. Prawy przycisk na karcie (albo na belce)
-  → **Karty → Nazwij tę kartę…** nadaje jej własną nazwę i kolor (kropka na karcie); nazwa zostaje, gdy karta przejdzie
+  → **Karty → Nazwij tę kartę…** albo po prostu **dwuklik na karcie** nadaje jej własną nazwę i kolor (kropka na karcie);
+  nazwa zostaje, gdy karta przejdzie
   do innego folderu. *Użyj nazwy folderu* przywraca domyślną. To ta sama nazwa co w [Nazwij ten lister…](#nazwy-listerów),
   więc widać ją też w tytule i w *Kopiuj do „…”*.
+  Dwuklik to ustawienie: **Ustawienia → Listery → Karty → Dwuklik na karcie** może też otworzyć nową kartę z tym samym
+  folderem, zamknąć kartę albo nic nie robić.
 - **Źródło i cel należą do okna.** Źródłem albo celem może być tylko karta, którą widzisz: po przełączeniu karty rola
   (wraz z blokadą) przechodzi na nową kartę, więc kopia nigdy nie trafi do folderu, którego nie widać. Po zamknięciu tej
   karty rola zostaje przy karcie pokazanej jako następna. Gdy łączysz okna, które obie miały rolę, zostaje rola
