@@ -201,6 +201,7 @@ final class ListerViewController: NSViewController {
 
         let pathBar = NSHostingView(rootView: PathBarView(model: model,
                                                           onToggleRole: { [weak self] in self?.toggleRole($0) },
+                                                          onToggleRoleLock: { [weak self] in self?.toggleRoleLock($0) },
                                                           onConnect: { [weak self] in self?.connectChoice($0) },
                                                           onEditLabel: { [weak self] in self?.promptLabel() }))
         let buttonBar = NSHostingView(rootView: ButtonBarView(model: model, store: .shared) { [weak self] in
@@ -493,12 +494,12 @@ final class ListerViewController: NSViewController {
     @objc private func rowDoubleClicked() {
         let flags = NSEvent.modifierFlags
         activateRow(tableView.clickedRow, inNewLister: flags.contains(.shift),
-                    inNewTab: flags.contains(.command) && Settings.listerTabs)
+                    inNewTab: flags.contains(.command) && Settings.listerTabs, option: flags.contains(.option))
     }
 
     /// A double-click on a row. With Shift a folder opens in a new lister instead (as in Directory Opus); with ⌘ in a
-    /// new tab (as in Finder), while tabs are on.
-    func activateRow(_ row: Int, inNewLister: Bool, inNewTab: Bool = false) {
+    /// new tab (as in Finder), while tabs are on. With ⌥ a file does what its filetype says for ⌥ + double-click.
+    func activateRow(_ row: Int, inNewLister: Bool, inNewTab: Bool = false, option: Bool = false) {
         guard rows.indices.contains(row) else { return }   // header click
         let item = rows[row]
         if inNewLister, canOpenInNewLister(item) {
@@ -506,16 +507,16 @@ final class ListerViewController: NSViewController {
         } else if inNewTab, canOpenInNewLister(item) {
             openInNewTab(item)
         } else {
-            open(item)
+            open(item, option: option)
         }
     }
 
-    func open(_ item: FileItem) {
+    func open(_ item: FileItem, option: Bool = false) {
         if item.url.scheme == VirtualPlace.scheme { openSharedRow(item); return }
         if isRemote { openRemote(item); return }
         // a file inside an archive is taken out of it first
         if !item.isNavigable, ArchiveBrowser.shared.needsMaterialization([item.url]) {
-            materialized([item.url]) { [weak self] in self?.open(item) }
+            materialized([item.url]) { [weak self] in self?.open(item, option: option) }
             return
         }
         if item.isNavigable {
@@ -525,7 +526,7 @@ final class ListerViewController: NSViewController {
             // An archive opens like a folder (read-only). The stock filetype rule for archives is "extract", so that rule
             // gives way; a rule that does something else (an app, a command) still wins.
             browseArchive(item.url)
-        } else if let rule = FiletypeStore.shared.rule(for: item.url), runFiletype(rule, on: item) {
+        } else if let rule = FiletypeStore.shared.rule(for: item.url), runFiletype(rule, on: item, option: option) {
             return
         } else {
             NSWorkspace.shared.open(item.url)
@@ -948,6 +949,15 @@ extension ListerViewController {
         ListerManager.shared.toggleRole(role, for: controller)
     }
 
+    /// ⌥-click / right-click on SRC or DST: the lister takes that role if it does not hold it yet, then the lock is
+    /// toggled. A role locked on another lister (or this one holding the other role, locked) is left alone.
+    func toggleRoleLock(_ role: ListerRole) {
+        guard let controller = view.window?.windowController as? ListerWindowController else { return }
+        let manager = ListerManager.shared
+        if controller.model.role != role { manager.toggleRole(role, for: controller) }
+        if controller.model.role == role { manager.toggleRoleLock(for: controller) }
+    }
+
     /// Copy / Move: selection of the source lister → folder of the destination lister.
     /// The source is the lister marked SRC, or, if none is marked, the one whose button was pressed.
     func startTransfer(_ kind: TransferKind) {
@@ -1198,33 +1208,41 @@ extension ListerViewController {
             model.errorMessage = tr("Button has no \"command\"")
             return
         }
-        let directory = model.url
-        let selection = model.selectedURLs.map(\.path).joined(separator: "\n")
+        runShellCommands([command], directory: model.url, selection: model.selectedURLs)
+    }
+
+    /// Runs the commands one after the other with /bin/zsh in `directory`. LISTER_DIR is that folder, LISTER_SELECTION
+    /// the selected paths (newline separated).
+    func runShellCommands(_ commands: [String], directory: URL, selection: [URL]) {
+        let selected = selection.map(\.path).joined(separator: "\n")
 
         DispatchQueue.global(qos: .userInitiated).async { [weak model] in
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-            process.arguments = ["-c", command]
-            process.currentDirectoryURL = directory
-            var environment = ProcessInfo.processInfo.environment
-            environment["LISTER_DIR"] = directory.path
-            environment["LISTER_SELECTION"] = selection
-            process.environment = environment
-            let errorPipe = Pipe()
-            process.standardError = errorPipe
-            process.standardOutput = FileHandle.nullDevice
-
             var failure: String?
-            do {
-                try process.run()
-                let data = errorPipe.fileHandleForReading.readDataToEndOfFile()
-                process.waitUntilExit()
-                if process.terminationStatus != 0 {
-                    let text = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                    failure = "exit \(process.terminationStatus)" + (text.isEmpty ? "" : ": \(text)")
+            for command in commands {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+                process.arguments = ["-c", command]
+                process.currentDirectoryURL = directory
+                var environment = ProcessInfo.processInfo.environment
+                environment["LISTER_DIR"] = directory.path
+                environment["LISTER_SELECTION"] = selected
+                process.environment = environment
+                let errorPipe = Pipe()
+                process.standardError = errorPipe
+                process.standardOutput = FileHandle.nullDevice
+
+                do {
+                    try process.run()
+                    let data = errorPipe.fileHandleForReading.readDataToEndOfFile()
+                    process.waitUntilExit()
+                    if process.terminationStatus != 0 {
+                        let text = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                        failure = "exit \(process.terminationStatus)" + (text.isEmpty ? "" : ": \(text)")
+                    }
+                } catch {
+                    failure = error.localizedDescription
                 }
-            } catch {
-                failure = error.localizedDescription
+                if failure != nil { break }
             }
             DispatchQueue.main.async {
                 model?.reload()
@@ -1303,6 +1321,7 @@ extension ListerViewController: NSMenuDelegate {
             if local, items.contains(where: { ArchiveExtractor.isArchive($0.url) }) {
                 add(tr("Extract")) { [weak self] in self?.extractSelection() }
             }
+            if local { addFiletypeEntries(to: menu, items: items) }
             menu.addItem(.separator())
 
             // Our own: copy / move to the destination lister
@@ -1683,6 +1702,63 @@ extension ListerViewController {
         let parent = NSMenuItem(title: tr("Open With"), action: nil, keyEquivalent: "")
         parent.submenu = sub
         menu.addItem(parent)
+    }
+
+    /// The entries the user gave the filetype of these files (filetypes.json, "menu"), after Open With.
+    fileprivate func addFiletypeEntries(to menu: NSMenu, items: [FileItem]) {
+        guard model.virtualPlace == nil, !items.contains(where: { $0.isNavigable }) else { return }
+        let steps = FiletypeStore.shared.menuSteps(for: items.map(\.url))
+        guard steps.contains(where: { $0.action != .separator }) else { return }
+
+        // many entries go into a submenu named after the type, so that the menu stays short
+        let entries = steps.filter { $0.action != .separator }.count
+        let sub: NSMenu? = entries > 6 ? NSMenu(title: FiletypeStore.shared.rules(for: items[0].url).compactMap(\.name).first ?? tr("Filetype Actions")) : nil
+        sub?.autoenablesItems = false
+        let target = sub ?? menu
+
+        menu.addItem(.separator())
+        for step in steps {
+            if step.action == .separator {
+                if target.items.last?.isSeparatorItem == false { target.addItem(.separator()) }
+                continue
+            }
+            let item = NSMenuItem(title: Self.title(of: step), action: #selector(contextMenuItemChosen(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = MenuAction { [weak self] in
+                guard let self else { return }
+                if !self.runFiletypeStep(step, on: items) {      // "open", or "extract" on something that is no archive
+                    let urls = items.map(\.url)
+                    self.materialized(urls) { urls.forEach { NSWorkspace.shared.open($0) } }
+                }
+            }
+            if step.action == .app, let spec = step.app, let app = Self.applicationURL(spec),
+               let icon = NSWorkspace.shared.icon(forFile: app.path).copy() as? NSImage {
+                icon.size = NSSize(width: 16, height: 16)
+                item.image = icon
+            }
+            target.addItem(item)
+        }
+        if target.items.last?.isSeparatorItem == true { target.removeItem(at: target.numberOfItems - 1) }
+        if let sub {
+            let parent = NSMenuItem(title: sub.title, action: nil, keyEquivalent: "")
+            parent.submenu = sub
+            menu.addItem(parent)
+        }
+    }
+
+    /// The text of a menu entry: the one the user gave, else made from what it does.
+    static func title(of step: FiletypeStep) -> String {
+        if let title = step.title, !title.isEmpty { return title }
+        switch step.action {
+        case .open, .separator: return tr("Open")
+        case .extract: return tr("Extract")
+        case .quicklook: return tr("Quick Look")
+        case .app:
+            guard let spec = step.app, let app = applicationURL(spec) else { return step.app ?? tr("Open With") }
+            return tr("Open in %@", FileManager.default.displayName(atPath: app.path).replacingOccurrences(of: ".app", with: ""))
+        case .shell: return step.command.map { String($0.prefix(32)) } ?? tr("Run Command")
+        case .lister: return step.lister.flatMap(ListerAction.init(rawValue:))?.title ?? tr("Run Command")
+        }
     }
 
     func open(_ urls: [URL], with app: URL) {

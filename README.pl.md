@@ -139,8 +139,9 @@ z polem wyboru. Zastępowany plik trafia najpierw do Kosza, kopie zachowują dat
 a operacja jest w dzienniku i można ją cofnąć ⌘Z (pliki przeniesione do Kosza opcją *tylko w celu* nie są częścią
 Cofania; wyjmij je z Kosza). Puste foldery nie są kopiowane.
 
-**Lock Role** (menu na belce okna) przypina lister jako źródło albo cel: inny lister nie może przejąć roli, a jej
-nie da się wyczyścić ani zamienić, dopóki nie odblokujesz.
+**Lock Role** (menu na belce okna albo ⌥-klik / prawy klik na przycisku **SRC** / **DST**) przypina lister jako
+źródło albo cel: inny lister nie może przejąć roli, a jej nie da się wyczyścić ani zamienić, dopóki nie odblokujesz.
+⌥-klik na przycisku, którego lister jeszcze nie ma, przejmuje rolę i od razu ją blokuje.
 
 ### Klawiatura
 

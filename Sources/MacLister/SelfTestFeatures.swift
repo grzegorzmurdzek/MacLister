@@ -1212,6 +1212,17 @@ enum SelfTestFeatures {
             check(FiletypeStore.shared.rule(for: URL(fileURLWithPath: "/x/n.MD"))?.action == .quicklook, "edited filetypes.json is picked up")
             check(FiletypeStore.shared.rule(for: URL(fileURLWithPath: "/x/a.zip")) == nil, "custom file replaces the defaults")
         }
+        // a filetype command really runs, once per file, with quoted names
+        let ftDir = root.appendingPathComponent("ft")
+        later {
+            try? fm.createDirectory(at: ftDir, withIntermediateDirectories: true)
+            let file = ftDir.appendingPathComponent("my file's.txt")
+            try? Data("x".utf8).write(to: file)
+            one.listerViewController?.runFiletypeCommand("cp {f} {f-}.copy", on: [file])
+        }
+        later(1.0) {
+            check(fm.fileExists(atPath: ftDir.appendingPathComponent("my file's.copy").path), "a filetype command runs with the quoted name of the file")
+        }
         // role lock, aliases and links, attribute filter, Open With
         later {
             one.model.role = .none; two.model.role = .none
@@ -1232,6 +1243,15 @@ enum SelfTestFeatures {
             manager.swapRoles()
             one.model.role = .none; manager.toggleRoleLock(for: one)
             check(!one.model.roleLocked, "a lister without a role cannot be locked")
+            // ⌥-click on SRC / DST: takes the role and locks it, a second one unlocks; a locked role elsewhere is respected
+            one.model.role = .none; two.model.role = .none
+            one.listerViewController?.toggleRoleLock(.source)
+            check(one.model.role == .source && one.model.roleLocked, "⌥-click on SRC takes the role and locks it")
+            two.listerViewController?.toggleRoleLock(.source)
+            check(two.model.role == .none && !two.model.roleLocked && one.model.role == .source, "⌥-click on SRC does not take a locked source")
+            one.listerViewController?.toggleRoleLock(.source)
+            check(one.model.role == .source && !one.model.roleLocked, "a second ⌥-click on SRC unlocks it")
+            manager.toggleRole(.source, for: one)
             manager.toggleRole(.source, for: one)
             manager.toggleRole(.destination, for: two)
 
@@ -1295,6 +1315,58 @@ enum SelfTestFeatures {
             } else { check(false, "a.txt row for the menu test") }
             vc.populate(menu, selection: [])
             check(menu.flatTitles.contains("Select by Attributes…"), "empty-area menu offers Select by Attributes")
+
+            // filetype menu entries (filetypes.json "menu"), codes in commands
+            do {
+                let url = FiletypeStore.shared.configURL
+                let previous = try? String(contentsOf: url, encoding: .utf8)
+                let json = #"""
+                [
+                  {"extensions":["*"],"menu":[{"title":"Everywhere","action":"shell","command":"true"}]},
+                  {"extensions":["txt"],"action":"quicklook","name":"Text","optionDoubleClick":{"action":"shell","command":"true"},
+                   "menu":[{"title":"Count lines","action":"shell","command":"wc -l {f}"},{"action":"separator"},{"action":"app","app":"com.apple.TextEdit"},{"title":"Sums","action":"lister","lister":"checksums"}]}
+                ]
+                """#
+                try? json.write(to: url, atomically: true, encoding: .utf8)
+                let txt = URL(fileURLWithPath: "/x/a.txt"), png = URL(fileURLWithPath: "/x/p.png")
+                check(FiletypeStore.shared.rule(for: txt)?.action == .quicklook, "a rule without an action (the * rule) does not decide the double-click")
+                check(FiletypeStore.shared.rule(for: png) == nil, "no double-click rule for a png: a rule with only a menu has no action")
+                check(FiletypeStore.shared.rules(for: txt).count == 2 && FiletypeStore.shared.rules(for: png).count == 1, "* matches every file, txt matches txt")
+                check(FiletypeStore.shared.rule(for: txt)?.optionDoubleClick?.action == .shell, "optionDoubleClick is read")
+                let steps = FiletypeStore.shared.menuSteps(for: [txt])
+                check(steps.map(\.action) == [.shell, .separator, .shell, .separator, .app, .lister], "menu steps of every matching rule, a divider between rules: \(steps.map(\.action))")
+                check(FiletypeStore.shared.menuSteps(for: [txt, png]).map { $0.title ?? "" } == ["Everywhere"], "mixed selection: only the entries of rules that fit every file")
+                if let textItem = one.model.items.first(where: { $0.name == "a.txt" }) {
+                    let filetypeMenu = NSMenu()
+                    vc.populate(filetypeMenu, selection: [textItem])
+                    let titles = filetypeMenu.flatTitles
+                    check(titles.contains("Everywhere") && titles.contains("Count lines") && titles.contains("Open in TextEdit") && titles.contains("Sums"),
+                          "context menu shows the filetype entries: \(titles.filter { !$0.isEmpty }.prefix(14))")
+                    let positions = filetypeMenu.items.map(\.title)
+                    check((positions.firstIndex(of: "Open With") ?? 99) < (positions.firstIndex(of: "Everywhere") ?? -1)
+                          && (positions.firstIndex(of: "Everywhere") ?? 99) < (positions.firstIndex(of: "Move to Trash") ?? -1), "the entries are between Open With and the next group: \(positions.prefix(10))")
+                }
+                // codes
+                let ctx = FiletypeCommand.Context(directory: URL(fileURLWithPath: "/d"),
+                                                  selection: [URL(fileURLWithPath: "/d/my file's.txt"), URL(fileURLWithPath: "/d/b.png")],
+                                                  destinationDirectory: URL(fileURLWithPath: "/dst"),
+                                                  destinationSelection: [URL(fileURLWithPath: "/dst/x.zip")])
+                check(FiletypeCommand.expand("open {f}", in: ctx).commands == ["open '/d/my file'\\''s.txt'", "open '/d/b.png'"], "{f} runs once per file, quoted: \(FiletypeCommand.expand("open {f}", in: ctx).commands)")
+                check(FiletypeCommand.expand("tar c {O}", in: ctx).commands == ["tar c 'my file'\\''s.txt' 'b.png'"], "{O} names of all files in one command")
+                check(FiletypeCommand.expand("zip {F}", in: ctx).commands == ["zip '/d/my file'\\''s.txt' '/d/b.png'"], "{F} all paths in one command")
+                check(FiletypeCommand.expand("mv {f-} x", in: ctx).commands.first == "mv '/d/my file'\\''s' x", "{f-} cuts the extension")
+                check(FiletypeCommand.expand("cp {F} {d}", in: ctx).commands == ["cp '/d/my file'\\''s.txt' '/d/b.png' '/dst'"], "{d} is the destination folder")
+                check(FiletypeCommand.expand("ls {s} {dF}", in: ctx).commands == ["ls '/d' '/dst/x.zip'"], "{s} this folder, {dF} the destination selection")
+                check(FiletypeCommand.expand("x {d}", in: FiletypeCommand.Context(directory: ctx.directory, selection: ctx.selection)).error != nil, "{d} without a destination lister is an error")
+                check(FiletypeCommand.expand("x {d!}.", in: FiletypeCommand.Context(directory: ctx.directory, selection: ctx.selection)).commands == ["x ."], "{d!} is empty without a destination lister")
+                check(FiletypeCommand.expand("find . -exec echo {} \\; ; echo ${HOME} {1..3}", in: ctx).commands.count == 1
+                      && FiletypeCommand.expand("find . -exec echo {} \\;", in: ctx).commands == ["find . -exec echo {} \\;"], "braces that are no code stay as they are")
+                check(FiletypeCommand.expand("echo hi", in: ctx).commands == ["echo hi"], "a command without codes runs as it is")
+                // an old filetypes.json (no menu) still reads
+                let old = try? JSONDecoder().decode([FiletypeRule].self, from: Data(#"[{"extensions":["md"],"action":"app","app":"com.apple.TextEdit"}]"#.utf8))
+                check(old?.first?.menu == nil && old?.first?.doubleClick.action == .app, "a filetypes.json from 1.6.0 still reads")
+                if let previous { try? previous.write(to: url, atomically: true, encoding: .utf8) }
+            }
 
             // Open in New Lister: only for a single folder (a fresh one: "big" has been moved away by now)
             let newListerFolder = dirA.appendingPathComponent("zz-newlister")

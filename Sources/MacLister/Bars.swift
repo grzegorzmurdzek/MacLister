@@ -50,6 +50,8 @@ extension ListerButton {
 struct PathBarView: View {
     @ObservedObject var model: ListerModel
     var onToggleRole: (ListerRole) -> Void
+    /// Locks / unlocks the role of this lister (taking the role first when it does not hold it): ⌥-click or right-click.
+    var onToggleRoleLock: (ListerRole) -> Void = { _ in }
     var onConnect: (ServerProfile?) -> Void
     var onEditLabel: () -> Void = {}
     @ObservedObject private var servers = ServerStore.shared
@@ -235,7 +237,9 @@ extension PathBarView {
     @ViewBuilder
     fileprivate func roleButton(_ role: ListerRole, title: String, tint: Color, help: String) -> some View {
         let active = model.role == role
-        Button { onToggleRole(role) } label: {
+        Button {
+            if NSEvent.modifierFlags.contains(.option) { onToggleRoleLock(role) } else { onToggleRole(role) }
+        } label: {
             HStack(spacing: 3) {
                 Text(title)
                 if active && model.roleLocked { Image(systemName: "lock.fill").imageScale(.small) }
@@ -247,7 +251,10 @@ extension PathBarView {
                 .background(RoundedRectangle(cornerRadius: 4).fill(active ? tint : tint.opacity(0.15)))
         }
         .buttonStyle(.plain)
-        .help(tr(help))
+        .help(tr(help) + "\n" + tr("⌥-click or right-click: lock the role so no other lister can take it"))
+        .contextMenu {
+            Button(active && model.roleLocked ? tr("Unlock Role") : tr("Lock Role")) { onToggleRoleLock(role) }
+        }
     }
 }
 

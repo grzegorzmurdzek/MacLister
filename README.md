@@ -136,8 +136,9 @@ every planned step with a tick box. A replaced file goes to the Trash first, cop
 comparison is clean), and the operation is in the log and can be undone with ⌘Z (files moved to the Trash by the
 *only in the destination* option are not part of Undo; take them out of the Trash). Empty folders are not copied.
 
-**Lock Role** (title-bar menu) pins a lister as source or destination: no other lister can take the role, it
-cannot be cleared or swapped away until you unlock it.
+**Lock Role** (title-bar menu, or ⌥-click / right-click on the **SRC** / **DST** button) pins a lister as source or
+destination: no other lister can take the role, it cannot be cleared or swapped away until you unlock it. ⌥-click on
+a button the lister does not hold yet takes the role and locks it in one go.
 
 ### Keyboard
 
