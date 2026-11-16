@@ -985,3 +985,8 @@
 "the full path of a file selected in the destination lister" = "pełna ścieżka pliku zaznaczonego w listerze docelowym";
 "the full paths of the files selected in the destination lister" = "pełne ścieżki plików zaznaczonych w listerze docelowym";
 "Opening" = "Otwieranie";
+"Filetypes" = "Typy plików";
+"A filetype says what a double-click and ⌥ + double-click do for files with certain extensions, and adds its own entries to the context menu of those files. Commands can use {f}, {F}, {o}, {O}, {d} and {s} for the files and folders." = "Typ pliku mówi, co robi dwuklik i ⌥ + dwuklik dla plików o danych rozszerzeniach, i dodaje własne wpisy do menu kontekstowego tych plików. W poleceniach można używać {f}, {F}, {o}, {O}, {d} i {s} dla plików i folderów.";
+"Defined filetypes" = "Zdefiniowane typy plików";
+"None: every file opens the usual way" = "Brak: każdy plik otwiera się zwykłym sposobem";
+"Menu: %d" = "Menu: %d";

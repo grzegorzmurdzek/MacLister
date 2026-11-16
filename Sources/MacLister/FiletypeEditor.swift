@@ -23,6 +23,27 @@ enum FiletypeEditing {
         return rule.extensions.count > 4 ? list + "…" : list
     }
 
+    /// One or two lines about a rule: its extensions, the double-click, how many menu entries it adds.
+    static func summary(of rule: FiletypeRule) -> String {
+        var parts: [String] = []
+        let list = rule.extensions.joined(separator: ", ")
+        if !list.isEmpty { parts.append(list) }
+        if let action = rule.action {
+            switch action {
+            case .open: parts.append(tr("Open (system default)"))
+            case .extract: parts.append(tr("Extract"))
+            case .quicklook: parts.append(tr("Quick Look"))
+            case .app: parts.append(rule.app.map { tr("Open in %@", $0) } ?? tr("Open with application"))
+            case .shell: parts.append(rule.command ?? tr("Run shell command"))
+            case .lister: parts.append(rule.lister.flatMap(ListerAction.init(rawValue:))?.title ?? tr("Lister action"))
+            case .separator: break
+            }
+        }
+        let entries = rule.menu?.filter { $0.action != .separator }.count ?? 0
+        if entries > 0 { parts.append(tr("Menu: %d", entries)) }
+        return parts.joined(separator: " · ")
+    }
+
     /// The codes of a shell command with a short explanation (see FiletypeCommand).
     static let codes: [(code: String, help: String)] = [
         ("{f}", tr("the full path of the file (one command for each file)")),

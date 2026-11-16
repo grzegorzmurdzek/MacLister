@@ -170,6 +170,8 @@ extension FiletypeStore {
 
 final class FiletypeStore {
     static let shared = FiletypeStore()
+    /// Posted after the editor saved the filetypes.
+    static let didChange = Notification.Name("MacListerFiletypesChanged")
 
     static let defaults: [FiletypeRule] = [
         FiletypeRule(extensions: ["zip", "tar", "tar.gz", "tgz", "tar.bz2", "tbz2", "tar.xz", "txz", "tar.zst", "7z", "rar", "gz", "bz2"],
@@ -211,6 +213,7 @@ final class FiletypeStore {
         rules = cleaned
         loadedStamp = (try? FileManager.default.attributesOfItem(atPath: configURL.path)[.modificationDate]) as? Date
         loadedPath = configURL.path
+        NotificationCenter.default.post(name: Self.didChange, object: nil)
     }
 
     /// The rule that decides what a double-click does: the first one that fits and has an action of its own.

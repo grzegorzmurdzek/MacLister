@@ -216,7 +216,9 @@ On many laptops F-keys need **fn**.
   opens, reopen the saved layout at launch, listers on all desktops, the Dock icon, the terminal app for
   *Terminal Here*, the text editor for *New Text File*, the interface language.
 - **Listers** — button bar position and labels, folders above files, **Edit Buttons…** / *Reload* / *Reset…*, relative dates,
-  **tabs in listers**, open archives like folders, drag-select from file names, **Lister Title…**, **Keyboard Shortcuts…**, **Edit Filetypes…**.
+  **tabs in listers**, open archives like folders, drag-select from file names, **Lister Title…**, **Keyboard Shortcuts…**.
+- **Filetypes** — the list of defined filetypes, **Edit Filetypes…** (double-click, ⌥ + double-click and context-menu
+  entries per type) and *Open filetypes.json*.
 - **Operations** — how long the operation log is kept, **Open Operation Log…**, and **Clear Recent Folders…** /
   **Clear Operation Log…** (each asks for confirmation first).
 - **Updates** — version, last check, automatic checks (off by default), *Check for Updates…*.
@@ -321,7 +323,7 @@ one to jump straight there.
 
 ### Filetypes: what a double-click does, and your own context-menu entries
 
-`filetypes.json` (**Settings → Listers → Edit Filetypes…**) maps extensions to actions: `open` (system default),
+`filetypes.json` (**Settings → Filetypes → Edit Filetypes…**) maps extensions to actions: `open` (system default),
 `extract`, `quicklook`, `app` (bundle identifier or path of an application), `shell` (a command, see below) and
 `lister` (any button action, e.g. `"lister": "checksums"`). By default archives are **extracted** instead of opened.
 The first rule that fits and has an `action` decides the **double-click**; `optionDoubleClick` (a step of its own)
@@ -365,7 +367,7 @@ optional: it is empty when there is nothing to put in (`{df!}`), otherwise the c
 why. Anything else in braces (`{}` of `find`, `${HOME}`) is left alone. The command runs in the lister's folder;
 `$LISTER_DIR` and `$LISTER_SELECTION` are set as for button commands.
 
-**Settings → Listers → Edit Filetypes…** opens an editor for this file: the list of filetypes on the left (add, remove,
+**Settings → Filetypes → Edit Filetypes…** opens an editor for this file: the list of filetypes on the left (add, remove,
 reorder), and for the chosen one its name and extensions, the **double-click** and **⌥ + double-click** (pick the
 action, then the application, command or lister action it needs) and the **context-menu entries** with their titles.
 A **{ }** button next to a command inserts the codes. *Open filetypes.json* in the editor opens the raw file for those

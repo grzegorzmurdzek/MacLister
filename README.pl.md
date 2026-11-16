@@ -219,7 +219,9 @@ W wielu laptopach klawisze F wymagają **fn**.
   otwiera, otwieranie zapisanego układu przy starcie, listery na wszystkich pulpitach, ikona w Docku, aplikacja
   terminala dla *Terminal Here*, edytor tekstu dla *New Text File*, język interfejsu.
 - **Listery** — położenie paska przycisków i etykiety, foldery nad plikami, **Edit Buttons…** / *Wczytaj ponownie* / *Przywróć…*, daty
-  względne, **karty w listerach**, otwieranie archiwów jak folderów, zaznaczanie przeciąganiem od nazw plików, **Tytuł listera…**, **Keyboard Shortcuts…**, **Edit Filetypes…**.
+  względne, **karty w listerach**, otwieranie archiwów jak folderów, zaznaczanie przeciąganiem od nazw plików, **Tytuł listera…**, **Keyboard Shortcuts…**.
+- **Typy plików** — lista zdefiniowanych typów, **Edit Filetypes…** (dwuklik, ⌥ + dwuklik i wpisy menu kontekstowego
+  dla każdego typu) oraz *Open filetypes.json*.
 - **Operacje** — jak długo przechowywany jest dziennik operacji, **Otwórz dziennik operacji…** oraz **Wyczyść ostatnie
   foldery…** / **Wyczyść dziennik operacji…** (każde najpierw prosi o potwierdzenie).
 - **Aktualizacje** — wersja, ostatnie sprawdzenie, automatyczne sprawdzanie (domyślnie wyłączone), *Sprawdź aktualizacje…*.
@@ -328,7 +330,7 @@ od najbliższego — wybierz jeden, żeby skoczyć od razu tam.
 
 ### Filetypes: co robi dwuklik i własne wpisy w menu kontekstowym
 
-`filetypes.json` (**Ustawienia → Listery → Edit Filetypes…**) przypisuje akcje do rozszerzeń: `open` (domyślne
+`filetypes.json` (**Ustawienia → Typy plików → Edit Filetypes…**) przypisuje akcje do rozszerzeń: `open` (domyślne
 zachowanie systemu), `extract`, `quicklook`, `app` (identyfikator lub ścieżka aplikacji), `shell` (polecenie, patrz
 niżej) i `lister` (dowolna akcja przycisku, np. `"lister": "checksums"`). Domyślnie archiwa są **rozpakowywane**, a nie
 otwierane. **Dwuklik** wykonuje pierwsza pasująca reguła, która ma `action`; `optionDoubleClick` (osobny krok) to to,
@@ -372,7 +374,7 @@ opcjonalnym: jest pusty, gdy nie ma co wstawić (`{df!}`); bez niego polecenie s
 wyjaśnienie. Inne nawiasy klamrowe (`{}` z `find`, `${HOME}`) zostają bez zmian. Polecenie działa w folderze
 listera, a `$LISTER_DIR` i `$LISTER_SELECTION` są ustawione jak w poleceniach przycisków.
 
-**Ustawienia → Listery → Edit Filetypes…** otwiera edytor tego pliku: po lewej lista typów (dodawanie, usuwanie,
+**Ustawienia → Typy plików → Edit Filetypes…** otwiera edytor tego pliku: po lewej lista typów (dodawanie, usuwanie,
 zmiana kolejności), a dla wybranego jego nazwa i rozszerzenia, **dwuklik** i **⌥ + dwuklik** (wybierasz akcję, potem
 aplikację, polecenie lub akcję listera, której potrzebuje) oraz **wpisy menu kontekstowego** z tytułami. Przycisk
 **{ }** przy poleceniu wstawia kody. *Open filetypes.json* w edytorze otwiera surowy plik dla tych, którzy wolą edytor
