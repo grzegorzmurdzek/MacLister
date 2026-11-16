@@ -26,7 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         ListerManager.shared.onProgressChange = { [weak self] in self?.updateProgressIndicator() }
         monitor.onDesktopDoubleClick = { point in
-            ListerManager.shared.openLister(
+            ListerManager.shared.openNew(
                 directory: Settings.startDirectory,
                 anchor: .cursor(point, centered: Settings.centerOnCursor)
             )
@@ -58,6 +58,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         if CommandLine.arguments.contains("--selftest-tabs") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestTabs.run() }
+            return
+        }
+        if CommandLine.arguments.contains("--selftest-dual") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestDual.run() }
             return
         }
         if CommandLine.arguments.contains("--selftest-features") {
@@ -151,17 +155,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     /// Where a lister opened from the Dock or the File menu appears: beside the frontmost one, else centred on the screen.
-    func dockAnchor() -> ListerManager.Anchor {
+    /// `size`: of the window that opens (a lister, or a two-panel window).
+    func dockAnchor(size: NSSize = Settings.listerContentSize) -> ListerManager.Anchor {
         if let front = ListerManager.shared.frontmost, let window = front.window { return .cascade(from: window) }
         let area = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let size = Settings.listerContentSize
         return .origin(NSPoint(x: area.midX - size.width / 2, y: area.midY - size.height / 2))
     }
 
     /// Clicking the Dock icon: bring the listers back, or open one when there is none.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if ListerManager.shared.openCount == 0 {
-            ListerManager.shared.openLister(directory: Settings.startDirectory, anchor: dockAnchor())
+            ListerManager.shared.openNew(directory: Settings.startDirectory, anchor: dockAnchor(size: ListerManager.newWindowSize))
         } else {
             ListerManager.shared.bringAllToFront()
         }
@@ -216,6 +220,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         for item in listerMenuItems() { menu.addItem(item) }
         menu.addItem(.separator())
         add(tr("New Lister"), #selector(newListerFromDock))
+        add(tr("New Two-Panel Window"), #selector(newTwoPanelFromDock))
         add(tr("Duplicate Frontmost Lister"), #selector(duplicateFrontmost), enabled: !controllers.isEmpty)
         add(tr("Connect to Server…"), #selector(connectFromMenu))
         if controllers.count > 1 {
@@ -234,6 +239,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func newListerFromDock() {
         ListerManager.shared.openLister(directory: Settings.startDirectory, anchor: dockAnchor())
+    }
+
+    @objc private func newTwoPanelFromDock() {
+        ListerManager.shared.openDual(left: Settings.startDirectory, anchor: dockAnchor(size: Settings.dualContentSize))
     }
 
     // MARK: - Accessibility gate
@@ -270,6 +279,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let newLister = menu.addItem(withTitle: tr("New Lister"), action: #selector(newLister), keyEquivalent: "")
         newLister.target = self
         newListerItem = newLister
+        let newTwoPanel = menu.addItem(withTitle: tr("New Two-Panel Window"), action: #selector(newTwoPanel), keyEquivalent: "")
+        newTwoPanel.target = self
         menu.addItem(.separator())
 
         statusLine = menu.addItem(withTitle: "", action: nil, keyEquivalent: "")
@@ -319,7 +330,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func rebuildListerItems(in menu: NSMenu) {
         for item in menu.items where item.tag == listerItemTag { menu.removeItem(item) }
-        guard let anchor = menu.items.firstIndex(where: { $0.action == #selector(newLister) }) else { return }
+        guard let anchor = menu.items.firstIndex(where: { $0.action == #selector(newTwoPanel) }) else { return }
         var index = anchor + 1
         func insert(_ item: NSMenuItem) {
             item.tag = listerItemTag
@@ -359,7 +370,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item.representedObject = controller
             item.toolTip = controller.model.url.path
             item.indentationLevel = isTab ? 1 : 0
-            item.state = controller.window?.isKeyWindow == true ? .on : .off
+            let shown = controller.dualHost.map { $0.activePane === controller } ?? true    // the pane you work in
+            item.state = controller.window?.isKeyWindow == true && shown ? .on : .off
             if let icon = NSWorkspace.shared.icon(forFile: controller.model.url.path).copy() as? NSImage {
                 icon.size = NSSize(width: 16, height: 16)
                 item.image = icon
@@ -462,6 +474,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ListerManager.shared.openLister(directory: Settings.startDirectory, anchor: .cursor(point, centered: true))
     }
 
+    @objc private func newTwoPanel() {
+        ListerManager.shared.openDual(left: Settings.startDirectory, anchor: .cursor(NSEvent.mouseLocation, centered: true))
+    }
+
     @objc private func openAccessibilitySettings() { Accessibility.openSystemSettings() }
 
     /// Shows the shortcut the user assigned to an action next to its menu item (none assigned: none shown).
@@ -558,6 +574,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let file = NSMenu(title: tr("File"))
         let newItem = file.addItem(withTitle: tr("New Lister"), action: #selector(newListerFromDock), keyEquivalent: "n")
         newItem.target = self
+        let twoPanelItem = file.addItem(withTitle: tr("New Two-Panel Window"), action: #selector(newTwoPanelFromDock), keyEquivalent: "n")
+        twoPanelItem.keyEquivalentModifierMask = [.command, .option]
+        twoPanelItem.target = self
         fileMenuItem.submenu = file
 
         let editMenuItem = NSMenuItem()

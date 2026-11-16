@@ -82,9 +82,16 @@ private struct ListersSettingsView: View {
     @AppStorage("dragSelectFromNames") private var dragSelect = true
     @AppStorage("browseArchives") private var browseArchives = true
     @AppStorage("springLoadedFolders") private var springLoaded = true
+    @AppStorage("newWindowStyle") private var windowStyle = NewWindowStyle.lister.rawValue
 
     var body: some View {
         Form {
+            Section("Two-panel window") {
+                Picker("Opens", selection: $windowStyle) {
+                    ForEach(NewWindowStyle.allCases, id: \.rawValue) { Text($0.menuTitle).tag($0.rawValue) }
+                }
+                .help("What the desktop click, the global shortcut and the Dock icon open. ⌥⌘N opens a two-panel window either way.")
+            }
             Section("File list") {
                 Toggle("Keep folders above files when sorting", isOn: $foldersFirst)
                     .onChange(of: foldersFirst) { _ in NotificationCenter.default.post(name: .columnsChanged, object: nil) }

@@ -274,6 +274,9 @@ struct ListerSnapshot: Codable {
     /// Listers with the same number were tabs of one window (in this order); `selectedTab`: the tab that was shown.
     var tabGroup: Int?
     var selectedTab: Bool?
+    /// The two panes of one two-panel window share a number; `rightPane`: the right one.
+    var twoPanel: Int?
+    var rightPane: Bool?
 }
 
 enum LayoutStore {
@@ -283,6 +286,7 @@ enum LayoutStore {
     @discardableResult
     static func save(from manager: ListerManager) -> Int {
         var groups: [ObjectIdentifier: Int] = [:]
+        var duals: [ObjectIdentifier: Int] = [:]
         let snapshots: [ListerSnapshot] = manager.menuOrder.compactMap { controller, _ in
             guard let frame = controller.window?.frame, controller.model.url.isFileURL else { return nil }   // servers are not restored
             let model = controller.model
@@ -291,6 +295,11 @@ enum LayoutStore {
                 tabGroup = groups[ObjectIdentifier(group)] ?? groups.count
                 groups[ObjectIdentifier(group)] = tabGroup
             }
+            var twoPanel: Int?
+            if let dual = controller.dualHost {
+                twoPanel = duals[ObjectIdentifier(dual)] ?? duals.count
+                duals[ObjectIdentifier(dual)] = twoPanel
+            }
             let role: String
             switch model.role { case .source: role = "source"; case .destination: role = "destination"; case .none: role = "none" }
             return ListerSnapshot(path: model.url.path, x: frame.minX, y: frame.minY, width: frame.width, height: frame.height,
@@ -298,7 +307,8 @@ enum LayoutStore {
                                   showHidden: model.showHidden, filter: model.filter,
                                   locked: model.roleLocked ? true : nil,
                                   label: model.label.isEmpty ? nil : model.label, labelColor: model.labelColor,
-                                  tabGroup: tabGroup, selectedTab: tabGroup == nil ? nil : manager.isSelectedTab(controller))
+                                  tabGroup: tabGroup, selectedTab: tabGroup == nil ? nil : manager.isSelectedTab(controller),
+                                  twoPanel: twoPanel, rightPane: controller.dualHost?.rightPane === controller ? true : nil)
         }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -315,6 +325,7 @@ enum LayoutStore {
         manager.restoringLayout = true      // the layout brings its own roles
         defer { manager.restoringLayout = false }
         var groupHosts: [Int: ListerWindowController] = [:]
+        var dualWindows: [Int: DualListerWindowController] = [:]
         for snapshot in snapshots {
             let folder = URL(fileURLWithPath: snapshot.path)
             guard FileManager.default.fileExists(atPath: folder.path) else { continue }
@@ -324,8 +335,22 @@ enum LayoutStore {
                 controller.model.reload()
             }
             let controller: ListerWindowController
-            // Tabs come back as tabs while tabs are on; otherwise each one is a window of its own.
-            if let group = snapshot.tabGroup, Settings.listerTabs, let host = groupHosts[group],
+            // A two-panel window opens with its left pane, with the folder of the right one too.
+            if let number = snapshot.twoPanel {
+                if let dual = dualWindows[number] {
+                    controller = snapshot.rightPane == true ? dual.rightPane : dual.leftPane
+                } else {
+                    let right = snapshots.first { $0.twoPanel == number && $0.rightPane == true }
+                        .map { URL(fileURLWithPath: $0.path) }
+                        .flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil }
+                    let dual = manager.openDual(left: folder, right: right ?? folder, anchor: .origin(NSPoint(x: snapshot.x, y: snapshot.y))) { dual in
+                        dual.window?.setFrame(NSRect(x: snapshot.x, y: snapshot.y, width: snapshot.width, height: snapshot.height), display: false)
+                    }
+                    dualWindows[number] = dual
+                    controller = snapshot.rightPane == true ? dual.rightPane : dual.leftPane
+                }
+                configure(controller)
+            } else if let group = snapshot.tabGroup, Settings.listerTabs, let host = groupHosts[group],
                let tab = manager.openTab(directory: folder, in: host, configure: configure) {
                 controller = tab
             } else {
@@ -343,8 +368,9 @@ enum LayoutStore {
         for (controller, snapshot) in opened where snapshot.selectedTab == true { manager.select(controller) }
         for (controller, snapshot) in opened {
             switch snapshot.role {
-            case "source":      manager.toggleRole(.source, for: controller)
-            case "destination": manager.toggleRole(.destination, for: controller)
+            // toggling a role the lister already has would clear it (a two-panel window takes its roles as it opens)
+            case "source" where controller.model.role != .source:           manager.toggleRole(.source, for: controller)
+            case "destination" where controller.model.role != .destination: manager.toggleRole(.destination, for: controller)
             default:            break
             }
             if snapshot.locked == true, controller.model.role != .none { controller.model.roleLocked = true }

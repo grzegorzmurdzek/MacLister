@@ -201,6 +201,7 @@ enum BuiltInShortcuts {
         (KeyCombo(keyCode: 12, modifiers: .command, label: "Q"), tr("Quit")),
         (KeyCombo(keyCode: 13, modifiers: .command, label: "W"), tr("Close window")),
         (KeyCombo(keyCode: 45, modifiers: .command, label: "N"), tr("New Lister")),
+        (KeyCombo(keyCode: 45, modifiers: [.command, .option], label: "N"), tr("New Two-Panel Window")),
         (KeyCombo(keyCode: 43, modifiers: .command, label: ","), tr("Settings…")),
         (KeyCombo(keyCode: 46, modifiers: .command, label: "M"), tr("Minimize")),
         (KeyCombo(keyCode: 4, modifiers: .command, label: "H"), tr("Hide")),
@@ -349,8 +350,8 @@ enum GlobalShortcutActions {
             switch id {
             case openLister:
                 action = {
-                    ListerManager.shared.openLister(directory: Settings.startDirectory,
-                                                    anchor: .cursor(NSEvent.mouseLocation, centered: Settings.centerOnCursor))
+                    ListerManager.shared.openNew(directory: Settings.startDirectory,
+                                                 anchor: .cursor(NSEvent.mouseLocation, centered: Settings.centerOnCursor))
                 }
             case gatherListers:
                 action = { ListerManager.shared.gatherOnThisDesktop() }
@@ -378,7 +379,9 @@ extension ListerAction {
 
 extension ListerAction {
     /// Names that read better than the one made from the action's code name.
-    static let friendlyTitles: [ListerAction: String] = [.toggleTree: "Folder tree", .mergeListers: "Merge all listers into tabs"]
+    static let friendlyTitles: [ListerAction: String] = [.toggleTree: "Folder tree", .mergeListers: "Merge all listers into tabs",
+                                                         .newTwoPanel: "New two-panel window", .joinTwoPanel: "Join into a two-panel window",
+                                                         .splitTwoPanel: "Split into two listers"]
 
     /// What a button with this action shows as its tooltip when it has none of its own. English: like the texts in
     /// buttons.json it is translated when it is shown.
@@ -400,6 +403,9 @@ extension ListerAction {
         case .previousTab: return "Show the previous tab (⌃⇧Tab)"
         case .moveTabToNewLister: return "Take this tab out into a lister window of its own"
         case .mergeListers: return "Make every lister window a tab of this one"
+        case .newTwoPanel: return "Open a window with two listers side by side (⌥⌘N)"
+        case .joinTwoPanel: return "Put this lister and the other one (its destination or source) side by side in one window"
+        case .splitTwoPanel: return "Make each pane of this window a lister window of its own"
         default: return nil
         }
     }

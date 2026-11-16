@@ -18,6 +18,7 @@ działa w pasku menu, z opcjonalną ikoną w Docku.
 
 - **Dwuklik na pulpicie otwiera lister** pod kursorem. Dowolna liczba listerów naraz.
 - **Listery źródłowy i docelowy**: Copy (F5), Move (F6), Extract, Compare, Swap.
+- **Okno dwupanelowe** (⌥⌘N) dla tych, którzy wolą klasyczny dwupanelowy menedżer plików: panel, w którym pracujesz, jest źródłem, Tab przełącza panele.
 - **Przeciąganie i upuszczanie** między listerami oraz z/do Findera (reguły Findera: ten sam wolumin przenosi,
   ⌥ kopiuje, ⌘ przenosi).
 - **Konfigurowalny pasek przycisków**, **akcje dla typów plików** (co robi dwuklik), **zakładki**, **zapisane układy**.
@@ -142,6 +143,26 @@ Cofania; wyjmij je z Kosza). Puste foldery nie są kopiowane.
 **Lock Role** (menu na belce okna albo ⌥-klik / środkowy klik / prawy klik na przycisku **SRC** / **DST**) przypina lister jako
 źródło albo cel: inny lister nie może przejąć roli, a jej nie da się wyczyścić ani zamienić, dopóki nie odblokujesz.
 ⌥-klik na przycisku, którego lister jeszcze nie ma, przejmuje rolę i od razu ją blokuje.
+
+### Okno dwupanelowe (klasyczny menedżer plików)
+
+Wolisz dwa panele obok siebie, jak w Norton Commanderze czy Total Commanderze? **Nowe okno dwupanelowe** (⌥⌘N, w menu
+ikony na pasku menu, Docku i paska tytułu) otwiera jedno okno z dwoma listerami. Żeby było tak za każdym razem, wybierz
+**Ustawienia → Listery → Okno dwupanelowe → Otwiera się → Okno dwupanelowe**: kliknięcie na biurku, globalny skrót *Otwórz lister* i ikona w
+Docku otwierają wtedy okno dwupanelowe zamiast listera (polecenia *Nowy lister* nadal otwierają lister).
+
+- **Panel, w którym pracujesz, jest źródłem, drugi celem**, więc **F5** kopiuje, a **F6** przenosi na drugą stronę.
+  Kliknij w panel albo naciśnij **Tab** (lub ⇧Tab), żeby przejść do drugiego panelu: role idą za tobą.
+- Każdy panel to pełny lister: pasek ścieżki, przyciski, drzewo folderów, filtr, nazwy, serwery, archiwa, wszystko,
+  co opisano wyżej. Tytuł okna to tytuł panelu, w którym pracujesz; przeciągnij przegrodę, żeby zmienić szerokości.
+- Lister, który sam ustawisz jako cel (przycisk **DST**), zachowuje tę rolę, gdy pracujesz w panelach, więc możesz
+  kopiować do niego z każdego panelu. Ustaw znów panel jako cel, a role znowu będą podążać za panelami.
+  **Zablokuj rolę** na panelu zatrzymuje role w miejscu.
+- Okno dwupanelowe nie przyjmuje kart. Zamknięcie go zamyka oba panele; **Zapisz układ** pamięta je z oboma folderami.
+- **Połącz w okno dwupanelowe** (menu paska tytułu → Lister albo przycisk) umieszcza lister i jego partnera obok siebie w
+  jednym oknie: cel źródła, źródło celu, a jeśli ich nie ma, ostatnio otwarty lister. Ten, który stoi bardziej na lewo,
+  trafia do lewego panelu, a każdy zachowuje folder, historię, filtr, nazwę i rolę. **Rozdziel na dwa listery** robi
+  odwrotnie: każdy panel staje się osobnym oknem listera, tam gdzie był.
 
 ### Klawiatura
 

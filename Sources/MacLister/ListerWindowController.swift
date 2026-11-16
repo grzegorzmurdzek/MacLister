@@ -8,6 +8,14 @@ final class ListerWindow: NSWindow {
     /// The other tabs of the window, taken as it starts to close: AppKit may take a closing tab out of its group
     /// before windowWillClose, and the window's role has to go to one of them.
     private(set) var tabsAtClose: [NSWindow] = []
+    /// A two-panel window hears when the keyboard moves, to know which pane you work in.
+    var onFirstResponderChange: (() -> Void)?
+
+    override func makeFirstResponder(_ responder: NSResponder?) -> Bool {
+        let done = super.makeFirstResponder(responder)
+        onFirstResponderChange?()
+        return done
+    }
 
     override func close() {
         tabsAtClose = (tabbedWindows ?? []).filter { $0 !== self }
@@ -96,13 +104,53 @@ final class TabColorDot: NSView {
     }
 }
 
-/// One window controller per open lister; several can exist at once.
+/// One window controller per open lister; several can exist at once. A pane of a two-panel window is a lister too,
+/// with no window of its own: `window` is then the two-panel window.
 final class ListerWindowController: NSWindowController, NSWindowDelegate {
     let model: ListerModel
     private var cancellables = Set<AnyCancellable>()
+    /// The two-panel window this lister is a pane of; nil for a lister window.
+    private(set) weak var dualHost: DualListerWindowController?
+    private var paneViewController: ListerViewController?
 
-    init(directory: URL) {
-        model = ListerModel(url: directory)
+    var isPane: Bool { dualHost != nil }
+
+    /// Set while the window closes because its lister goes on elsewhere (joined into a two-panel window).
+    private var isRetiring = false
+
+    /// A pane: the lister's view goes into the two-panel window, which owns the window. `model` may come from a lister
+    /// that is joined into the window, with its folder, history, filter, name and role.
+    init(model: ListerModel, paneOf host: DualListerWindowController) {
+        self.model = model
+        dualHost = host
+        super.init(window: nil)
+        paneViewController = ListerViewController(model: model)
+        observeTitle()
+    }
+
+    override var window: NSWindow? {
+        get { dualHost?.window ?? super.window }
+        set { super.window = newValue }
+    }
+
+    /// Closing a pane closes its two-panel window, both panes.
+    override func close() {
+        if let dualHost { dualHost.close(); return }
+        super.close()
+    }
+
+    /// The size of the lister itself (a pane: its half of the window).
+    var listerContentSize: NSSize? {
+        isPane ? listerViewController?.view.frame.size : window?.contentLayoutRect.size
+    }
+
+    convenience init(directory: URL) {
+        self.init(model: ListerModel(url: directory))
+    }
+
+    /// A lister window for `model` (a new one, or a pane that leaves its two-panel window).
+    init(model: ListerModel) {
+        self.model = model
 
         let window = ListerWindow(
             contentRect: NSRect(x: 0, y: 0, width: 680, height: 440),
@@ -122,8 +170,11 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         window.titleBarMenuProvider = { [weak self] in self?.listerViewController?.makeTitleBarMenu() }
         window.contentViewController = ListerViewController(model: model)
         window.setContentSize(Settings.listerContentSize)
+        observeTitle()
+    }
 
-        // Title and the line under it come from the title format (Lister Title…).
+    /// Title and the line under it come from the title format (Lister Title…).
+    private func observeTitle() {
         let model = model
         Publishers.MergeMany([
             model.$url.map { _ in () }.eraseToAnyPublisher(), model.$label.map { _ in () }.eraseToAnyPublisher(),
@@ -138,9 +189,10 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         updateTitle()
     }
 
-    /// Applies the title format to the window.
+    /// Applies the title format to the window. A two-panel window shows the title of the pane you work in.
     func updateTitle() {
         guard let window else { return }
+        if let dualHost, dualHost.activePane !== self { return }
         let context = TitleFormat.context(for: model)
         window.title = TitleFormat.render(TitleFormat.title, context)
         window.subtitle = TitleFormat.render(TitleFormat.subtitle, context)
@@ -151,7 +203,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
 
     /// The tab shows the lister's name (Name This Tab…), else the folder's name; a coloured dot for the label colour.
     func updateTab() {
-        guard let tab = window?.tab else { return }
+        guard !isPane, let tab = window?.tab else { return }
         tab.title = model.displayName
         tab.toolTip = (ListerModel.displayPath(model.url) as NSString).abbreviatingWithTildeInPath
         // the tab bar draws titles in its own colours, so the label colour is a view beside the title
@@ -181,7 +233,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
-    var listerViewController: ListerViewController? { window?.contentViewController as? ListerViewController }
+    var listerViewController: ListerViewController? { paneViewController ?? window?.contentViewController as? ListerViewController }
 
     /// Entry in the menu-bar list of listers: "Documents — ~/Documents   [SRC]".
     var menuTitle: String {
@@ -210,8 +262,17 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         ListerManager.shared.moveRoleToSelectedTab(in: self)
     }
 
+    /// Closes the window without what closing a lister does (the role going to another lister or tab): the lister
+    /// itself, its model, goes on in another window.
+    func retire() {
+        guard !isPane else { return }
+        isRetiring = true
+        close()
+    }
+
     func windowWillClose(_ notification: Notification) {
         let manager = ListerManager.shared
+        if isRetiring { manager.remove(self); return }
         let remembered = ((window as? ListerWindow)?.tabsAtClose ?? []).compactMap { $0.windowController as? ListerWindowController }
         let siblings = remembered.isEmpty ? manager.tabs(of: self).filter { $0 !== self } : remembered
         manager.remove(self)
@@ -244,6 +305,8 @@ final class ListerManager {
     }
 
     private var controllers: [ListerWindowController] = []
+    /// The open two-panel windows; their panes are in `controllers` like any lister.
+    var dualWindows: [DualListerWindowController] = []
     /// The lister that was key most recently (the "frontmost" one even while another app is active).
     private weak var lastActive: ListerWindowController?
     private var progressSubscriptions: [ObjectIdentifier: AnyCancellable] = [:]
@@ -262,6 +325,14 @@ final class ListerManager {
 
     var frontmost: ListerWindowController? { lastActive ?? controllers.last }
 
+    /// A pane of a two-panel window got the keyboard: it is the frontmost lister now.
+    func paneDidBecomeActive(_ pane: ListerWindowController) { lastActive = pane }
+
+    /// The lister a view controller belongs to (a pane has no window controller of its own).
+    func controller(for viewController: ListerViewController) -> ListerWindowController? {
+        controllers.first { $0.listerViewController === viewController }
+    }
+
     /// Listers that may share a window as tabs.
     static let tabbingIdentifier = "com.example.MacLister.lister"
 
@@ -269,7 +340,9 @@ final class ListerManager {
     var allControllers: [ListerWindowController] { controllers }
 
     /// The lister Tab (or Shift-Tab) goes to: the next one in the order they were opened, wrapping around.
+    /// In a two-panel window Tab goes to the other pane, as in a classic two-panel file manager.
     func neighbour(of current: ListerWindowController?, forward: Bool) -> ListerWindowController? {
+        if let current, let other = current.dualHost?.otherPane(of: current) { return other }
         let visible = controllers.filter { $0.window?.isMiniaturized == false && isSelectedTab($0) }
         guard visible.count > 1 else { return nil }
         let index = current.flatMap { c in visible.firstIndex { $0 === c } } ?? 0
@@ -316,13 +389,16 @@ final class ListerManager {
         NSApp.bringToFront()
         raise(window)
         window.makeKeyAndOrderFront(nil)
+        if controller.isPane, let table = controller.listerViewController?.tableView { window.makeFirstResponder(table) }
     }
 
     /// Raises every lister above all other windows, keeping their relative order; the first one
     /// ends up key.
     func bringAllToFront() {
         NSApp.bringToFront()
+        var windows = Set<ObjectIdentifier>()
         let shown = controllers.filter(isSelectedTab)          // a tab behind another one is raised with its window
+            .filter { $0.window.map { windows.insert(ObjectIdentifier($0)).inserted } ?? false }   // a two-panel window once
         for controller in shown.reversed() {
             guard let window = controller.window else { continue }
             if window.isMiniaturized { window.deminiaturize(nil) }
@@ -333,7 +409,7 @@ final class ListerManager {
 
     /// Floating level for a moment puts the window above every other app's normal windows even when
     /// activation is refused; it drops back to .normal so the lister behaves like any window.
-    fileprivate func raise(_ window: NSWindow) {
+    func raise(_ window: NSWindow) {
         window.level = .floating
         window.orderFrontRegardless()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak window] in
@@ -380,7 +456,7 @@ final class ListerManager {
     }
 
     /// Every new lister, window or tab, is known to the manager from the start.
-    private func register(_ controller: ListerWindowController) {
+    func register(_ controller: ListerWindowController) {
         controllers.append(controller)
         // $progress publishes before the value changes, so look at it on the next turn of the run loop
         progressSubscriptions[ObjectIdentifier(controller)] = controller.model.$progress.sink { [weak self] _ in
@@ -410,6 +486,10 @@ final class ListerManager {
     @discardableResult
     func openTab(directory: URL, in host: ListerWindowController,
                  configure: ((ListerWindowController) -> Void)? = nil) -> ListerWindowController? {
+        guard !host.isPane else {
+            host.model.flash(tr("A two-panel window has no tabs"))
+            return nil
+        }
         guard Settings.listerTabs, let hostWindow = host.window else {
             host.model.flash(tr("Tabs are off: turn them on in Settings → Tabs"))
             return nil
@@ -470,13 +550,18 @@ final class ListerManager {
 
     /// Every lister window becomes a tab of the window of `controller`.
     func mergeAllListers(into controller: ListerWindowController) {
+        guard !controller.isPane else {
+            controller.model.flash(tr("A two-panel window has no tabs"))
+            return
+        }
         guard Settings.listerTabs, let window = controller.window else {
             controller.model.flash(tr("Tabs are off: turn them on in Settings → Tabs"))
             return
         }
-        let roles = Set(controllers.map(\.model.role)).subtracting([.none])
-        for other in controllers { other.window?.tabbingMode = .automatic }
-        for other in controllers where other !== controller && !tabs(of: controller).contains(where: { $0 === other }) {
+        let listers = controllers.filter { !$0.isPane }           // a two-panel window stays as it is
+        let roles = Set(listers.map(\.model.role)).subtracting([.none])
+        for other in listers { other.window?.tabbingMode = .automatic }
+        for other in listers where other !== controller && !tabs(of: controller).contains(where: { $0 === other }) {
             if let otherWindow = other.window {
                 if otherWindow.isMiniaturized { otherWindow.deminiaturize(nil) }
                 window.addTabbedWindow(otherWindow, ordered: .above)
@@ -511,22 +596,25 @@ final class ListerManager {
     /// Settings → Tabs: on, windows may take tabs; off, every tab becomes a lister window of its own again.
     func applyTabSetting() {
         if !Settings.listerTabs {
-            for controller in controllers {
+            for controller in controllers where !controller.isPane {
                 let tabs = tabs(of: controller)
                 guard tabs.count > 1, tabs.first !== controller else { continue }
                 controller.window?.moveTabToNewWindow(nil)
             }
         }
-        for controller in controllers { controller.window?.tabbingMode = Settings.listerTabs ? .automatic : .disallowed }
+        for controller in controllers where !controller.isPane {
+            controller.window?.tabbingMode = Settings.listerTabs ? .automatic : .disallowed
+        }
     }
 
     /// The listers in menu order: as they were opened, the tabs of one window together and in tab order.
-    /// `isTab`: a later tab of a window whose first tab is listed just above.
+    /// `isTab`: a later tab of a window whose first tab is listed just above (or the right pane of a two-panel window).
     var menuOrder: [(controller: ListerWindowController, isTab: Bool)] {
         var done = Set<ObjectIdentifier>()
         var result: [(ListerWindowController, Bool)] = []
         for controller in controllers where !done.contains(ObjectIdentifier(controller)) {
-            for (index, tab) in tabs(of: controller).enumerated() where !done.contains(ObjectIdentifier(tab)) {
+            // the panes of a two-panel window together too, the right one under the left
+            for (index, tab) in (controller.dualHost?.panes ?? tabs(of: controller)).enumerated() where !done.contains(ObjectIdentifier(tab)) {
                 done.insert(ObjectIdentifier(tab))
                 result.append((tab, index > 0))
             }
@@ -624,7 +712,7 @@ final class ListerManager {
         let selected = original.model.selectedURLs.first
         return openLister(directory: original.model.url, anchor: .cascade(from: original.window)) { copy in
             copy.model.inherit(from: original.model)
-            if let size = original.window?.contentLayoutRect.size { copy.window?.setContentSize(size) }
+            if let size = original.listerContentSize { copy.window?.setContentSize(size) }
             copy.model.reload(selecting: selected)
         }
     }
@@ -635,11 +723,11 @@ final class ListerManager {
         openLister(directory: folder, anchor: .cascade(from: original.window)) { copy in
             let model = original.model
             copy.model.apply(sort: model.sortKey, ascending: model.ascending, showHidden: model.showHidden, filter: "")
-            if let size = original.window?.contentLayoutRect.size { copy.window?.setContentSize(size) }
+            if let size = original.listerContentSize { copy.window?.setContentSize(size) }
         }
     }
 
-    fileprivate func remove(_ controller: ListerWindowController) {
+    func remove(_ controller: ListerWindowController) {
         controllers.removeAll { $0 === controller }
         progressSubscriptions[ObjectIdentifier(controller)] = nil
         DispatchQueue.main.async { [weak self] in self?.onProgressChange?() }
@@ -656,7 +744,7 @@ final class ListerManager {
                        y: max(visible.minY, min(origin.y, visible.maxY - size.height)))
     }
 
-    private func origin(for size: NSSize, anchor: Anchor) -> NSPoint {
+    func origin(for size: NSSize, anchor: Anchor) -> NSPoint {
         var origin: NSPoint
         let reference: NSPoint
         switch anchor {

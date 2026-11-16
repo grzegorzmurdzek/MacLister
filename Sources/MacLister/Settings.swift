@@ -57,6 +57,18 @@ enum DesktopTrigger: String, CaseIterable {
     }
 }
 
+/// What a click on the desktop (and the other ways that have no name of their own) opens.
+enum NewWindowStyle: String, CaseIterable {
+    case lister, twoPanel
+
+    var menuTitle: String {
+        switch self {
+        case .lister:   return tr("A lister")
+        case .twoPanel: return tr("A two-panel window (classic file manager)")
+        }
+    }
+}
+
 /// What a double-click on a tab in the tab bar does.
 enum TabDoubleClickAction: String, CaseIterable {
     case nameTab, duplicateTab, closeTab, nothing
@@ -94,6 +106,7 @@ enum Settings {
             "buttonMenuDirection": ButtonMenuDirection.automatic.rawValue,
             "autoAssignRoles": true,
             "desktopTrigger": DesktopTrigger.doubleClick.rawValue,
+            "newWindowStyle": NewWindowStyle.lister.rawValue,
             "terminalBundleID": "com.apple.Terminal",
             "textEditorBundleID": "com.apple.TextEdit",
             "browseArchives": true,
@@ -144,6 +157,24 @@ enum Settings {
     static var desktopTrigger: DesktopTrigger {
         get { DesktopTrigger(rawValue: defaults.string(forKey: "desktopTrigger") ?? "") ?? .doubleClick }
         set { defaults.set(newValue.rawValue, forKey: "desktopTrigger") }
+    }
+
+    /// A desktop click, the global Open a lister shortcut and the Dock icon open a lister or a two-panel window.
+    static var newWindowStyle: NewWindowStyle {
+        get { NewWindowStyle(rawValue: defaults.string(forKey: "newWindowStyle") ?? "") ?? .lister }
+        set { defaults.set(newValue.rawValue, forKey: "newWindowStyle") }
+    }
+
+    /// Content size of new two-panel windows: the size the user last gave one by dragging its edge.
+    static var dualContentSize: NSSize {
+        get {
+            let w = defaults.double(forKey: "dualWidth"), h = defaults.double(forKey: "dualHeight")
+            return w >= minListerSize.width * 2 && h >= minListerSize.height ? NSSize(width: w, height: h) : NSSize(width: 1040, height: 560)
+        }
+        set {
+            defaults.set(Double(newValue.width), forKey: "dualWidth")
+            defaults.set(Double(newValue.height), forKey: "dualHeight")
+        }
     }
 
     /// Where the button bar sits. Default: above the path bar, as in Ambient on MorphOS.

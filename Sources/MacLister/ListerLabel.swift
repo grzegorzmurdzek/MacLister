@@ -116,7 +116,7 @@ struct ListerLabelView: View {
 extension ListerViewController {
     /// Whether this lister shares its window with other tabs.
     var isTab: Bool {
-        guard let controller = view.window?.windowController as? ListerWindowController else { return false }
+        guard let controller = windowController else { return false }
         return ListerManager.shared.tabs(of: controller).count > 1
     }
 

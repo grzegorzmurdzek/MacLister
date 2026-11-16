@@ -998,3 +998,24 @@
 "Move down (lower priority)" = "W dół (niższy priorytet)";
 "Duplicate the filetype" = "Powiel typ pliku";
 "%@ copy" = "%@ — kopia";
+
+/* Two-panel window */
+"New Two-Panel Window" = "Nowe okno dwupanelowe";
+"Close Two-Panel Window" = "Zamknij okno dwupanelowe";
+"A two-panel window has no tabs" = "Okno dwupanelowe nie ma kart";
+"A lister" = "Lister";
+"A two-panel window (classic file manager)" = "Okno dwupanelowe (klasyczny menedżer plików)";
+"Opens" = "Otwiera się";
+"Two-panel window" = "Okno dwupanelowe";
+"What the desktop click, the global shortcut and the Dock icon open. ⌥⌘N opens a two-panel window either way." = "Co otwiera kliknięcie na biurku, globalny skrót i ikona w Docku. ⌥⌘N i tak otwiera okno dwupanelowe.";
+"Join into Two-Panel Window" = "Połącz w okno dwupanelowe";
+"Split into Two Listers" = "Rozdziel na dwa listery";
+"This lister is already a pane of a two-panel window" = "Ten lister jest już panelem okna dwupanelowego";
+"Open another lister to join this one with" = "Otwórz drugi lister, żeby połączyć go z tym";
+"This lister is not part of a two-panel window" = "Ten lister nie należy do okna dwupanelowego";
+"New two-panel window" = "Nowe okno dwupanelowe";
+"Join into a two-panel window" = "Połącz w okno dwupanelowe";
+"Split into two listers" = "Rozdziel na dwa listery";
+"Open a window with two listers side by side (⌥⌘N)" = "Otwórz okno z dwoma listerami obok siebie (⌥⌘N)";
+"Put this lister and the other one (its destination or source) side by side in one window" = "Umieść ten lister i drugi (jego cel lub źródło) obok siebie w jednym oknie";
+"Make each pane of this window a lister window of its own" = "Zrób z każdego panelu tego okna osobne okno listera";

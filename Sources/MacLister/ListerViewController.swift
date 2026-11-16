@@ -580,9 +580,9 @@ final class ListerViewController: NSViewController {
         case 36 where plain, 76 where plain:      // Return / Enter → open
             openSelection()
         case 48 where plain:                      // Tab → next lister
-            ListerManager.shared.focusNeighbour(of: view.window?.windowController as? ListerWindowController, forward: true)
+            ListerManager.shared.focusNeighbour(of: windowController, forward: true)
         case 48 where mods == .shift:             // ⇧Tab → previous lister
-            ListerManager.shared.focusNeighbour(of: view.window?.windowController as? ListerWindowController, forward: false)
+            ListerManager.shared.focusNeighbour(of: windowController, forward: false)
         case 48 where mods == .control:           // ⌃Tab → next tab
             selectNeighbourTab(forward: true)
         case 48 where mods == [.control, .shift]: // ⌃⇧Tab → previous tab
@@ -900,7 +900,7 @@ extension ListerViewController {
         case .makeAlias:      makeLinks(symbolic: false)
         case .makeSymlink:    makeLinks(symbolic: true)
         case .selectByAttributes: promptSelectByAttributes()
-        case .toggleRoleLock: if let c = view.window?.windowController as? ListerWindowController { ListerManager.shared.toggleRoleLock(for: c) }
+        case .toggleRoleLock: if let c = windowController { ListerManager.shared.toggleRoleLock(for: c) }
         case .bringAllToFront: ListerManager.shared.bringAllToFront()
         case .duplicateLister: duplicateLister()
         case .nameLister:     promptLabel()
@@ -908,14 +908,17 @@ extension ListerViewController {
         case .showShared:     model.navigate(to: VirtualPlace.shared.url)
         case .undo:           undoLastOperation()
         case .showLog:        OperationLogWindow.show()
-        case .nextLister:     ListerManager.shared.focusNeighbour(of: view.window?.windowController as? ListerWindowController, forward: true)
+        case .nextLister:     ListerManager.shared.focusNeighbour(of: windowController, forward: true)
         case .gatherListers:  ListerManager.shared.gatherOnThisDesktop()
-        case .previousLister: ListerManager.shared.focusNeighbour(of: view.window?.windowController as? ListerWindowController, forward: false)
+        case .previousLister: ListerManager.shared.focusNeighbour(of: windowController, forward: false)
         case .newTab:         newTab()
         case .nextTab:        selectNeighbourTab(forward: true)
         case .previousTab:    selectNeighbourTab(forward: false)
         case .moveTabToNewLister: if let c = windowController { ListerManager.shared.moveTabToNewLister(c) }
         case .mergeListers:   if let c = windowController { ListerManager.shared.mergeAllListers(into: c) }
+        case .newTwoPanel:    ListerManager.shared.openDual(left: model.url, anchor: .cascade(from: view.window))
+        case .joinTwoPanel:   if let c = windowController { ListerManager.shared.joinIntoTwoPanel(c) }
+        case .splitTwoPanel:  splitTwoPanel()
         case .duplicateFile:  duplicateSelection()
         case .selectPattern:  promptPattern(select: true)
         case .deselectPattern: promptPattern(select: false)
@@ -945,14 +948,14 @@ extension ListerViewController {
     // MARK: Source / destination
 
     func toggleRole(_ role: ListerRole) {
-        guard let controller = view.window?.windowController as? ListerWindowController else { return }
+        guard let controller = windowController else { return }
         ListerManager.shared.toggleRole(role, for: controller)
     }
 
     /// ⌥-click / right-click on SRC or DST: the lister takes that role if it does not hold it yet, then the lock is
     /// toggled. A role locked on another lister (or this one holding the other role, locked) is left alone.
     func toggleRoleLock(_ role: ListerRole) {
-        guard let controller = view.window?.windowController as? ListerWindowController else { return }
+        guard let controller = windowController else { return }
         let manager = ListerManager.shared
         if controller.model.role != role { manager.toggleRole(role, for: controller) }
         if controller.model.role == role { manager.toggleRoleLock(for: controller) }
@@ -1502,7 +1505,7 @@ extension ListerViewController: NSMenuDelegate {
         do {
             try FileManager.default.moveItem(at: item.url, to: target)
             var selecting: [ObjectIdentifier: URL] = [:]
-            if let controller = view.window?.windowController { selecting[ObjectIdentifier(controller)] = target }
+            if let controller = windowController { selecting[ObjectIdentifier(controller)] = target }
             ListerManager.shared.reloadListers(showing: [item.url.deletingLastPathComponent()], selecting: selecting)
             return .success(target)
         } catch {
@@ -1521,7 +1524,7 @@ extension ListerViewController {
         let menu = NSMenu()
         menu.autoenablesItems = false
         let manager = ListerManager.shared
-        let controller = view.window?.windowController as? ListerWindowController
+        let controller = windowController
 
         /// A submenu whose items run closures; `build` receives the submenu and an item adder.
         func addSubmenu(_ title: String, to parent: NSMenu, _ build: (NSMenu, (String, Bool, @escaping () -> Void) -> Void) -> Void) {
@@ -1631,6 +1634,16 @@ extension ListerViewController {
         add(tr("New Lister"), to: lister) {
             manager.openLister(directory: Settings.startDirectory, anchor: .cascade(from: controller?.window))
         }
+        add(tr("New Two-Panel Window"), to: lister, key: "n", mask: [.command, .option]) {
+            manager.openDual(left: Settings.startDirectory, anchor: .cascade(from: controller?.window))
+        }
+        if controller?.isPane == true {
+            add(tr("Split into Two Listers"), to: lister) { [weak self] in self?.splitTwoPanel() }
+        } else {
+            add(tr("Join into Two-Panel Window"), to: lister, enabled: controller.map { manager.joinPartner(for: $0) != nil } ?? false) {
+                if let controller { manager.joinIntoTwoPanel(controller) }
+            }
+        }
         add(tr("Lister Title…"), to: lister) { TitleFormatWindow.show() }
         add(tr("Snapshot This Folder"), to: lister, enabled: !isRemote && !model.isVirtual && !model.isInArchive) { [weak self] in self?.snapshotFolder() }
         if hasSnapshot { add(tr("Forget Snapshot"), to: lister) { [weak self] in self?.forgetSnapshot() } }
@@ -1638,7 +1651,8 @@ extension ListerViewController {
         add(tr("Keyboard Shortcuts…"), to: lister) { ShortcutsWindowController.shared.show() }
         attach(lister)
         let tabCount = controller.map { manager.tabs(of: $0).count } ?? 1
-        if Settings.listerTabs {
+        let isPane = controller?.isPane == true
+        if Settings.listerTabs, !isPane {          // a two-panel window takes no tabs
             let tabs = submenu(tr("Tabs"))
             add(tr("New Tab"), to: tabs, key: "t") { [weak self] in self?.newTab() }
             add(model.label.isEmpty ? tr("Name This Tab…") : tr("Rename This Tab…"), to: tabs) { [weak self] in self?.promptLabel() }
@@ -1665,7 +1679,8 @@ extension ListerViewController {
         add(tr("Save Layout"), to: all) { LayoutStore.save(from: manager) }
         add(tr("Restore Layout"), to: all) { LayoutStore.restore(into: manager) }
         attach(all)
-        add(tabCount > 1 ? tr("Close Tab") : tr("Close Lister"), key: "w") { [weak self] in self?.view.window?.performClose(nil) }
+        let closeTitle = isPane ? tr("Close Two-Panel Window") : tabCount > 1 ? tr("Close Tab") : tr("Close Lister")
+        add(closeTitle, key: "w") { [weak self] in self?.view.window?.performClose(nil) }
         return menu
     }
 }

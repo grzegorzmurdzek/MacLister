@@ -224,7 +224,7 @@ extension ListerViewController {
             guard let self else { return }
             self.model.statusMessage = nil
             var selecting: [ObjectIdentifier: URL] = [:]
-            if let output = result.output, let controller = self.view.window?.windowController { selecting[ObjectIdentifier(controller)] = output }
+            if let output = result.output, let controller = self.windowController { selecting[ObjectIdentifier(controller)] = output }
             ListerManager.shared.reloadListers(showing: [folder], selecting: selecting)
             if let error = result.error { self.model.errorMessage = tr("Cannot compress: %@", error) }
         }

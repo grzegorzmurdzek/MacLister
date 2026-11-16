@@ -104,7 +104,7 @@ extension ListerViewController {
             model.errorMessage = tr("No destination lister: press DST in the lister to compare with")
             return
         }
-        guard let source = manager.sourceController ?? (view.window?.windowController as? ListerWindowController),
+        guard let source = manager.sourceController ?? windowController,
               source !== destination else {
             model.errorMessage = tr("Source and destination are the same lister")
             return
@@ -195,7 +195,7 @@ extension ListerViewController {
                 OperationLog.shared.record(kind: .duplicate, items: urls, result: result,
                                            from: Self.placeName(urls.first?.deletingLastPathComponent()), to: Self.placeName(self.model.url))
                 var selection: [ObjectIdentifier: URL] = [:]
-                if let first = result.done.first, let controller = self.view.window?.windowController {
+                if let first = result.done.first, let controller = self.windowController {
                     selection[ObjectIdentifier(controller)] = first
                 }
                 ListerManager.shared.reloadListers(showing: [self.model.url], selecting: selection)
@@ -205,7 +205,7 @@ extension ListerViewController {
     }
 
     func duplicateLister() {
-        guard let controller = view.window?.windowController as? ListerWindowController else { return }
+        guard let controller = windowController else { return }
         ListerManager.shared.duplicate(controller)
     }
 
@@ -231,7 +231,16 @@ extension ListerViewController {
         ListerManager.shared.openFolder(item.url, inNewTabFrom: controller)
     }
 
-    var windowController: ListerWindowController? { view.window?.windowController as? ListerWindowController }
+    /// The lister this view belongs to: its window's controller, or one pane of a two-panel window.
+    var windowController: ListerWindowController? {
+        ListerManager.shared.controller(for: self) ?? view.window?.windowController as? ListerWindowController
+    }
+
+    /// Split into Two Listers (a pane of a two-panel window); elsewhere it only explains.
+    func splitTwoPanel() {
+        guard let dual = windowController?.dualHost else { flash(tr("This lister is not part of a two-panel window")); return }
+        ListerManager.shared.splitTwoPanel(dual)
+    }
 
     /// ⌘T: a new tab on this folder.
     func newTab() {
@@ -252,7 +261,7 @@ extension ListerViewController {
     }
 
     func openInNewLister(_ item: FileItem) {
-        guard canOpenInNewLister(item), let controller = view.window?.windowController as? ListerWindowController else { return }
+        guard canOpenInNewLister(item), let controller = windowController else { return }
         ListerManager.shared.openFolder(item.url, inNewListerFrom: controller)
     }
 
@@ -405,7 +414,7 @@ extension ListerViewController {
     func applyRename(_ plan: [RenameEntry]) {
         let result = BatchRename.apply(plan)
         var selection: [ObjectIdentifier: URL] = [:]
-        if let first = result.renamed.first, let controller = view.window?.windowController { selection[ObjectIdentifier(controller)] = first }
+        if let first = result.renamed.first, let controller = windowController { selection[ObjectIdentifier(controller)] = first }
         ListerManager.shared.reloadListers(showing: Array(Set(plan.map { $0.url.deletingLastPathComponent() })), selecting: selection)
         if !result.failures.isEmpty { model.errorMessage = result.failures.joined(separator: "; ") }
         else { flash(result.renamed.count == 1 ? tr("Renamed 1 item") : trCount("Renamed %d items", result.renamed.count)) }

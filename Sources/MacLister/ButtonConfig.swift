@@ -42,6 +42,8 @@ enum ListerAction: String, Codable, CaseIterable, Identifiable {
     /// Tabs (Settings → Tabs): a new tab on this folder, the next / previous tab, a tab out into a window of its own,
     /// every lister window into tabs of one.
     case newTab, nextTab, previousTab, moveTabToNewLister, mergeListers
+    /// Two-panel windows: a new one, this lister and its partner joined into one, a two-panel window split into listers.
+    case newTwoPanel, joinTwoPanel, splitTwoPanel
     /// Brings every lister to the macOS desktop (Space) you are on.
     case gatherListers
     /// A thin divider between groups of buttons (no action).
@@ -244,6 +246,9 @@ extension ListerAction {
         case .previousTab: return "chevron.left.square.fill"
         case .moveTabToNewLister: return "macwindow.on.rectangle"
         case .mergeListers: return "square.stack.fill"
+        case .newTwoPanel: return "rectangle.split.2x1"
+        case .joinTwoPanel: return "rectangle.split.2x1.fill"
+        case .splitTwoPanel: return "rectangle.on.rectangle"
         case .separator: return "minus"
         }
     }
@@ -279,7 +284,8 @@ extension ListerAction {
             return .navigation
         case .newLister, .duplicateLister, .setSource, .setDestination, .swapSourceDestination, .toggleRoleLock, .nameLister,
              .nextLister, .previousLister, .bringAllToFront, .gatherListers,
-             .newTab, .nextTab, .previousTab, .moveTabToNewLister, .mergeListers:
+             .newTab, .nextTab, .previousTab, .moveTabToNewLister, .mergeListers,
+             .newTwoPanel, .joinTwoPanel, .splitTwoPanel:
             return .listers
         case .terminalHere, .shell, .separator:
             return .other

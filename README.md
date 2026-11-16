@@ -18,6 +18,7 @@ menu-bar app with an optional Dock icon.
 
 - **Desktop double-click opens a lister** at the cursor. Any number of listers at once.
 - **Source / destination listers** with Copy (F5), Move (F6), Extract, Compare, Swap.
+- **Two-panel window** (⌥⌘N) for those who prefer a classic two-panel file manager: the pane you work in is the source, Tab switches panes.
 - **Drag and drop** between listers and to/from Finder (Finder rules: same volume moves, ⌥ copies, ⌘ moves).
 - **Configurable button bar**, **filetype actions** (what a double-click does), **bookmarks**, **saved layouts**.
 - Select by pattern, filter, **find** (Spotlight or a folder scan), **find duplicates**, **checksums**, folder sizes, info panel, rename, duplicate, Quick Look on Space, archive extraction
@@ -139,6 +140,26 @@ comparison is clean), and the operation is in the log and can be undone with ⌘
 **Lock Role** (title-bar menu, or ⌥-click / middle-click / right-click on the **SRC** / **DST** button) pins a lister as source or
 destination: no other lister can take the role, it cannot be cleared or swapped away until you unlock it. ⌥-click on
 a button the lister does not hold yet takes the role and locks it in one go.
+
+### Two-panel window (classic file manager)
+
+Prefer two panels side by side, as in Norton Commander or Total Commander? **New Two-Panel Window** (⌥⌘N, in the
+menu-bar, Dock and title-bar menus) opens one window with two listers in it. To have it every time, choose
+**Settings → Listers → Two-panel window → Opens → A two-panel window**: the desktop click, the global *Open a lister* shortcut and the
+Dock icon then open a two-panel window instead of a lister (the *New Lister* commands still open a lister).
+
+- **The pane you work in is the source, the other one the destination**, so **F5** copies and **F6** moves to the
+  other side. Click in a pane, or press **Tab** (or ⇧Tab) to move to the other pane: the roles go along.
+- Each pane is a full lister: path bar, buttons, folder tree, filter, names, servers, archives, everything above.
+  The window title is the title of the pane you work in; drag the divider to change the widths.
+- A lister you make the destination yourself (its **DST** badge) keeps the role while you work in the panes, so you
+  can copy from either pane into it. Make a pane the destination again and the roles follow the panes once more.
+  **Lock Role** on a pane stops the roles from moving.
+- A two-panel window takes no tabs. Closing it closes both panes; **Save Layout** remembers it with both folders.
+- **Join into Two-Panel Window** (title-bar menu → Lister, or a button) puts a lister and its partner side by side in one
+  window: the destination of a source, the source of a destination, else the lister opened last. The one further left
+  goes into the left pane, and each keeps its folder, history, filter, name and role. **Split into Two Listers** does
+  the opposite: each pane becomes a lister window of its own, where the pane was.
 
 ### Keyboard
 
