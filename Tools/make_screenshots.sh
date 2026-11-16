@@ -14,7 +14,7 @@ for lang in ${LANGS:-en}; do
     out="docs/screenshots"; [ "$lang" = pl ] && out="docs/screenshots/pl"
     for mode in light dark; do
         extra=(); [ "$mode" = dark ] && extra=(dark)
-        "$APP" --screenshots "$out" ${extra[@]+"${extra[@]}"} -AppleLanguages "($lang)" -visibleColumns "$COLUMNS_ARG" -terminalBundleID com.apple.Terminal -listerTabs YES -centerOnCursor NO -desktopTrigger doubleClick -showFolderTree NO | grep -E "^(wrote|nothing|capture)"
+        "$APP" --screenshots "$out" ${extra[@]+"${extra[@]}"} -AppleLanguages "($lang)" -visibleColumns "$COLUMNS_ARG" -terminalBundleID com.apple.Terminal -textEditorBundleID com.apple.TextEdit -listerTabs YES -centerOnCursor NO -desktopTrigger doubleClick -showFolderTree NO | grep -E "^(wrote|nothing|capture)"
     done
 done
 
