@@ -505,6 +505,20 @@ enum SelfTestFeatures {
             FinderSidebarMonitor.shared.refresh()
             sidebarController.window?.close()
         }
+        // a drag that leaves or ends over the list or the tree must not call a method AppKit's views lack (super's
+        // draggingEnded crashed on macOS 27 when a ⌘-drag moved files)
+        do {
+            var ended = 0
+            let table = ListerTableView(), outline = TreeOutlineView()
+            table.onDragEnd = { ended += 1 }
+            outline.onDragEnd = { ended += 1 }
+            let drag = StubDraggingInfo()
+            table.draggingExited(drag)
+            table.draggingEnded(drag)
+            outline.draggingExited(drag)
+            outline.draggingEnded(drag)
+            check(ended == 4, "a drag leaving or ending over the list or the tree ends cleanly (no crash)")
+        }
         // spring-loaded folders: a target hovered long enough opens once; leaving cancels
         let spring = SpringLoader(delay: 0.5)
         var sprung: [String] = []
@@ -2287,4 +2301,25 @@ enum SelfTestFeatures {
         DebugLog.write("features \(failures == 0 ? "PASS" : "FAILED (\(failures))")")
         NSApp.terminate(nil)
     }
+}
+
+/// A drag that is only there to be handed to the drag-destination methods of a view.
+private final class StubDraggingInfo: NSObject, NSDraggingInfo {
+    var draggingDestinationWindow: NSWindow? { nil }
+    var draggingSourceOperationMask: NSDragOperation { .move }
+    var draggingLocation: NSPoint { .zero }
+    var draggedImageLocation: NSPoint { .zero }
+    var draggedImage: NSImage? { nil }
+    var draggingPasteboard: NSPasteboard { NSPasteboard(name: NSPasteboard.Name("com.example.MacLister.selftest-drag")) }
+    var draggingSource: Any? { nil }
+    var draggingSequenceNumber: Int { 0 }
+    func slideDraggedImage(to screenPoint: NSPoint) {}
+    var draggingFormation: NSDraggingFormation = .default
+    var animatesToDestination: Bool = false
+    var numberOfValidItemsForDrop: Int = 0
+    func enumerateDraggingItems(options enumOpts: NSDraggingItemEnumerationOptions = [], for view: NSView?, classes classArray: [AnyClass],
+                                searchOptions: [NSPasteboard.ReadingOptionKey: Any] = [:],
+                                using block: (NSDraggingItem, Int, UnsafeMutablePointer<ObjCBool>) -> Void) {}
+    var springLoadingHighlight: NSSpringLoadingHighlight { .none }
+    func resetSpringLoading() {}
 }

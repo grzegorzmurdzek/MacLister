@@ -83,8 +83,24 @@ final class TreeNode: NSObject {
 /// The outline view of the tree; tells when a drag over it ends or leaves.
 final class TreeOutlineView: NSOutlineView {
     var onDragEnd: (() -> Void)?
-    override func draggingExited(_ sender: NSDraggingInfo?) { onDragEnd?(); super.draggingExited(sender) }
-    override func draggingEnded(_ sender: NSDraggingInfo) { onDragEnd?(); super.draggingEnded(sender) }
+    // only through super when NSOutlineView has the method (see ListerTableView)
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        onDragEnd?()
+        if DragDestination.superHas(#selector(NSDraggingDestination.draggingExited(_:)), in: NSOutlineView.self) { super.draggingExited(sender) }
+    }
+    override func draggingEnded(_ sender: NSDraggingInfo) {
+        onDragEnd?()
+        if DragDestination.superHas(#selector(NSDraggingDestination.draggingEnded(_:)), in: NSOutlineView.self) { super.draggingEnded(sender) }
+    }
+}
+
+/// AppKit's table and outline views implement only some of the optional drag-destination methods, and which ones
+/// changes between macOS versions. Calling one they lack through super throws "unrecognized selector" and the app
+/// crashes, so an override asks first.
+enum DragDestination {
+    static func superHas(_ selector: Selector, in superclass: AnyClass) -> Bool {
+        superclass.instancesRespond(to: selector)
+    }
 }
 
 /// The two parts of the pane (Finder's sidebar above, the tree below): the first time it is laid out the sidebar gets

@@ -32,8 +32,16 @@ final class ListerTableView: NSTableView, NSServicesMenuRequestor {
     /// The drag left the list or ended (spring-loaded folders stop waiting).
     var onDragEnd: (() -> Void)?
 
-    override func draggingExited(_ sender: NSDraggingInfo?) { onDragEnd?(); super.draggingExited(sender) }
-    override func draggingEnded(_ sender: NSDraggingInfo) { onDragEnd?(); super.draggingEnded(sender) }
+    // Only through super when NSTableView has the method: on macOS 27 it has no draggingEnded, AppKit still calls it
+    // when a drag ends (a ⌘-drag that moves files), and the call to super threw "unrecognized selector" and crashed.
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        onDragEnd?()
+        if DragDestination.superHas(#selector(NSDraggingDestination.draggingExited(_:)), in: NSTableView.self) { super.draggingExited(sender) }
+    }
+    override func draggingEnded(_ sender: NSDraggingInfo) {
+        onDragEnd?()
+        if DragDestination.superHas(#selector(NSDraggingDestination.draggingEnded(_:)), in: NSTableView.self) { super.draggingEnded(sender) }
+    }
     /// The files a service (Services submenu) may work on: the local selection.
     var servicesURLs: () -> [URL] = { [] }
 
