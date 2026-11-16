@@ -25,7 +25,12 @@ enum SelfTestFeatures {
         }
     }
 
+    /// The tests show and hide the folder tree, which is remembered for new listers in the same preferences the real app
+    /// reads; whatever the user had chosen is put back when the run ends.
+    private static var treePreference: Any?
+
     static func run() {
+        treePreference = UserDefaults.standard.object(forKey: "showFolderTree")
         let fm = FileManager.default
         let root = fm.temporaryDirectory.appendingPathComponent("maclister-features-\(UUID().uuidString)")
         let support = root.appendingPathComponent("support")
@@ -2144,6 +2149,8 @@ enum SelfTestFeatures {
     }
 
     private static func finish(_ root: URL) {
+        if let treePreference { UserDefaults.standard.set(treePreference, forKey: "showFolderTree") }
+        else { UserDefaults.standard.removeObject(forKey: "showFolderTree") }
         AppSupport.override = nil
         try? FileManager.default.removeItem(at: root)
         DebugLog.write("features \(failures == 0 ? "PASS" : "FAILED (\(failures))")")
