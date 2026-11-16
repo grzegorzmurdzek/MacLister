@@ -4,7 +4,7 @@ import SwiftUI
 /// Sits on top of a button that has a menu (`ListerButton.menu`) and answers the left mouse button:
 ///  - a click does the button's own action, as it always did;
 ///  - holding the button down for a moment opens the menu;
-///  - with the arrow shown (Settings → Listers), a click on the arrow opens the menu at once.
+///  - with the arrow shown (Settings → Buttons), a click on the arrow opens the menu at once.
 /// The right and middle buttons are left to `MouseButtonCatcher`.
 struct ButtonMenuTrigger: NSViewRepresentable {
     var button: ListerButton

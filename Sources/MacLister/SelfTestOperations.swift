@@ -144,10 +144,12 @@ enum SelfTestOperations {
 
         // --- settings window
         let tabs = SettingsWindow.tabViews()
-        check(tabs.map(\.title) == ["General", "Listers", "Operations", "Updates"] || tabs.count == 4, "the settings window has four tabs: \(tabs.map(\.title))")
+        check(tabs.map(\.title) == ["General", "Listers", "Tabs", "Buttons", "Operations", "Updates"] || tabs.count == 6, "the settings window has six tabs: \(tabs.map(\.title))")
+        let screenHeight = NSScreen.screens.map { $0.visibleFrame.height }.min() ?? 800
         for tab in tabs {
             let host = NSHostingView(rootView: tab.view)
             check(host.fittingSize.width >= 400 && host.fittingSize.height > 100, "the \(tab.title) tab lays out: \(host.fittingSize)")
+            check(host.fittingSize.height <= 700, "the \(tab.title) tab is short enough for a small screen: \(host.fittingSize.height) (\(screenHeight) visible)")
         }
         SettingsWindow.show(tab: 1)
         check(NSApp.windows.contains { $0.isVisible && ($0.contentViewController is NSTabViewController) }, "Settings… opens a window with tabs")

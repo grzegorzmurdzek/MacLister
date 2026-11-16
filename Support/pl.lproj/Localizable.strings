@@ -918,7 +918,7 @@
 "Rename This Tab…" = "Zmień nazwę tej karty…";
 "Use the Folder's Name" = "Użyj nazwy folderu";
 "The tab shows this name instead of the folder's name, also when you go to another folder. It shows in the window title and where you pick a destination too. Leave it empty for the folder's name." = "Karta pokazuje tę nazwę zamiast nazwy folderu, także gdy przejdziesz do innego folderu. Nazwa widnieje też w tytule okna i tam, gdzie wybierasz cel. Zostaw puste pole, a karta pokaże nazwę folderu.";
-"Tabs are off: turn them on in Settings → Listers" = "Karty są wyłączone: włącz je w Ustawieniach → Listery";
+"Tabs are off: turn them on in Settings → Tabs" = "Karty są wyłączone: włącz je w Ustawieniach → Karty";
 "This lister has no other tabs" = "Ten lister nie ma innych kart";
 "One window has one role: only the tab you see keeps it" = "Jedno okno ma jedną rolę: zachowuje ją tylko widoczna karta";
 "Open this folder in a new tab (⌘T)" = "Otwórz ten folder w nowej karcie (⌘T)";
@@ -936,4 +936,4 @@
 "Add Separator" = "Dodaj separator";
 "Show an arrow on buttons that have a menu" = "Pokaż strzałkę na przyciskach z menu";
 "A button can have a menu of more actions (Edit Buttons…). Hold the button down for a moment and the menu opens; a plain click still does the button's own action. With the arrow, a click on it opens the menu at once." = "Przycisk może mieć menu z dodatkowymi akcjami (Edytuj przyciski…). Przytrzymaj przycisk na chwilę, a menu się otworzy; zwykłe kliknięcie nadal wykonuje własną akcję przycisku. Ze strzałką wystarczy kliknąć w nią, by menu otworzyło się od razu.";
-"Hold the button down for a moment and these actions open as a menu. A plain click still does the button's own action. With \"Show an arrow on buttons that have a menu\" (Settings → Listers) a click on the arrow opens the menu at once." = "Przytrzymaj przycisk na chwilę, a te akcje otworzą się jako menu. Zwykłe kliknięcie nadal wykonuje własną akcję przycisku. Z opcją „Pokaż strzałkę na przyciskach z menu” (Ustawienia → Listery) kliknięcie w strzałkę otwiera menu od razu.";
+"Hold the button down for a moment and these actions open as a menu. A plain click still does the button's own action. With \"Show an arrow on buttons that have a menu\" (Settings → Buttons) a click on the arrow opens the menu at once." = "Przytrzymaj przycisk na chwilę, a te akcje otworzą się jako menu. Zwykłe kliknięcie nadal wykonuje własną akcję przycisku. Z opcją „Pokaż strzałkę na przyciskach z menu” (Ustawienia → Przyciski) kliknięcie w strzałkę otwiera menu od razu.";

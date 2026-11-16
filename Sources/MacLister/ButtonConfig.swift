@@ -39,7 +39,7 @@ enum ListerAction: String, Codable, CaseIterable, Identifiable {
     case undo, showLog
     /// Moves the keyboard focus to the next / previous lister (Tab / Shift-Tab).
     case nextLister, previousLister
-    /// Tabs (Settings → Listers): a new tab on this folder, the next / previous tab, a tab out into a window of its own,
+    /// Tabs (Settings → Tabs): a new tab on this folder, the next / previous tab, a tab out into a window of its own,
     /// every lister window into tabs of one.
     case newTab, nextTab, previousTab, moveTabToNewLister, mergeListers
     /// Brings every lister to the macOS desktop (Space) you are on.
@@ -76,7 +76,7 @@ struct ListerButton: Codable, Hashable {
     var middleCommand: String?     // only for middleAction == .shell
     /// Your own picture instead of the SF Symbol: the name of a file in ~/Library/Application Support/MacLister/ButtonIcons.
     var iconFile: String?
-    /// More actions, in a menu that opens when you hold the button down (or click its arrow, see Settings → Listers).
+    /// More actions, in a menu that opens when you hold the button down (or click its arrow, see Settings → Buttons).
     /// A plain click still does `action`. Entries are buttons too (title, icon, action, command); a separator entry
     /// draws a line. Entries of an entry are not used.
     var menu: [ListerButton]?

@@ -18,7 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         LegacyMigration.run()          // before anything touches buttons.json or the defaults
         Settings.registerDefaults()
         // New listers are windows of their own even with "prefer tabs" set in System Settings; a tab comes only from ⌘T,
-        // the tab bar's + button and the other tab commands (Settings → Listers → Tabs).
+        // the tab bar's + button and the other tab commands (Settings → Tabs).
         NSWindow.allowsAutomaticWindowTabbing = false
         ButtonStore.shared.ensureConfigFileExists()
         installMainMenu()

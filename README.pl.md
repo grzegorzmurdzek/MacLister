@@ -89,11 +89,11 @@ wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list 
 - **Lista odświeża się sama**, gdy pliki są dodawane, usuwane lub zmieniane na dysku (FSEvents), a podtytuł okna
   pokazuje wolne miejsce na woluminie.
 - **Pasek przycisków** nad paskiem ścieżki, jak w Ambiencie na MorphOS (zob. *Konfiguracja*): same ikony, nazwa
-  w podpowiedzi. **Ustawienia → Listery → Pasek przycisków** ustawia go nad ścieżką, pod ścieżką albo na dole;
+  w podpowiedzi. **Ustawienia → Przyciski → Pasek przycisków** ustawia go nad ścieżką, pod ścieżką albo na dole;
   **Show Button Labels** dodaje napisy.
   Przycisk może mieć **menu z dodatkowymi akcjami**: przytrzymaj go chwilę, a menu się otworzy (zwykłe kliknięcie
   nadal wykonuje własną akcję przycisku). Wpisy ustawisz w *Edytuj przyciski…*; opcja *Pokaż strzałkę na przyciskach
-  z menu* w **Ustawienia → Listery** dodaje strzałkę otwierającą menu jednym kliknięciem.
+  z menu* w **Ustawienia → Przyciski** dodaje strzałkę otwierającą menu jednym kliknięciem.
 - Cienka **linia stanu** na dole: liczba elementów, rozmiar zaznaczenia, filtr, postęp i błędy.
 - Nowe listery mają 560 × 400 i pamiętają rozmiar, który ostatnio nadałeś listerowi przeciągając krawędź.
 - Opcjonalny **pasek boczny i drzewo folderów** po lewej (⌥⌘T albo *Pokaż drzewo folderów* w menu). Jest w nim to, co w pasku bocznym Findera, odczytane z samego Findera, więc oba zawsze się zgadzają: *Ostatnie*, *Udostępniane*, *Ulubione*, *Miejsca* (iCloud Drive, folder domowy, dyski, AirDrop, Kosz) i *Tagi* (kliknięcie pokazuje pliki z danym tagiem; *Wszystkie tagi…* wymienia pozostałe). Pod nimi jest drzewo: folder domowy i wszystkie woluminy, tylko foldery. Wybranie folderu pokazuje go w listerze, drzewo podąża za listerem, nowe foldery pojawiają się w nim, a pliki upuszczone na folder są kopiowane lub przenoszone tak jak przy każdym innym upuszczeniu. Szerokość, na którą przeciągniesz podział, jest zapamiętywana.
@@ -306,7 +306,7 @@ operacji…**. Obie czynności proszą o potwierdzenie i nie ruszają plików an
 - **Open With** (menu kontekstowe na plikach): aplikacje, które mogą otworzyć plik, domyślna pierwsza, albo *Other…*.
 
 - **New Text File** (domyślny przycisk, menu kontekstowe na pustym miejscu albo *Ten lister*): tworzy pusty
-  `untitled.txt` w folderze, zaznacza go i otwiera w **TextEdit**. **Ustawienia → Ogólne → Nowy plik tekstowy** pozwala
+  `untitled.txt` w folderze, zaznacza go i otwiera w **TextEdit**. **Ustawienia → Przyciski → Nowy plik tekstowy** pozwala
   wybrać inny edytor (Visual Studio Code, Sublime Text, BBEdit, CotEditor, Nova, Zed, TextMate, MacVim, Xcode, jeśli są
   zainstalowane, albo *Inna aplikacja…* dla dowolnej). Nowe instalacje mają ten przycisk; przy starszym `buttons.json`
   dodaj akcję `newTextFile` w *Edit Buttons…* albo użyj *Przywróć…*.
@@ -509,7 +509,7 @@ akcjami (`nextLister`, `previousLister`), którym możesz przypisać inny klawis
 
 <p align="center"><img src="docs/screenshots/tabs.jpg" alt="Trzy karty w jednym oknie listera, dwie z nazwą i kolorem" width="640"></p>
 
-Okno listera może mieścić kilka folderów jako karty, jak Finder czy przeglądarka (**Ustawienia → Listery → Zezwalaj na
+Okno listera może mieścić kilka folderów jako karty, jak Finder czy przeglądarka (**Ustawienia → Karty → Zezwalaj na
 karty w listerach**, domyślnie włączone; nowe listery nadal otwierają się jako osobne okna). Każda karta to pełny
 lister (historia, sortowanie, filtr, zaznaczenie, drzewo folderów), więc wszystko inne działa osobno dla każdej karty.
 
@@ -524,7 +524,7 @@ lister (historia, sortowanie, filtr, zaznaczenie, drzewo folderów), więc wszys
   nazwa zostaje, gdy karta przejdzie
   do innego folderu. *Użyj nazwy folderu* przywraca domyślną. To ta sama nazwa co w [Nazwij ten lister…](#nazwy-listerów),
   więc widać ją też w tytule i w *Kopiuj do „…”*.
-  Dwuklik to ustawienie: **Ustawienia → Listery → Karty → Dwuklik na karcie** może też otworzyć nową kartę z tym samym
+  Dwuklik to ustawienie: **Ustawienia → Karty → Dwuklik na karcie** może też otworzyć nową kartę z tym samym
   folderem, zamknąć kartę albo nic nie robić.
 - **Źródło i cel należą do okna.** Źródłem albo celem może być tylko karta, którą widzisz: po przełączeniu karty rola
   (wraz z blokadą) przechodzi na nową kartę, więc kopia nigdy nie trafi do folderu, którego nie widać. Po zamknięciu tej
@@ -665,7 +665,7 @@ Ustawiane przez `defaults write com.example.MacLister <klucz> <wartość>`:
 | `listersOnAllDesktops` | false | listery na każdym pulpicie (także: Ustawienia → Ogólne) |
 | `showStatusItem` | true | pokaż ikonę w pasku menu (po ukryciu zamykasz aplikację z Monitora aktywności) |
 | `startDirectory` | `~` | folder otwierany dwuklikiem na pulpicie |
-| `terminalBundleID` | `com.apple.Terminal` | terminal dla *Terminal Here* (także: Ustawienia → Ogólne) |
+| `terminalBundleID` | `com.apple.Terminal` | terminal dla *Terminal Here* (także: Ustawienia → Przyciski) |
 | `restoreLayoutAtLaunch` | false | otwórz zapisany układ przy starcie |
 | `desktopTrigger` | `doubleClick` | `doubleClick`, `middleClick` albo `both` (także: Ustawienia → Ogólne) |
 | `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` albo `bottom` |

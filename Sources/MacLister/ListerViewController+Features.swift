@@ -241,7 +241,7 @@ extension ListerViewController {
 
     func selectNeighbourTab(forward: Bool) {
         guard let controller = windowController else { return }
-        guard Settings.listerTabs else { flash(tr("Tabs are off: turn them on in Settings → Listers")); return }
+        guard Settings.listerTabs else { flash(tr("Tabs are off: turn them on in Settings → Tabs")); return }
         ListerManager.shared.selectNeighbourTab(of: controller, forward: forward)
     }
 

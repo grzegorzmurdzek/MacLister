@@ -86,11 +86,11 @@ run `defaults delete com.example.MacLister`, and remove MacLister from the two P
 - **The list refreshes itself** when files are added, removed or changed on disk (FSEvents), and the window
   subtitle shows the free space of the volume.
 - **Button bar** above the path bar, as in Ambient on MorphOS (see *Configuration*): icons only, the name is in
-  the tooltip. **Settings → Listers → Button bar** puts it above the path, below the path or at the bottom;
+  the tooltip. **Settings → Buttons → Button bar** puts it above the path, below the path or at the bottom;
   **Show Button Labels** adds text.
   A button can have a **menu of more actions**: hold it down for a moment and the menu opens (a plain click still does
   the button's own action). *Edit Buttons…* sets the entries; *Show an arrow on buttons that have a menu* in
-  **Settings → Listers** adds an arrow that opens the menu with one click.
+  **Settings → Buttons** adds an arrow that opens the menu with one click.
 - A thin **status line** at the bottom: item count, selection size, filter, progress and errors.
 - An optional **sidebar and folder tree** on the left (⌥⌘T, or *Show Folder Tree* in the menus). It has what Finder's sidebar has, read from Finder itself so the two stay the same: *Recents*, *Shared*, your *Favorites*, the *Locations* (iCloud Drive, home, disks, AirDrop, Trash) and your *Tags* (a click shows the files with that tag; *All Tags…* lists the rest). Below them is the tree: your home folder and every volume, folders only. Choosing a folder shows it in the lister, the tree follows the lister, new folders appear in it, and files dropped on a folder are copied or moved there like any other drop. The width you drag the divider to is remembered.
 - New listers open at 560 × 400 and remember the size you last gave a lister by dragging its edge.
@@ -299,7 +299,7 @@ bottom of the *Recent Folders* menu (**Go** and the context menu) and in the Ope
 - **Open With** (context menu on files): the applications that can open the file, the default first, or *Other…*.
 
 - **New Text File** (a default button, the context menu on empty space, or *This Lister*): makes an empty
-  `untitled.txt` in the folder, selects it and opens it in **TextEdit**. **Settings → General → New Text File** chooses
+  `untitled.txt` in the folder, selects it and opens it in **TextEdit**. **Settings → Buttons → New Text File** chooses
   another editor (Visual Studio Code, Sublime Text, BBEdit, CotEditor, Nova, Zed, TextMate, MacVim, Xcode when
   installed, or *Other App…* for any application). New installations get the button; with an older `buttons.json`
   add the `newTextFile` action in *Edit Buttons…* or use *Reset…*.
@@ -497,7 +497,7 @@ also actions (`nextLister`, `previousLister`) you can give another key or a butt
 
 <p align="center"><img src="docs/screenshots/tabs.jpg" alt="Three tabs in one lister window, two of them named and coloured" width="640"></p>
 
-A lister window can hold several folders as tabs, like Finder or a web browser (**Settings → Listers → Allow tabs in
+A lister window can hold several folders as tabs, like Finder or a web browser (**Settings → Tabs → Allow tabs in
 listers**, on by default; new listers still open as windows of their own). Each tab is a full lister of its own
 (history, sort, filter, selection, folder tree), so everything else works per tab.
 
@@ -511,7 +511,7 @@ listers**, on by default; new listers still open as windows of their own). Each 
   tab); the name stays when the tab
   goes to another folder. *Use the Folder's Name* returns to the default. This is the same name as
   [Name This Lister…](#naming-listers), so it also shows in the title and in *Copy to “…”*.
-  The double-click is a setting: **Settings → Listers → Tabs → Double-click on a tab** can also open a new tab on the
+  The double-click is a setting: **Settings → Tabs → Double-click on a tab** can also open a new tab on the
   same folder, close the tab, or do nothing.
 - **Source and destination belong to the window.** Only the tab you see can be the source or the destination: when you
   switch tabs, the role (and its lock) goes along to the tab you switch to, so a copy never lands in a folder you
@@ -654,7 +654,7 @@ Set with `defaults write com.example.MacLister <key> <value>`:
 | `showDockIcon` | true | the Dock icon (also: Settings → General) |
 | `listersOnAllDesktops` | false | show listers on every desktop (also: Settings → General) |
 | `startDirectory` | `~` | folder a desktop double-click opens |
-| `terminalBundleID` | `com.apple.Terminal` | terminal used by *Terminal Here* (also: Settings → General) |
+| `terminalBundleID` | `com.apple.Terminal` | terminal used by *Terminal Here* (also: Settings → Buttons) |
 | `restoreLayoutAtLaunch` | false | reopen the saved layout at start |
 | `desktopTrigger` | `doubleClick` | `doubleClick`, `middleClick` or `both` (also: Settings → General) |
 | `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` or `bottom` (also: Settings → Listers) |

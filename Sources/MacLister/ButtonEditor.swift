@@ -269,7 +269,7 @@ struct MenuEntriesEditor: View {
                 Button("Add Action") { entries.append(ListerButton(title: "", symbol: nil, action: .refresh)) }
                 Button("Add Separator") { entries.append(ListerButton(title: "", symbol: nil, action: .separator)) }
             }
-            Text("Hold the button down for a moment and these actions open as a menu. A plain click still does the button's own action. With \"Show an arrow on buttons that have a menu\" (Settings → Listers) a click on the arrow opens the menu at once.")
+            Text("Hold the button down for a moment and these actions open as a menu. A plain click still does the button's own action. With \"Show an arrow on buttons that have a menu\" (Settings → Buttons) a click on the arrow opens the menu at once.")
                 .font(.caption).foregroundStyle(.secondary)
         }
         .buttonStyle(.borderless)

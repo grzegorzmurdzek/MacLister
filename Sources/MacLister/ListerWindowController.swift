@@ -35,7 +35,7 @@ final class ListerWindow: NSWindow {
                 return
             }
         }
-        // A double-click on a tab does what Settings → Listers → Tabs says (Name This Tab… by default).
+        // A double-click on a tab does what Settings → Tabs says (Name This Tab… by default).
         if event.type == .leftMouseDown, event.clickCount == 2, event.modifierFlags.intersection([.control, .command, .shift, .option]).isEmpty,
            isInTitleBar(event.locationInWindow), let tab = tab(at: event.locationInWindow) as? ListerWindow,
            let controller = tab.windowController as? ListerWindowController {
@@ -113,7 +113,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         window.isReleasedWhenClosed = false      // lifetime is owned by ListerManager
         window.collectionBehavior = ListerManager.desktopBehavior
         window.minSize = Settings.minListerSize
-        // Tabs (Settings → Listers) are native window tabs, as in Finder: every tab is a lister of its own.
+        // Tabs (Settings → Tabs) are native window tabs, as in Finder: every tab is a lister of its own.
         window.tabbingIdentifier = ListerManager.tabbingIdentifier
         window.tabbingMode = Settings.listerTabs ? .automatic : .disallowed
         super.init(window: window)
@@ -163,7 +163,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    /// A double-click on this lister's tab (Settings → Listers → Tabs → Double-click on a tab).
+    /// A double-click on this lister's tab (Settings → Tabs → Double-click on a tab).
     func performTabDoubleClick(_ action: TabDoubleClickAction) {
         switch action {
         case .nameTab:      listerViewController?.promptLabel()
@@ -409,7 +409,7 @@ final class ListerManager {
     func openTab(directory: URL, in host: ListerWindowController,
                  configure: ((ListerWindowController) -> Void)? = nil) -> ListerWindowController? {
         guard Settings.listerTabs, let hostWindow = host.window else {
-            host.model.flash(tr("Tabs are off: turn them on in Settings → Listers"))
+            host.model.flash(tr("Tabs are off: turn them on in Settings → Tabs"))
             return nil
         }
         hostWindow.tabbingMode = .automatic
@@ -469,7 +469,7 @@ final class ListerManager {
     /// Every lister window becomes a tab of the window of `controller`.
     func mergeAllListers(into controller: ListerWindowController) {
         guard Settings.listerTabs, let window = controller.window else {
-            controller.model.flash(tr("Tabs are off: turn them on in Settings → Listers"))
+            controller.model.flash(tr("Tabs are off: turn them on in Settings → Tabs"))
             return
         }
         let roles = Set(controllers.map(\.model.role)).subtracting([.none])
@@ -506,7 +506,7 @@ final class ListerManager {
         }
     }
 
-    /// Settings → Listers → Tabs: on, windows may take tabs; off, every tab becomes a lister window of its own again.
+    /// Settings → Tabs: on, windows may take tabs; off, every tab becomes a lister window of its own again.
     func applyTabSetting() {
         if !Settings.listerTabs {
             for controller in controllers {

@@ -10,34 +10,7 @@ private struct GeneralSettingsView: View {
     @AppStorage("restoreLayoutAtLaunch") private var restoreLayout = false
     @AppStorage("showDockIcon") private var showDockIcon = true
     @AppStorage("listersOnAllDesktops") private var allDesktops = false
-    @AppStorage("terminalBundleID") private var terminal = "com.apple.Terminal"
-    @AppStorage("textEditorBundleID") private var editor = "com.apple.TextEdit"
     @State private var language = AppLanguage.current
-
-    /// Installed editors, plus the chosen one even when it is not in the list (an app picked with "Other App…").
-    private var editorChoices: [(name: String, id: String)] {
-        var choices = AppDelegate.editorChoices()
-        if !choices.contains(where: { $0.id == editor }) {
-            let name = NSWorkspace.shared.urlForApplication(withBundleIdentifier: editor).map { FileManager.default.displayName(atPath: $0.path).replacingOccurrences(of: ".app", with: "") } ?? editor
-            choices.append((name, editor))
-        }
-        return choices
-    }
-
-    private func chooseEditorApp() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.application]
-        panel.directoryURL = URL(fileURLWithPath: "/Applications")
-        panel.canChooseDirectories = false
-        if panel.runModal() == .OK, let url = panel.url, let id = Bundle(url: url)?.bundleIdentifier { editor = id }
-    }
-
-    private var terminalChoices: [(name: String, id: String)] {
-        var choices = AppDelegate.terminalChoices()
-        // a custom bundle id set with `defaults write` stays visible
-        if !choices.contains(where: { $0.id == terminal }) { choices.append((terminal, terminal)) }
-        return choices
-    }
 
     private var startFolderText: String {
         startDirectory.isEmpty ? tr("Home") : PathText.short((startDirectory as NSString).expandingTildeInPath)
@@ -71,24 +44,6 @@ private struct GeneralSettingsView: View {
             } footer: {
                 Text("Right-click the Dock icon for the open listers and New Lister. The menu-bar icon stays either way.")
             }
-            Section("Terminal Here") {
-                Picker("Terminal app", selection: $terminal) {
-                    ForEach(terminalChoices, id: \.id) { Text($0.name).tag($0.id) }
-                }
-            }
-            Section {
-                Picker("Text editor", selection: $editor) {
-                    ForEach(editorChoices, id: \.id) { Text($0.name).tag($0.id) }
-                }
-                HStack {
-                    Spacer()
-                    Button("Other App…") { chooseEditorApp() }
-                }
-            } header: {
-                Text("New Text File")
-            } footer: {
-                Text("The New Text File button makes an empty text file in the folder and opens it in this app.")
-            }
             Section {
                 Picker("Interface language", selection: $language) {
                     ForEach(AppLanguage.allCases, id: \.self) { Text($0.menuTitle).tag($0) }
@@ -118,48 +73,14 @@ private struct GeneralSettingsView: View {
 // MARK: - Listers
 
 private struct ListersSettingsView: View {
-    @AppStorage("buttonBarPosition") private var position = ButtonBarPosition.abovePath.rawValue
-    @AppStorage("showButtonLabels") private var labels = false
-    @AppStorage("showButtonMenuArrows") private var menuArrows = false
     @AppStorage("relativeDates") private var relativeDates = true
     @AppStorage("foldersFirst") private var foldersFirst = true
     @AppStorage("dragSelectFromNames") private var dragSelect = true
     @AppStorage("browseArchives") private var browseArchives = true
     @AppStorage("springLoadedFolders") private var springLoaded = true
-    @AppStorage("listerTabs") private var tabs = true
-    @AppStorage("tabDoubleClick") private var tabDoubleClick = TabDoubleClickAction.nameTab.rawValue
-    @State private var confirmReset = false
 
     var body: some View {
         Form {
-            Section("Button bar") {
-                Picker("Position", selection: $position) {
-                    ForEach(ButtonBarPosition.allCases, id: \.rawValue) { Text($0.menuTitle).tag($0.rawValue) }
-                }
-                Toggle("Show button names next to the icons", isOn: $labels)
-                Toggle("Show an arrow on buttons that have a menu", isOn: $menuArrows)
-                Text("A button can have a menu of more actions (Edit Buttons…). Hold the button down for a moment and the menu opens; a plain click still does the button's own action. With the arrow, a click on it opens the menu at once.")
-                    .font(.caption).foregroundStyle(.secondary)
-                LabeledContent("Buttons") {
-                    HStack {
-                        Button("Edit Buttons…") { ButtonEditorWindow.show() }
-                        Button("Reload") { ButtonStore.shared.reload() }.help("Read buttons.json again after editing it by hand")
-                        Button("Reset…") { confirmReset = true }
-                    }
-                }
-            }
-            Section {
-                Toggle("Allow tabs in listers", isOn: $tabs)
-                    .onChange(of: tabs) { _ in ListerManager.shared.applyTabSetting() }
-                Picker("Double-click on a tab", selection: $tabDoubleClick) {
-                    ForEach(TabDoubleClickAction.allCases, id: \.rawValue) { Text($0.menuTitle).tag($0.rawValue) }
-                }
-                .disabled(!tabs)
-            } header: {
-                Text("Tabs")
-            } footer: {
-                Text("⌘T opens the folder in a new tab, ⌘-double-click opens a folder in one, ⌃Tab goes to the next tab and ⌘W closes it. A double-click on a tab does what you choose above (by default it names the tab). A tab shows the folder's name; Name This Tab… in the title-bar menu gives it a name of its own. Source and destination belong to the window: the tab you see has the role, and it goes along to the tab you switch to. Off: every tab becomes a lister of its own again.")
-            }
             Section("File list") {
                 Toggle("Keep folders above files when sorting", isOn: $foldersFirst)
                     .onChange(of: foldersFirst) { _ in NotificationCenter.default.post(name: .columnsChanged, object: nil) }
@@ -186,11 +107,116 @@ private struct ListersSettingsView: View {
         .formStyle(.grouped)
         .frame(width: 520)
         .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+// MARK: - Buttons
+
+private struct ButtonsSettingsView: View {
+    @AppStorage("buttonBarPosition") private var position = ButtonBarPosition.abovePath.rawValue
+    @AppStorage("showButtonLabels") private var labels = false
+    @AppStorage("showButtonMenuArrows") private var menuArrows = false
+    @State private var confirmReset = false
+    @AppStorage("terminalBundleID") private var terminal = "com.apple.Terminal"
+    @AppStorage("textEditorBundleID") private var editor = "com.apple.TextEdit"
+
+    /// Installed editors, plus the chosen one even when it is not in the list (an app picked with "Other App…").
+    private var editorChoices: [(name: String, id: String)] {
+        var choices = AppDelegate.editorChoices()
+        if !choices.contains(where: { $0.id == editor }) {
+            let name = NSWorkspace.shared.urlForApplication(withBundleIdentifier: editor).map { FileManager.default.displayName(atPath: $0.path).replacingOccurrences(of: ".app", with: "") } ?? editor
+            choices.append((name, editor))
+        }
+        return choices
+    }
+
+    private func chooseEditorApp() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.application]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.canChooseDirectories = false
+        if panel.runModal() == .OK, let url = panel.url, let id = Bundle(url: url)?.bundleIdentifier { editor = id }
+    }
+
+    private var terminalChoices: [(name: String, id: String)] {
+        var choices = AppDelegate.terminalChoices()
+        // a custom bundle id set with `defaults write` stays visible
+        if !choices.contains(where: { $0.id == terminal }) { choices.append((terminal, terminal)) }
+        return choices
+    }
+
+    var body: some View {
+        Form {
+            Section("Button bar") {
+                Picker("Position", selection: $position) {
+                    ForEach(ButtonBarPosition.allCases, id: \.rawValue) { Text($0.menuTitle).tag($0.rawValue) }
+                }
+                Toggle("Show button names next to the icons", isOn: $labels)
+                Toggle("Show an arrow on buttons that have a menu", isOn: $menuArrows)
+                Text("A button can have a menu of more actions (Edit Buttons…). Hold the button down for a moment and the menu opens; a plain click still does the button's own action. With the arrow, a click on it opens the menu at once.")
+                    .font(.caption).foregroundStyle(.secondary)
+                LabeledContent("Buttons") {
+                    HStack {
+                        Button("Edit Buttons…") { ButtonEditorWindow.show() }
+                        Button("Reload") { ButtonStore.shared.reload() }.help("Read buttons.json again after editing it by hand")
+                        Button("Reset…") { confirmReset = true }
+                    }
+                }
+            }
+            Section("Terminal Here") {
+                Picker("Terminal app", selection: $terminal) {
+                    ForEach(terminalChoices, id: \.id) { Text($0.name).tag($0.id) }
+                }
+            }
+            Section {
+                Picker("Text editor", selection: $editor) {
+                    ForEach(editorChoices, id: \.id) { Text($0.name).tag($0.id) }
+                }
+                HStack {
+                    Spacer()
+                    Button("Other App…") { chooseEditorApp() }
+                }
+            } header: {
+                Text("New Text File")
+            } footer: {
+                Text("The New Text File button makes an empty text file in the folder and opens it in this app.")
+            }
+        }
+        .formStyle(.grouped)
+        .frame(width: 520)
+        .fixedSize(horizontal: false, vertical: true)
         .confirmationDialog("Reset the buttons to the defaults?", isPresented: $confirmReset) {
             Button("Reset Buttons", role: .destructive) { ButtonStore.shared.resetToDefaults() }
         } message: {
             Text("Your own buttons are replaced by the standard set.")
         }
+    }
+}
+
+// MARK: - Tabs
+
+private struct TabsSettingsView: View {
+    @AppStorage("listerTabs") private var tabs = true
+    @AppStorage("tabDoubleClick") private var tabDoubleClick = TabDoubleClickAction.nameTab.rawValue
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Allow tabs in listers", isOn: $tabs)
+                    .onChange(of: tabs) { _ in ListerManager.shared.applyTabSetting() }
+                Picker("Double-click on a tab", selection: $tabDoubleClick) {
+                    ForEach(TabDoubleClickAction.allCases, id: \.rawValue) { Text($0.menuTitle).tag($0.rawValue) }
+                }
+                .disabled(!tabs)
+            } header: {
+                Text("Tabs")
+            } footer: {
+                Text("⌘T opens the folder in a new tab, ⌘-double-click opens a folder in one, ⌃Tab goes to the next tab and ⌘W closes it. A double-click on a tab does what you choose above (by default it names the tab). A tab shows the folder's name; Name This Tab… in the title-bar menu gives it a name of its own. Source and destination belong to the window: the tab you see has the role, and it goes along to the tab you switch to. Off: every tab becomes a lister of its own again.")
+            }
+        }
+        .formStyle(.grouped)
+        .frame(width: 520)
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -292,6 +318,7 @@ enum SettingsWindow {
     /// The views of the tabs, for the self-test.
     static func tabViews() -> [(title: String, view: AnyView)] {
         [(tr("General"), AnyView(GeneralSettingsView())), (tr("Listers"), AnyView(ListersSettingsView())),
+         (tr("Tabs"), AnyView(TabsSettingsView())), (tr("Buttons"), AnyView(ButtonsSettingsView())),
          (tr("Operations"), AnyView(OperationsSettingsView())), (tr("Updates"), AnyView(UpdatesSettingsView()))]
     }
 
@@ -306,6 +333,8 @@ enum SettingsWindow {
         let tabs: [(title: String, symbol: String, view: AnyView)] = [
             (tr("General"), "gearshape", AnyView(GeneralSettingsView())),
             (tr("Listers"), "macwindow", AnyView(ListersSettingsView())),
+            (tr("Tabs"), "rectangle.stack", AnyView(TabsSettingsView())),
+            (tr("Buttons"), "square.grid.2x2", AnyView(ButtonsSettingsView())),
             (tr("Operations"), "clock.arrow.circlepath", AnyView(OperationsSettingsView())),
             (tr("Updates"), "arrow.down.circle", AnyView(UpdatesSettingsView())),
         ]
