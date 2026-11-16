@@ -120,6 +120,7 @@ private struct GeneralSettingsView: View {
 private struct ListersSettingsView: View {
     @AppStorage("buttonBarPosition") private var position = ButtonBarPosition.abovePath.rawValue
     @AppStorage("showButtonLabels") private var labels = false
+    @AppStorage("showButtonMenuArrows") private var menuArrows = false
     @AppStorage("relativeDates") private var relativeDates = true
     @AppStorage("foldersFirst") private var foldersFirst = true
     @AppStorage("dragSelectFromNames") private var dragSelect = true
@@ -136,6 +137,9 @@ private struct ListersSettingsView: View {
                     ForEach(ButtonBarPosition.allCases, id: \.rawValue) { Text($0.menuTitle).tag($0.rawValue) }
                 }
                 Toggle("Show button names next to the icons", isOn: $labels)
+                Toggle("Show an arrow on buttons that have a menu", isOn: $menuArrows)
+                Text("A button can have a menu of more actions (Edit Buttons…). Hold the button down for a moment and the menu opens; a plain click still does the button's own action. With the arrow, a click on it opens the menu at once.")
+                    .font(.caption).foregroundStyle(.secondary)
                 LabeledContent("Buttons") {
                     HStack {
                         Button("Edit Buttons…") { ButtonEditorWindow.show() }

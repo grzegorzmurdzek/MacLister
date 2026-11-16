@@ -88,6 +88,9 @@ run `defaults delete com.example.MacLister`, and remove MacLister from the two P
 - **Button bar** above the path bar, as in Ambient on MorphOS (see *Configuration*): icons only, the name is in
   the tooltip. **Settings → Listers → Button bar** puts it above the path, below the path or at the bottom;
   **Show Button Labels** adds text.
+  A button can have a **menu of more actions**: hold it down for a moment and the menu opens (a plain click still does
+  the button's own action). *Edit Buttons…* sets the entries; *Show an arrow on buttons that have a menu* in
+  **Settings → Listers** adds an arrow that opens the menu with one click.
 - A thin **status line** at the bottom: item count, selection size, filter, progress and errors.
 - An optional **sidebar and folder tree** on the left (⌥⌘T, or *Show Folder Tree* in the menus). It has what Finder's sidebar has, read from Finder itself so the two stay the same: *Recents*, *Shared*, your *Favorites*, the *Locations* (iCloud Drive, home, disks, AirDrop, Trash) and your *Tags* (a click shows the files with that tag; *All Tags…* lists the rest). Below them is the tree: your home folder and every volume, folders only. Choosing a folder shows it in the lister, the tree follows the lister, new folders appear in it, and files dropped on a folder are copied or moved there like any other drop. The width you drag the divider to is remembered.
 - New listers open at 560 × 400 and remember the size you last gave a lister by dragging its edge.

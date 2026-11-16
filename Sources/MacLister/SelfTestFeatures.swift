@@ -948,6 +948,43 @@ enum SelfTestFeatures {
             check(real.allSatisfy { $0.color.map(ListerButton.knownColors.contains) ?? true }, "default icon colours are known names")
             let decoded = (try? JSONDecoder().decode([ListerButton].self, from: JSONEncoder().encode(ListerButton.defaults))) ?? []
             check(decoded == ListerButton.defaults, "button definitions survive a JSON round trip (colour and separator included)")
+            // buttons with a menu: hold / arrow, the JSON and the menu itself
+            let entries = [ListerButton(title: "", symbol: nil, action: .move), ListerButton(title: "", symbol: nil, action: .separator),
+                           ListerButton(title: "Run", symbol: nil, action: .shell, command: "echo hi"), ListerButton(title: "", symbol: nil, action: .delete)]
+            let withMenu = ListerButton(title: "Copy", symbol: "doc.on.doc.fill", action: .copy, menu: entries)
+            let menuJSON = (try? JSONEncoder().encode([withMenu])) ?? Data()
+            check((try? JSONDecoder().decode([ListerButton].self, from: menuJSON)) == [withMenu], "a button's menu survives a JSON round trip")
+            check(!String(decoding: (try? JSONEncoder().encode(ListerButton.defaults)) ?? Data(), as: UTF8.self).contains("\"menu\""), "buttons without a menu write no menu key")
+            let oldJSON = Data(#"[{"title":"Old","action":"copy"}]"#.utf8)
+            check((try? JSONDecoder().decode([ListerButton].self, from: oldJSON))?.first?.hasMenu == false, "a buttons.json without menus still loads")
+            check(withMenu.hasMenu && !ListerButton.defaults.contains(where: \.hasMenu) && ListerButton(title: "x", symbol: nil, action: .copy, menu: []).hasMenu == false,
+                  "hasMenu: only a non-empty menu counts")
+            check(withMenu.clickHelp.contains(tr("Hold: more actions")), "the tooltip tells you to hold the button")
+            typealias Hold = ButtonMenuTrigger.MenuHoldView
+            check(Hold.accepts(.leftMouseDown) && !Hold.accepts(.leftMouseUp) && !Hold.accepts(.mouseMoved) && !Hold.accepts(.rightMouseDown) && !Hold.accepts(.otherMouseDown),
+                  "the menu trigger takes only the press of the left button; hovering and the other buttons fall through")
+            let hold = Hold(frame: NSRect(x: 0, y: 0, width: 40, height: 30))
+            var ran: [ListerAction] = []
+            hold.button = withMenu
+            hold.canRun = { $0.action != .delete }
+            hold.run = { ran.append($0.action) }
+            let menu = hold.makeMenu()
+            check(menu.items.count == 4 && menu.items[1].isSeparatorItem, "the menu has an entry per action and a line for a separator (\(menu.items.count))")
+            check(menu.items.map(\.title) == [ListerAction.move.title, "", "Run", ListerAction.delete.title].map { $0.isEmpty ? "" : tr($0) },
+                  "entries are named after their action, or by their own title: \(menu.items.map(\.title))")
+            check(menu.items[0].isEnabled && menu.items[2].isEnabled && !menu.items[3].isEnabled, "an entry that cannot run now is dimmed")
+            (menu.items[0] as? ButtonMenuTrigger.EntryItem)?.handler?()
+            (menu.items[2] as? ButtonMenuTrigger.EntryItem)?.handler?()
+            check(ran == [.move, .shell], "choosing an entry runs its action: \(ran)")
+            ran = []
+            hold.click()
+            check(ran == [.copy], "a plain click still does the button's own action (not the menu)")
+            hold.arrowWidth = 0
+            check(!hold.isOnArrow(NSPoint(x: 38, y: 10)), "without the arrow setting no part of the button opens the menu")
+            hold.arrowWidth = ButtonMenuTrigger.arrowWidth
+            check(hold.isOnArrow(NSPoint(x: 38, y: 10)) && !hold.isOnArrow(NSPoint(x: 10, y: 10)), "with the arrow, only its edge of the button opens the menu")
+            check(UserDefaults.standard.object(forKey: "showButtonMenuArrows") == nil || UserDefaults.standard.bool(forKey: "showButtonMenuArrows") == Settings.showButtonMenuArrows,
+                  "the arrow setting's key is the one the app reads")
             func geometry() -> (button: NSView, path: NSView, scroll: NSView)? {
                 guard let root = one.listerViewController?.view else { return nil }
                 root.layoutSubtreeIfNeeded()

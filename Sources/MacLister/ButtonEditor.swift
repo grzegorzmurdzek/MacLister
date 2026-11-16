@@ -60,6 +60,7 @@ struct ButtonEditorView: View {
                             Text(tr(button.title.isEmpty ? button.action.title : button.title))
                         }
                         Spacer(minLength: 0)
+                        if button.hasMenu { Image(systemName: "chevron.down.circle").font(.caption).foregroundStyle(.secondary) }
                         if button.hasExtraClicks { Image(systemName: "cursorarrow.click.2").font(.caption).foregroundStyle(.secondary) }
                     }
                     .tag(index)
@@ -166,6 +167,10 @@ struct ButtonEditorView: View {
                 actionRow("Right click", action: button.rightAction, command: button.rightCommand, optional: true)
                 actionRow("Middle click", action: button.middleAction, command: button.middleCommand, optional: true)
             }
+            Section("Menu") {
+                MenuEntriesEditor(entries: Binding(get: { button.wrappedValue.menu ?? [] },
+                                                   set: { button.wrappedValue.menu = $0.isEmpty ? nil : $0 }))
+            }
             Section("Look") {
                 TextField("Title", text: button.title)
                 HStack {
@@ -225,6 +230,63 @@ struct ButtonEditorView: View {
     private func commandField(_ command: Binding<String?>) -> some View {
         TextField("Shell command (LISTER_DIR, LISTER_SELECTION)", text: Binding(get: { command.wrappedValue ?? "" }, set: { command.wrappedValue = $0.isEmpty ? nil : $0 }))
             .font(.system(.body, design: .monospaced))
+    }
+}
+
+/// The entries of a button's menu: which actions it offers, in which order.
+struct MenuEntriesEditor: View {
+    @Binding var entries: [ListerButton]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 4) {
+                        if entry.action == .separator {
+                            Image(systemName: "minus").frame(width: 18).foregroundStyle(.secondary)
+                            Text("Separator").foregroundStyle(.secondary)
+                        } else {
+                            ActionPicker(selection: Binding(get: { entries.indices.contains(index) ? entries[index].action : .refresh },
+                                                            set: { if let action = $0 { choose(action, at: index) } }),
+                                         allowNone: false)
+                        }
+                        Spacer(minLength: 0)
+                        Button { move(index, -1) } label: { Image(systemName: "arrow.up") }.disabled(index == 0).help("Move up")
+                        Button { move(index, 1) } label: { Image(systemName: "arrow.down") }.disabled(index == entries.count - 1).help("Move down")
+                        Button { if entries.indices.contains(index) { entries.remove(at: index) } } label: { Image(systemName: "trash") }.help("Remove")
+                    }
+                    if entry.action == .shell {
+                        TextField("Title", text: Binding(get: { entries.indices.contains(index) ? entries[index].title : "" },
+                                                         set: { if entries.indices.contains(index) { entries[index].title = $0 } }))
+                        TextField("Shell command (LISTER_DIR, LISTER_SELECTION)",
+                                  text: Binding(get: { entries.indices.contains(index) ? entries[index].command ?? "" : "" },
+                                                set: { if entries.indices.contains(index) { entries[index].command = $0.isEmpty ? nil : $0 } }))
+                            .font(.system(.body, design: .monospaced))
+                    }
+                }
+            }
+            HStack {
+                Button("Add Action") { entries.append(ListerButton(title: "", symbol: nil, action: .refresh)) }
+                Button("Add Separator") { entries.append(ListerButton(title: "", symbol: nil, action: .separator)) }
+            }
+            Text("Hold the button down for a moment and these actions open as a menu. A plain click still does the button's own action. With \"Show an arrow on buttons that have a menu\" (Settings → Listers) a click on the arrow opens the menu at once.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .buttonStyle(.borderless)
+    }
+
+    private func choose(_ action: ListerAction, at index: Int) {
+        guard entries.indices.contains(index) else { return }
+        let old = entries[index]
+        // Only a shell entry has a title and a command of its own.
+        entries[index] = ListerButton(title: action == .shell ? old.title : "", symbol: nil, action: action,
+                                      command: action == .shell ? old.command : nil)
+    }
+
+    private func move(_ index: Int, _ delta: Int) {
+        let target = index + delta
+        guard entries.indices.contains(index), entries.indices.contains(target) else { return }
+        entries.swapAt(index, target)
     }
 }
 

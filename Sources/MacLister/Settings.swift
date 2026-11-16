@@ -68,6 +68,7 @@ enum Settings {
             "restoreLayoutAtLaunch": false,
             "showButtonLabels": false,
             "buttonBarPosition": ButtonBarPosition.abovePath.rawValue,
+            "showButtonMenuArrows": false,
             "desktopTrigger": DesktopTrigger.doubleClick.rawValue,
             "terminalBundleID": "com.apple.Terminal",
             "textEditorBundleID": "com.apple.TextEdit",
@@ -95,6 +96,12 @@ enum Settings {
     static var showButtonLabels: Bool {
         get { defaults.bool(forKey: "showButtonLabels") }
         set { defaults.set(newValue, forKey: "showButtonLabels") }
+    }
+
+    /// A small arrow on buttons that have a menu: a click on it opens the menu at once. Off: hold the button down.
+    static var showButtonMenuArrows: Bool {
+        get { defaults.bool(forKey: "showButtonMenuArrows") }
+        set { defaults.set(newValue, forKey: "showButtonMenuArrows") }
     }
 
     /// Which mouse gesture on the empty desktop opens a lister.

@@ -4,15 +4,18 @@ import SwiftUI
 struct ToolbarIconButtonStyle: ButtonStyle {
     var tint: Color = .primary
     var iconSize: CGFloat = 16
+    /// Draw the button pressed although the system button never saw the press (a button with a menu answers the mouse itself).
+    var forcePressed = false
 
     func makeBody(configuration: Configuration) -> some View {
-        Face(configuration: configuration, tint: tint, iconSize: iconSize)
+        Face(configuration: configuration, tint: tint, iconSize: iconSize, forcePressed: forcePressed)
     }
 
     private struct Face: View {
         let configuration: ButtonStyleConfiguration
         let tint: Color
         let iconSize: CGFloat
+        let forcePressed: Bool
         @Environment(\.isEnabled) private var isEnabled
         @State private var hovering = false
 
@@ -25,7 +28,7 @@ struct ToolbarIconButtonStyle: ButtonStyle {
                 .frame(minWidth: 34, minHeight: 30)
                 .background(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.primary.opacity(configuration.isPressed ? 0.20 : (hovering && isEnabled ? 0.10 : 0)))
+                        .fill(Color.primary.opacity(configuration.isPressed || forcePressed ? 0.20 : (hovering && isEnabled ? 0.10 : 0)))
                 )
                 .contentShape(Rectangle())
                 .onHover { hovering = $0 }
@@ -257,21 +260,34 @@ struct ButtonBarView: View {
     /// Off by default: icons only, the title is in the tooltip. Toggled from the menu-bar icon.
     @AppStorage("showButtonLabels") private var showLabels = false
     @AppStorage("buttonBarPosition") private var position = ButtonBarPosition.abovePath.rawValue
+    @AppStorage("showButtonMenuArrows") private var showArrows = false
+    /// The button (by position) that is held down right now; drawn pressed.
+    @State private var pressedIndex: Int?
     private var atBottom: Bool { position == ButtonBarPosition.bottom.rawValue }
+
+    private func canRun(_ button: ListerButton) -> Bool { !(button.needsSelection && model.selectedURLs.isEmpty) }
 
     var body: some View {
         VStack(spacing: 0) {
             if atBottom { Divider() }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 2) {
-                    ForEach(Array(store.buttons.enumerated()), id: \.offset) { _, button in
+                    ForEach(Array(store.buttons.enumerated()), id: \.offset) { index, button in
                         if button.action == .separator {
                             Divider().frame(height: 18).padding(.horizontal, 4)
                         } else {
-                            Button { onAction(button) } label: { label(for: button) }
-                                .buttonStyle(ToolbarIconButtonStyle(tint: button.tint))
+                            Button { onAction(button) } label: { face(for: button) }
+                                .buttonStyle(ToolbarIconButtonStyle(tint: button.tint, forcePressed: pressedIndex == index))
                                 .disabled(button.needsSelection && model.selectedURLs.isEmpty)
                                 .help(help(for: button))
+                                .overlay {
+                                    // A button with a menu answers the left mouse button itself: click, hold, arrow.
+                                    if button.hasMenu {
+                                        ButtonMenuTrigger(button: button, showsArrow: showArrows, canRun: canRun, run: onAction) { down in
+                                            if down { pressedIndex = index } else if pressedIndex == index { pressedIndex = nil }
+                                        }
+                                    }
+                                }
                                 .overlay {
                                     if button.hasExtraClicks {
                                         MouseButtonCatcher { click in
@@ -295,7 +311,20 @@ struct ButtonBarView: View {
 
     private func help(for button: ListerButton) -> String {
         let base = (button.help ?? button.action.defaultHelp).map { "\(tr(button.title)) – \(tr($0))" } ?? tr(button.title)
-        return button.hasExtraClicks ? base + "\n" + button.clickHelp : base
+        return button.hasExtraClicks || button.hasMenu ? base + "\n" + button.clickHelp : base
+    }
+
+    /// The button's face; with the arrow setting on, a button that has a menu gets a small arrow.
+    @ViewBuilder
+    private func face(for button: ListerButton) -> some View {
+        if button.hasMenu && showArrows {
+            HStack(spacing: 3) {
+                label(for: button)
+                Image(systemName: "chevron.down").font(.system(size: 7, weight: .bold)).opacity(0.75)
+            }
+        } else {
+            label(for: button)
+        }
     }
 
     /// Your own picture, shown as it is (no tint) at the size of the symbols.

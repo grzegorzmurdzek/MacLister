@@ -91,6 +91,9 @@ wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list 
 - **Pasek przycisków** nad paskiem ścieżki, jak w Ambiencie na MorphOS (zob. *Konfiguracja*): same ikony, nazwa
   w podpowiedzi. **Ustawienia → Listery → Pasek przycisków** ustawia go nad ścieżką, pod ścieżką albo na dole;
   **Show Button Labels** dodaje napisy.
+  Przycisk może mieć **menu z dodatkowymi akcjami**: przytrzymaj go chwilę, a menu się otworzy (zwykłe kliknięcie
+  nadal wykonuje własną akcję przycisku). Wpisy ustawisz w *Edytuj przyciski…*; opcja *Pokaż strzałkę na przyciskach
+  z menu* w **Ustawienia → Listery** dodaje strzałkę otwierającą menu jednym kliknięciem.
 - Cienka **linia stanu** na dole: liczba elementów, rozmiar zaznaczenia, filtr, postęp i błędy.
 - Nowe listery mają 560 × 400 i pamiętają rozmiar, który ostatnio nadałeś listerowi przeciągając krawędź.
 - Opcjonalny **pasek boczny i drzewo folderów** po lewej (⌥⌘T albo *Pokaż drzewo folderów* w menu). Jest w nim to, co w pasku bocznym Findera, odczytane z samego Findera, więc oba zawsze się zgadzają: *Ostatnie*, *Udostępniane*, *Ulubione*, *Miejsca* (iCloud Drive, folder domowy, dyski, AirDrop, Kosz) i *Tagi* (kliknięcie pokazuje pliki z danym tagiem; *Wszystkie tagi…* wymienia pozostałe). Pod nimi jest drzewo: folder domowy i wszystkie woluminy, tylko foldery. Wybranie folderu pokazuje go w listerze, drzewo podąża za listerem, nowe foldery pojawiają się w nim, a pliki upuszczone na folder są kopiowane lub przenoszone tak jak przy każdym innym upuszczeniu. Szerokość, na którą przeciągniesz podział, jest zapamiętywana.

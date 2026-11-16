@@ -76,8 +76,17 @@ struct ListerButton: Codable, Hashable {
     var middleCommand: String?     // only for middleAction == .shell
     /// Your own picture instead of the SF Symbol: the name of a file in ~/Library/Application Support/MacLister/ButtonIcons.
     var iconFile: String?
+    /// More actions, in a menu that opens when you hold the button down (or click its arrow, see Settings → Listers).
+    /// A plain click still does `action`. Entries are buttons too (title, icon, action, command); a separator entry
+    /// draws a line. Entries of an entry are not used.
+    var menu: [ListerButton]?
 
     enum Click { case left, right, middle }
+
+    var hasMenu: Bool { !(menu ?? []).isEmpty }
+
+    /// What an entry of a button's menu is called: its own title, or the name of its action.
+    var menuTitle: String { tr(title.isEmpty ? action.title : title) }
 
     /// The button as it acts for a click with the given mouse button; nil when that button has no job here.
     func variant(for click: Click) -> ListerButton? {
@@ -99,6 +108,7 @@ struct ListerButton: Codable, Hashable {
         var parts: [String] = []
         if let right = variant(for: .right) { parts.append(tr("Right-click: %@", right.action.title)) }
         if let middle = variant(for: .middle) { parts.append(tr("Middle-click: %@", middle.action.title)) }
+        if hasMenu { parts.append(tr("Hold: more actions")) }
         return parts.joined(separator: " · ")
     }
 
