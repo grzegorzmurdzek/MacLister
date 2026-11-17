@@ -125,9 +125,27 @@ enum ColumnSettings {
 
     /// The remembered width of a column, or its default; never below the column's minimum.
     static func width(of column: ListerColumn) -> CGFloat {
-        guard column != .name, let stored = storedWidths[column.rawValue] else { return column.defaultWidth }
+        // A width at the very minimum is not a choice: earlier versions squeezed columns to it in a narrow window and
+        // remembered that as if it were dragged, so every list stayed cramped. Those entries are ignored.
+        guard column != .name, let stored = storedWidths[column.rawValue], CGFloat(stored) > column.minWidth + 0.5 else { return column.defaultWidth }
         return max(column.minWidth, CGFloat(stored))
     }
+
+    /// The width you gave the Name column by dragging it, in a folder or in the Devices list (which has room for long
+    /// disk names). Without one, Name takes what the other columns leave.
+    static func nameWidth(devices: Bool) -> CGFloat? {
+        guard let stored = storedWidths[devices ? "name.devices" : "name"], CGFloat(stored) > nameMinWidth(devices: devices) + 0.5 else { return nil }
+        return CGFloat(stored)
+    }
+
+    static func setNameWidth(_ width: CGFloat, devices: Bool) {
+        var widths = storedWidths
+        widths[devices ? "name.devices" : "name"] = Double(max(nameMinWidth(devices: devices), width))
+        UserDefaults.standard.set(widths, forKey: widthsKey)
+    }
+
+    /// Disk names are longer than file names, and the Devices list has fewer other columns that need the room.
+    static func nameMinWidth(devices: Bool) -> CGFloat { devices ? 220 : ListerColumn.name.minWidth }
 
     static func setWidth(_ width: CGFloat, of column: ListerColumn) {
         guard column != .name else { return }

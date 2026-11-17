@@ -1549,6 +1549,15 @@ enum SelfTestFeatures {
             vc.tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("kind"))?.width = 133
             check(ColumnSettings.width(of: .kind) == 133, "a dragged column width is stored: \(ColumnSettings.width(of: .kind))")
             ColumnSettings.setVisible(originalColumns + [.kind])
+            // the Name column can be dragged too, separately in a folder and in the Devices list; a width at the minimum is no choice
+            ColumnSettings.setNameWidth(333, devices: true)
+            check(ColumnSettings.nameWidth(devices: true) == 333 && ColumnSettings.nameWidth(devices: false) == nil, "the width of Name is stored for the Devices list only")
+            ColumnSettings.setNameWidth(10, devices: false)
+            check(ColumnSettings.nameWidth(devices: false) == nil && ColumnSettings.nameMinWidth(devices: true) > ColumnSettings.nameMinWidth(devices: false), "a squeezed Name width is not remembered; disk names get more room")
+            UserDefaults.standard.set(["size": 60.0, "used": 60.0], forKey: "columnWidths")
+            check(ColumnSettings.width(of: .size) == ListerColumn.size.defaultWidth, "a width at the very minimum (left by older versions) is ignored")
+            UserDefaults.standard.removeObject(forKey: "columnWidths")
+            ColumnSettings.setWidth(133, of: .kind)
         }
         later(0.5) {
             check(vc.tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("kind"))?.width == 133, "the width survives rebuilding the columns")
@@ -2407,6 +2416,7 @@ enum SelfTestFeatures {
                 one.model.navigate(to: VirtualPlace.devices.url)
                 check(["used", "free", "usage"].allSatisfy { id in vc.tableView.tableColumns.contains { $0.identifier.rawValue == id } }
                       && vc.tableView.tableColumns.map(\.identifier.rawValue).starts(with: ["name", "size", "used", "free", "usage"]), "the Devices list shows Used, Free and Usage after Size: \(vc.tableView.tableColumns.map(\.identifier.rawValue))")
+                check(!vc.tableView.tableColumns.contains { $0.identifier.rawValue == "date" } && vc.tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("name"))?.minWidth == ColumnSettings.nameMinWidth(devices: true), "the Devices list has no Modified column and gives the names room: \(vc.tableView.tableColumns.map { "\($0.identifier.rawValue)=\(Int($0.width))" })")
                 check(one.model.virtualPlace == .devices && one.model.items.count == 2 + DeviceList.placeRows().count && !one.model.canGoParent, "the lister shows Devices: \(one.model.items.map(\.name))")
                 check(DeviceList.placeRows().first?.name == "Home" && one.model.items.suffix(DeviceList.placeRows().count).allSatisfy { $0.kind == tr("Place") }, "the folders come after the disks")
                 check(ListerAction.showDevices.title == "Show devices" || ListerAction.showDevices.title == "Pokaż urządzenia", "the Show devices action has a name: \(ListerAction.showDevices.title)")

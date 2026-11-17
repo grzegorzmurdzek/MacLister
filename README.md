@@ -83,7 +83,7 @@ run `defaults delete com.example.MacLister`, and remove MacLister from the two P
 - **File list:** icon, name, size, modified date. Click a header to sort; folders come first by default, or switch *Keep folders above files when sorting* off (Settings → Listers, or the column header menu) to sort folders and files together.
   Double-click or Return opens a file or enters a folder. **Right-click the column header** to choose the
   columns: Size, Size in Bytes (the exact number, off by default), Modified, Created, Kind, Extension, Permissions, Tags, Comment. The widths you drag are remembered
-  (Name always takes the space that is left).
+  (Name takes the space that is left unless you drag it to a width of your own; columns wider than the window scroll sideways. The Devices list gives disk names more room and has no Modified column).
 - **The list refreshes itself** when files are added, removed or changed on disk (FSEvents), and the window
   subtitle shows the free space of the volume.
 - **Button bar** above the path bar, as in Ambient on MorphOS (see *Configuration*): icons only, the name is in

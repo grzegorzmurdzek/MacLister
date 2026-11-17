@@ -86,7 +86,7 @@ wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list 
 - **Lista plików:** ikona, nazwa, rozmiar, data modyfikacji. Kliknięcie nagłówka sortuje; foldery domyślnie są
   na początku (wyłączysz to w **Ustawienia → Listery → Foldery nad plikami przy sortowaniu** albo w menu nagłówka kolumn). Dwuklik lub Return otwiera plik albo wchodzi do folderu. **Prawy przycisk na nagłówku kolumn**
   wybiera kolumny: Size, Size in Bytes (dokładna liczba, domyślnie wyłączona), Modified, Created, Kind, Extension, Permissions, Tags, Comment. Przeciągnięte szerokości kolumn są zapamiętywane
-  (Name zawsze zajmuje pozostałe miejsce).
+  (Name zajmuje pozostałe miejsce, chyba że przeciągniesz go do własnej szerokości; kolumny szersze niż okno przewijają się na boki. Lista Urządzenia daje nazwom dysków więcej miejsca i nie ma kolumny Modified).
 - **Lista odświeża się sama**, gdy pliki są dodawane, usuwane lub zmieniane na dysku (FSEvents), a podtytuł okna
   pokazuje wolne miejsce na woluminie.
 - **Pasek przycisków** nad paskiem ścieżki, jak w Ambiencie na MorphOS (zob. *Konfiguracja*): same ikony, nazwa

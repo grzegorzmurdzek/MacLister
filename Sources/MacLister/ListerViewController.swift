@@ -151,7 +151,6 @@ final class ListerViewController: NSViewController {
     private var cancellables = Set<AnyCancellable>()
     private var layouts: [ButtonBarPosition: [NSLayoutConstraint]] = [:]
     private var currentPosition: ButtonBarPosition?
-    private var didFitColumns = false
     /// True while columns are created or fitted by code, so only the user's own resizing gets remembered.
     private var isBuildingColumns = false
     var downloadGeneration = 0                      // the newest download to the cache owns the progress display
@@ -238,6 +237,8 @@ final class ListerViewController: NSViewController {
 
         let tableScroll = NSScrollView()
         tableScroll.hasVerticalScroller = true
+        tableScroll.hasHorizontalScroller = true          // columns wider than the window scroll instead of being squeezed
+        tableScroll.autohidesScrollers = true
         tableScroll.documentView = tableView
         configureTable()
 
@@ -310,10 +311,15 @@ final class ListerViewController: NSViewController {
         // Remember the widths the user drags (Name is not stored: it takes the remaining space).
         NotificationCenter.default.publisher(for: NSTableView.columnDidResizeNotification, object: tableView)
             .sink { [weak self] note in
-                guard let self, !self.isBuildingColumns,
+                guard let self, !self.isBuildingColumns, !self.isFittingName,
                       let tableColumn = note.userInfo?["NSTableColumn"] as? NSTableColumn,
                       let column = ListerColumn(rawValue: tableColumn.identifier.rawValue) else { return }
-                ColumnSettings.setWidth(tableColumn.width, of: column)
+                if column == .name {
+                    ColumnSettings.setNameWidth(tableColumn.width, devices: self.model.virtualPlace == .devices)      // dragged by the user
+                } else {
+                    ColumnSettings.setWidth(tableColumn.width, of: column)
+                }
+                self.fitNameColumn()
             }
             .store(in: &cancellables)
         NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
@@ -391,12 +397,29 @@ final class ListerViewController: NSViewController {
             didPlaceTree = true
             split.setPosition(Settings.folderTreeWidth, ofDividerAt: 0)
         }
-        guard !didFitColumns, let scroll = tableView.enclosingScrollView, scroll.contentSize.width > 0,
+        fitNameColumn()
+    }
+
+    private var isFittingName = false
+
+    /// The Name column has the width you dragged it to; without one it takes what the other columns leave (never below
+    /// its minimum, and then the list scrolls sideways).
+    private func fitNameColumn() {
+        guard !isFittingName, let scroll = tableView.enclosingScrollView, scroll.contentSize.width > 0,
               let name = tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("name")) else { return }
-        didFitColumns = true
-        let others = tableView.tableColumns.filter { $0 !== name }.map(\.width).reduce(0, +)
-        let spacing = CGFloat(tableView.tableColumns.count) * tableView.intercellSpacing.width
-        name.width = max(name.minWidth, scroll.contentSize.width - others - spacing)
+        let devices = model.virtualPlace == .devices
+        let wanted: CGFloat
+        if let chosen = ColumnSettings.nameWidth(devices: devices) {
+            wanted = max(name.minWidth, chosen)
+        } else {
+            let others = tableView.tableColumns.filter { $0 !== name }.map(\.width).reduce(0, +)
+            let spacing = CGFloat(tableView.tableColumns.count) * tableView.intercellSpacing.width
+            wanted = max(name.minWidth, (scroll.contentSize.width - others - spacing).rounded(.down))
+        }
+        guard abs(name.width - wanted) >= 1 else { return }
+        isFittingName = true
+        name.width = wanted
+        isFittingName = false
     }
 
     override func viewDidAppear() {
@@ -410,6 +433,7 @@ final class ListerViewController: NSViewController {
         var chosen = ColumnSettings.visible
         if model.isVirtual && !chosen.contains(.folder) { chosen.append(.folder) }
         if model.virtualPlace == .devices {          // how much room each disk has, right behind its capacity
+            chosen.removeAll { $0 == .date || $0 == .created }        // a disk has no dates: the room goes to the names
             let at = (chosen.firstIndex(of: .size) ?? 0) + 1
             chosen.insert(contentsOf: ColumnSettings.deviceColumns, at: at)
         }
@@ -432,14 +456,16 @@ final class ListerViewController: NSViewController {
             tableView.addTableColumn(tableColumn)
         }
         tableView.sortDescriptors = [NSSortDescriptor(key: model.sortKey.rawValue, ascending: model.ascending)]
-        didFitColumns = false
+        tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("name"))?.minWidth = ColumnSettings.nameMinWidth(devices: model.virtualPlace == .devices)
         if isViewLoaded { view.needsLayout = true }   // (`view` itself must not be touched inside loadView)
     }
 
     private func configureTable() {
         rebuildColumns()
 
-        tableView.columnAutoresizingStyle = .firstColumnOnlyAutoresizingStyle
+        // Only the column you drag changes; Name takes what the others leave (fitNameColumn). AppKit's own autoresizing
+        // squeezed every column to its minimum in a narrow window, and then nothing could be dragged any more.
+        tableView.columnAutoresizingStyle = .noColumnAutoresizing
         tableView.allowsMultipleSelection = true
         tableView.usesAlternatingRowBackgroundColors = true
         tableView.style = .fullWidth
@@ -2065,7 +2091,8 @@ extension ListerViewController {
         menu.removeAllItems()
         // The ticks say what the table shows: a list always has Where, the Devices list has its disk columns.
         let shown = activeColumns
-        for column in ListerColumn.allCases where column != .name && (!column.isForDevicesOnly || model.virtualPlace == .devices) {
+        for column in ListerColumn.allCases where column != .name && (!column.isForDevicesOnly || model.virtualPlace == .devices)
+            && !(model.virtualPlace == .devices && (column == .date || column == .created)) {
             let item = NSMenuItem(title: column.title, action: #selector(toggleColumn(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = column.rawValue
