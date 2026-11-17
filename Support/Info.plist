@@ -25,6 +25,29 @@
             <array><string>maclister</string></array>
         </dict>
     </array>
+    <!-- Finder: right-click a folder → Open With → MacLister, and drop folders on the Dock icon -->
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key><string>Folder</string>
+            <key>CFBundleTypeRole</key><string>Viewer</string>
+            <key>LSHandlerRank</key><string>Alternate</string>
+            <key>LSItemContentTypes</key>
+            <array><string>public.folder</string></array>
+        </dict>
+    </array>
+    <!-- Finder: right-click → Services → Open in MacLister (a key can be given in System Settings → Keyboard → Keyboard Shortcuts → Services) -->
+    <key>NSServices</key>
+    <array>
+        <dict>
+            <key>NSMenuItem</key>
+            <dict><key>default</key><string>Open in MacLister</string></dict>
+            <key>NSMessage</key><string>openInMacLister</string>
+            <key>NSPortName</key><string>MacLister</string>
+            <key>NSSendFileTypes</key>
+            <array><string>public.item</string></array>
+        </dict>
+    </array>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>

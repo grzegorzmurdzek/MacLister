@@ -11,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         QuietMode.start()              // `--quiet`: self-tests that do not get in the way (before any window exists)
+        NSApp.servicesProvider = self  // Finder → Services → Open in MacLister
+        NSUpdateDynamicServices()
         DispatchQueue.global(qos: .utility).async { RemoteCache.purge() }     // old downloaded copies
         DispatchQueue.global(qos: .utility).async { ArchiveBrowser.cleanOldCaches() }     // archives unpacked for browsing
         NotificationCenter.default.addObserver(forName: .shortcutsChanged, object: nil, queue: .main) { _ in GlobalShortcutActions.apply() }
@@ -201,15 +203,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return false
     }
 
-    /// `maclister://open?path=…`, which the Dock apps made by "Add to Dock" send.
+    /// `maclister://open?path=…`, which the Dock apps made by "Add to Dock" send; and folders and files that Finder hands
+    /// over (Open With, a drop on the Dock icon).
     func application(_ application: NSApplication, open urls: [URL]) {
-        for url in urls { openFolder(from: url) }
+        for url in urls {
+            if url.isFileURL { openInLister([url]) } else { openFolder(from: url) }
+        }
     }
 
     /// Raises the lister that already shows the folder, or opens one; says so when the folder is gone.
     @discardableResult
     func openFolder(from url: URL) -> Bool {
         guard let folder = DockShortcut.folder(from: url) else { return false }
+        return openFolder(at: folder)
+    }
+
+    /// A folder opens in a lister; a file opens the folder it is in, with the file selected. Anything that is not
+    /// there is skipped. Returns how many listers were asked for.
+    @discardableResult
+    func openInLister(_ urls: [URL]) -> Int {
+        var opened = 0
+        for url in urls where url.isFileURL {
+            let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey])
+            guard FileManager.default.fileExists(atPath: url.path) else { continue }
+            if values?.isDirectory == true, values?.isPackage != true {
+                openFolder(at: url)
+            } else {
+                openFolder(at: url.deletingLastPathComponent(), selecting: url)
+            }
+            opened += 1
+        }
+        if opened > 0 { NSApp.bringToFront() }
+        return opened
+    }
+
+    /// Finder → Services → Open in MacLister (the service is declared in Info.plist, NSServices).
+    @objc func openInMacLister(_ pasteboard: NSPasteboard, userData: String, error: AutoreleasingUnsafeMutablePointer<NSString>) {
+        let urls = (pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
+        if openInLister(urls) == 0 { error.pointee = tr("No folder or file to open") as NSString }
+    }
+
+    @discardableResult
+    func openFolder(at folder: URL, selecting file: URL? = nil) -> Bool {
         var isFolder: ObjCBool = false
         guard FileManager.default.fileExists(atPath: folder.path, isDirectory: &isFolder), isFolder.boolValue else {
             let alert = NSAlert()
@@ -223,8 +258,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let key = ListerModel.comparisonKey(folder)
         if let existing = manager.allControllers.first(where: { ListerModel.comparisonKey($0.model.url) == key }) {
             manager.bringToFront(existing)
+            if let file { existing.model.reload(selecting: file) }
         } else {
-            manager.openLister(directory: folder, anchor: dockAnchor())
+            let controller = manager.openLister(directory: folder, anchor: dockAnchor())
+            if let file { controller.model.reload(selecting: file) }
             NSApp.bringToFront()
         }
         return true

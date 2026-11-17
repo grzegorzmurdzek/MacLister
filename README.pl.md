@@ -285,6 +285,15 @@ list takich jak Ostatnie. Żeby usunąć ikonę, przeciągnij ją z Docka i skas
 MacListerem przez adres `maclister://open?path=/ścieżka/do/folderu`, którego możesz używać także w skryptach
 (`open "maclister://open?path=$HOME/Downloads"`).
 
+### Otwieranie folderów z Findera
+
+Są dwa sposoby, żeby przekazać folder MacListerowi z Findera: prawy przycisk na folderze → **Otwórz w programie → MacLister**
+(albo upuszczenie folderów na ikonę MacListera w Docku) oraz prawy przycisk na dowolnym folderze lub pliku → **Usługi → Otwórz w MacListerze**.
+Folder otwiera się w listerze albo przed siebie wychodzi lister, który już go pokazuje; dla pliku MacLister otwiera folder, w którym
+leży, z zaznaczonym plikiem. W *Ustawieniach systemowych → Klawiatura → Skróty klawiszowe → Usługi → Pliki i foldery* możesz
+nadać *Otwórz w MacListerze* skrót. Usługa pojawia się, gdy aplikacja chwilę postoi w `/Applications` (jeśli nie, wyloguj się i zaloguj
+albo uruchom `/System/Library/CoreServices/pbs -flush`).
+
 ### Czyszczenie historii
 
 **Ustawienia → Operacje → Historia** ma **Wyczyść ostatnie foldery…** (*Recent Folders* w menu Go) i **Wyczyść dziennik
@@ -406,7 +415,7 @@ opcjonalnym: jest pusty, gdy nie ma co wstawić (`{df!}`); bez niego polecenie s
 wyjaśnienie. Inne nawiasy klamrowe (`{}` z `find`, `${HOME}`) zostają bez zmian. Polecenie działa w folderze
 listera, a `$LISTER_DIR` i `$LISTER_SELECTION` są ustawione jak w poleceniach przycisków.
 
-**Ustawienia → Typy plików** to edytor tego pliku: po lewej lista typów (dodawanie, **powielanie** – także w menu prawego przycisku –, usuwanie, zmiana kolejności), a dla
+**Ustawienia → Typy plików** to edytor tego pliku: po lewej lista typów (dodawanie, **powielanie** – także w menu prawego przycisku –, usuwanie, zmiana kolejności: przeciągnij wiersz albo użyj strzałek), a dla
 wybranego jego nazwa i rozszerzenia, **dwuklik** i **⌥ + dwuklik** (wybierasz akcję, potem aplikację, polecenie lub
 akcję listera, której potrzebuje) oraz **wpisy menu kontekstowego** z tytułami. Przycisk **{ }** przy poleceniu wstawia
 kody. Każda zmiana zapisuje się od razu; *Open filetypes.json* otwiera surowy plik dla tych, którzy wolą edytor tekstu.

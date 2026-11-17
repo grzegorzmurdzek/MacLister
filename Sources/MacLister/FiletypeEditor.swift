@@ -147,6 +147,7 @@ struct FiletypeEditorView: View {
                         Button("Remove") { remove(index) }
                     }
                 }
+                .onMove { source, destination in moveRules(from: source, to: destination) }      // drag a row to change the priority
             }
             Divider()
             HStack(spacing: 4) {
@@ -165,6 +166,14 @@ struct FiletypeEditorView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding([.horizontal, .bottom], 8)
         }
+    }
+
+    /// Drag and drop in the list; the selection stays on the filetype it was on.
+    private func moveRules(from source: IndexSet, to destination: Int) {
+        var order = Array(rules.indices)
+        order.move(fromOffsets: source, toOffset: destination)
+        rules = order.map { rules[$0] }
+        if let selected = selection, let newIndex = order.firstIndex(of: selected) { selection = newIndex }
     }
 
     private func insert() {

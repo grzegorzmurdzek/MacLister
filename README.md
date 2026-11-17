@@ -282,6 +282,15 @@ command works for folders on this Mac, not for servers, archives or lists like R
 out of the Dock and delete its app. The apps talk to MacLister through the `maclister://open?path=/path/to/folder`
 address, which you can also use from scripts (`open "maclister://open?path=$HOME/Downloads"`).
 
+### Opening folders from Finder
+
+Two ways to hand a folder to MacLister from Finder: right-click a folder → **Open With → MacLister** (or drop folders on the
+MacLister icon in the Dock), and right-click any folder or file → **Services → Open in MacLister**. A folder opens in a
+lister, or the lister that already shows it comes forward; for a file MacLister opens the folder it is in with the file
+selected. In *System Settings → Keyboard → Keyboard Shortcuts → Services → Files and Folders* you can give *Open in MacLister* a key.
+The service appears once the app has been in `/Applications` for a moment (if it does not, log out and in, or run
+`/System/Library/CoreServices/pbs -flush`).
+
 ### Clearing the history
 
 **Settings → Operations → History** has **Clear Recent Folders…** (the *Recent Folders* in the Go menu) and **Clear
@@ -400,7 +409,7 @@ optional: it is empty when there is nothing to put in (`{df!}`), otherwise the c
 why. Anything else in braces (`{}` of `find`, `${HOME}`) is left alone. The command runs in the lister's folder;
 `$LISTER_DIR` and `$LISTER_SELECTION` are set as for button commands.
 
-**Settings → Filetypes** is an editor for this file: the list of filetypes on the left (add, **duplicate** – also in the right-click menu –, remove, reorder), and for
+**Settings → Filetypes** is an editor for this file: the list of filetypes on the left (add, **duplicate** – also in the right-click menu –, remove, reorder: drag a row or use the arrows), and for
 the chosen one its name and extensions, the **double-click** and **⌥ + double-click** (pick the action, then the
 application, command or lister action it needs) and the **context-menu entries** with their titles. A **{ }** button
 next to a command inserts the codes. Every change is saved at once; *Open filetypes.json* opens the raw file for those

@@ -1061,3 +1061,4 @@
 "Select a disk to eject" = "Zaznacz dysk do wysunięcia";
 "Unmount and eject the selected disks" = "Odmontuj i wysuń zaznaczone dyski";
 "Rename the selected item in its row (F2)" = "Zmień nazwę zaznaczonego elementu w jego wierszu (F2)";
+"No folder or file to open" = "Brak folderu lub pliku do otwarcia";

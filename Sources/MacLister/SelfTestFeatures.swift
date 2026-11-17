@@ -914,6 +914,27 @@ enum SelfTestFeatures {
             check(manager.openCount == afterFirst, "asking again raises the open lister instead of opening another")
             check(!delegate.openFolder(from: URL(string: "https://example.com")!), "the handler ignores other URLs")
             if let extra = manager.allControllers.last, manager.openCount > before { extra.close() }
+            // Finder hands over folders and files: Open With, the Dock icon, Services → Open in MacLister
+            let countBefore = manager.openCount
+            let existingBefore = manager.allControllers.map(ObjectIdentifier.init)
+            check(delegate.openInLister([dirB]) == 1 && manager.allControllers.contains { ListerModel.comparisonKey($0.model.url) == ListerModel.comparisonKey(dirB) }, "a folder from Finder opens in a lister")
+            check(delegate.openInLister([dirA.appendingPathComponent("a.txt")]) == 1 && manager.openCount <= countBefore + 1, "a file from Finder opens the folder it is in (the open lister is raised)")
+            check(delegate.openInLister([dirA.appendingPathComponent("no-such-file")]) == 0, "something that is not there is skipped")
+            let servicePasteboard = NSPasteboard(name: NSPasteboard.Name("com.example.MacLister.selftest-service"))
+            servicePasteboard.clearContents()
+            servicePasteboard.writeObjects([dirB as NSURL])
+            var serviceError: NSString = ""
+            delegate.openInMacLister(servicePasteboard, userData: "", error: &serviceError)
+            check(serviceError.length == 0, "the service opens what is on the pasteboard")
+            servicePasteboard.clearContents()
+            delegate.openInMacLister(servicePasteboard, userData: "", error: &serviceError)
+            check(serviceError.length > 0, "the service says so when there is nothing to open")
+            let info = Bundle.main.infoDictionary
+            let service = (info?["NSServices"] as? [[String: Any]])?.first
+            check(service?["NSMessage"] as? String == "openInMacLister" && delegate.responds(to: Selector(("openInMacLister:userData:error:"))) && (NSApp.servicesProvider as AnyObject?) === delegate,
+                  "Info.plist declares the service and the app answers it")
+            check((info?["CFBundleDocumentTypes"] as? [[String: Any]])?.contains { ($0["LSItemContentTypes"] as? [String])?.contains("public.folder") == true } == true, "Info.plist lets Finder offer MacLister for folders (Open With)")
+            for extra in manager.allControllers where !existingBefore.contains(ObjectIdentifier(extra)) { extra.close() }       // only the listers made here
         }
         // a synthetic right-click goes through sendEvent exactly like a real one
         later {
