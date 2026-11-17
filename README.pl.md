@@ -85,7 +85,7 @@ wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list 
   wpisać ścieżkę, `~` działa) oraz znaczki **SRC** / **DST**.
 - **Lista plików:** ikona, nazwa, rozmiar, data modyfikacji. Kliknięcie nagłówka sortuje; foldery domyślnie są
   na początku (wyłączysz to w **Ustawienia → Listery → Foldery nad plikami przy sortowaniu** albo w menu nagłówka kolumn). Dwuklik lub Return otwiera plik albo wchodzi do folderu. **Prawy przycisk na nagłówku kolumn**
-  wybiera kolumny: Size, Modified, Created, Kind, Extension, Permissions, Tags, Comment. Przeciągnięte szerokości kolumn są zapamiętywane
+  wybiera kolumny: Size, Size in Bytes (dokładna liczba, domyślnie wyłączona), Modified, Created, Kind, Extension, Permissions, Tags, Comment. Przeciągnięte szerokości kolumn są zapamiętywane
   (Name zawsze zajmuje pozostałe miejsce).
 - **Lista odświeża się sama**, gdy pliki są dodawane, usuwane lub zmieniane na dysku (FSEvents), a podtytuł okna
   pokazuje wolne miejsce na woluminie.
@@ -180,7 +180,8 @@ Docku otwierają wtedy okno dwupanelowe zamiast listera (polecenia *Nowy lister*
 | Return, ⌘↓ | otwórz plik / wejdź do folderu |
 | Backspace, ⌘↑ | folder nadrzędny |
 | ⌘⌫ | przenieś zaznaczenie do Kosza |
-| F2 | zmień nazwę (przy kilku zaznaczonych: zmiana wielu nazw) |
+| F2 | zmień nazwę w wierszu (przy kilku zaznaczonych: zmiana wielu nazw) |
+| ⌘C / ⌘X / ⌘V | kopiuj, wytnij i wklej pliki: wklejenie kopiuje do pokazywanego folderu albo przenosi po ⌘X (późniejsze kopiowanie anuluje wycięcie); wklejenie do folderu, z którego pochodzą pliki, robi kopie obok nich |
 | F5 / F6 | kopiuj / przenieś do listera docelowego |
 | ⌘E | rozpakuj archiwa |
 | ⌘I | informacje (rozmiar, daty, uprawnienia, właściciel) |
@@ -382,6 +383,8 @@ co robi **⌥ + dwuklik**. Przykład:
 ]
 ```
 
+**Dyski i foldery też są typami plików** (jak w Directory Opus): `"extensions": ["@disk"]` oznacza każdy zamontowany dysk, a `["@folder"]` każdy folder. Dodają tylko wpisy do menu kontekstowego (dwuklik zawsze otwiera dysk lub folder), po wpisach wbudowanych. Oba typy są domyślnie na liście, bez wpisów; `filetypes.json` z wcześniejszej wersji dostaje je jednorazowo.
+
 **`menu`** to wpisy, które **menu kontekstowe** pokazuje dla plików tego typu, zaraz po *Otwórz w aplikacji*
 (`title` jest opcjonalny dla `app`, `extract`, `quicklook` i `lister`). Pokazywane są wpisy **wszystkich** pasujących
 reguł, jedna reguła po drugiej; `"*"` pasuje do każdego pliku, a reguła bez `action` tylko dodaje wpisy do menu. Przy
@@ -557,6 +560,8 @@ Wszystkie te kolumny można sortować, więc najbardziej zapełniony albo najpus
 (razem z tym, co macOS zwolni w razie potrzeby); wolumin sieciowy, który nie podaje rozmiaru, nie pokazuje liczb. Otwarcie wiersza pokazuje pliki z dysku. Lista nadąża za podłączaniem i
 wysuwaniem dysków. Jak Ostatnie jest listą, nie folderem, więc polecenia tylko dla folderów są w niej odrzucane.
 
+Dysk nie jest plikiem, więc **prawy przycisk na dysku** (tu, w `/Volumes` albo gdziekolwiek dysk jest na liście) daje własne menu: *Otwórz*, *Otwórz w nowym listerze / karcie / celu*, **Zmień nazwę…** (w wierszu, jak w Finderze; czy wolumin pozwala na zmianę nazwy, rozstrzyga on sam), **Wysuń** albo **Odmontuj** („Wysuń” dla dysków zewnętrznych i obrazów dysków, „Odmontuj” dla woluminów sieciowych i wewnętrznych; zajęty dysk mówi, dlaczego zostaje; dysku startowego nie da się wysunąć), *Informacje*, *Pokaż w Finderze* i *Kopiuj ścieżkę* – bez Kosza, Kopiuj, Kompresuj i innych poleceń dla plików. Zwykłe foldery z listy mają to samo menu bez Wysuń i Zmień nazwę. Oba menu można rozszerzyć: typy plików **Disk** i **Folder** (patrz *Filetypes*) dodają do nich Twoje wpisy. Akcje `eject` i `rename` mogą też być przyciskami, klawiszami albo wpisami typu pliku.
+
 ### Nazwy listerów
 
 Gdy listerów jest wiele, warto je odróżniać: prawy przycisk na belce okna (albo na pustym miejscu listy) →
@@ -651,7 +656,7 @@ i najwyżej 1000 wpisów, więc nigdy nie rośnie bez końca. Samo cofanie jest 
 
 Jak w Directory Opus 5, każdy przycisk może robić co innego po kliknięciu **lewym, prawym i środkowym przyciskiem myszy**.
 Ikona w pasku menu → **Edytuj przyciski…**: wybierz przycisk, ustal akcję dla każdego przycisku myszy (albo polecenie
-powłoki), zmień kolejność, dodaj, usuń, zmień ikonę, kolor i podpowiedź, **Zapisz**. Przyciski z dodatkowymi
+powłoki), zmień kolejność (przeciągając wiersze albo strzałkami), dodaj, usuń, zmień ikonę, kolor i podpowiedź, **Zapisz**. Przyciski z dodatkowymi
 kliknięciami mają znacznik w edytorze i wymieniają je w podpowiedzi. Akcję wybiera się w okienku z polem wyszukiwania,
 pogrupowaną i posortowaną po nazwie. Ikona to **SF Symbol** (jedna z ikon dostarczanych z macOS; wybierz z siatki albo
 wpisz dowolną nazwę) lub **własny obrazek**: *Wybierz obraz…* przyjmuje PNG, JPEG, PDF lub icns, kopiuje go (zmniejszony

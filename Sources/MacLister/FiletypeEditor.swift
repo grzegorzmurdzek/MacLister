@@ -230,7 +230,7 @@ struct FiletypeEditorView: View {
             Section("Which files") {
                 TextField("Name", text: Binding(get: { rule.wrappedValue.name ?? "" }, set: { rule.wrappedValue.name = $0.isEmpty ? nil : $0 }))
                 ExtensionsField(extensions: Binding(get: { rule.wrappedValue.extensions }, set: { rule.wrappedValue.extensions = $0 }))
-                Text("Extensions without the dot, separated by commas or spaces: md, txt, tar.gz. A * stands for every file.")
+                Text("Extensions without the dot, separated by commas or spaces: md, txt, tar.gz. A * stands for every file, @folder for every folder and @disk for every disk (these two only add entries to the context menu).")
                     .font(.caption).foregroundStyle(.secondary)
                 ForEach(Array(FiletypeEditing.notes(for: index, in: rules).enumerated()), id: \.offset) { _, note in
                     Label {

@@ -136,7 +136,9 @@ struct FiletypeStep: Codable, Equatable {
 
 struct FiletypeRule: Codable, Equatable {
     typealias Action = FiletypeStep.Action
-    /// "zip", "tar.gz" … matched against the end of the name; "*" matches every file.
+    /// "zip", "tar.gz" … matched against the end of the name; "*" matches every file. "@folder" stands for every folder
+    /// and "@disk" for every mounted disk (Directory Opus's Directory and Drive filetypes): they only add context-menu
+    /// entries, a double-click on a folder or a disk always opens it.
     var extensions: [String]
     /// The double-click. Without it the rule has nothing to say about it (a rule that only adds menu entries).
     var action: Action?
@@ -174,7 +176,32 @@ final class FiletypeStore {
     static let defaults: [FiletypeRule] = [
         FiletypeRule(extensions: ["zip", "tar", "tar.gz", "tgz", "tar.bz2", "tbz2", "tar.xz", "txz", "tar.zst", "7z", "rar", "gz", "bz2"],
                      action: .extract),
+    ] + diskAndFolderTypes
+
+    static let diskToken = "@disk", folderToken = "@folder"
+
+    /// The filetypes of disks and of folders: they start without entries of their own (the menus of disks and folders
+    /// are built in); what you add under "Context menu" is shown in them.
+    static let diskAndFolderTypes: [FiletypeRule] = [
+        FiletypeRule(extensions: [diskToken], name: "Disk"),
+        FiletypeRule(extensions: [folderToken], name: "Folder"),
     ]
+
+    /// `rules` with the Disk and Folder filetypes added at the end, or nil when it has them (or either) already.
+    static func addingDiskAndFolderTypes(to rules: [FiletypeRule]) -> [FiletypeRule]? {
+        let tokens = Set(rules.flatMap(\.extensions).map { $0.lowercased() })
+        let missing = diskAndFolderTypes.filter { !tokens.contains($0.extensions[0]) }
+        return missing.isEmpty ? nil : rules + missing
+    }
+
+    /// What a URL is for the filetypes: an ordinary file (a package such as an .app is one too), a folder or a disk.
+    enum Kind { case file, folder, disk }
+
+    static func kind(of url: URL) -> Kind {
+        guard url.isFileURL, let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey]),
+              values.isDirectory == true, values.isPackage != true else { return .file }
+        return DeviceList.isVolume(url) ? .disk : .folder
+    }
 
     private var rules: [FiletypeRule] = FiletypeStore.defaults
     private var loadedStamp: Date?
@@ -183,11 +210,23 @@ final class FiletypeStore {
     var configURL: URL { AppSupport.directory.appendingPathComponent("filetypes.json") }
 
     func ensureConfigFileExists() {
-        guard !FileManager.default.fileExists(atPath: configURL.path) else { return }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        try? encoder.encode(Self.defaults).write(to: configURL, options: .atomic)
+        guard FileManager.default.fileExists(atPath: configURL.path) else {
+            try? encoder.encode(Self.defaults).write(to: configURL, options: .atomic)
+            UserDefaults.standard.set(true, forKey: Self.diskAndFolderMigrationKey)       // the defaults have them already
+            return
+        }
+        // a file from an earlier version gets the Disk and Folder filetypes, once (deleting them later sticks)
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: Self.diskAndFolderMigrationKey) else { return }
+        defaults.set(true, forKey: Self.diskAndFolderMigrationKey)
+        guard let data = try? Data(contentsOf: configURL), let saved = try? JSONDecoder().decode([FiletypeRule].self, from: data),
+              let updated = Self.addingDiskAndFolderTypes(to: saved) else { return }
+        try? encoder.encode(updated).write(to: configURL, options: .atomic)
     }
+
+    static let diskAndFolderMigrationKey = "filetypesDiskAndFolderAdded"
 
     /// The rules as they are in filetypes.json now (for the editor).
     func currentRules() -> [FiletypeRule] {
@@ -222,12 +261,19 @@ final class FiletypeStore {
     func rules(for url: URL) -> [FiletypeRule] {
         reloadIfNeeded()
         let name = url.lastPathComponent.lowercased()
-        return rules.filter { Self.matches($0, name: name) }
+        let kind = Self.kind(of: url)
+        return rules.filter { Self.matches($0, name: name, kind: kind) }
     }
 
-    private static func matches(_ rule: FiletypeRule, name: String) -> Bool {
+    /// Extensions and "*" are for files; "@folder" and "@disk" for folders and disks.
+    private static func matches(_ rule: FiletypeRule, name: String, kind: Kind) -> Bool {
         rule.extensions.contains { ext in
-            ext == "*" || (name.hasSuffix("." + ext.lowercased()) && name.count > ext.count + 1)
+            switch ext.lowercased() {
+            case diskToken: return kind == .disk
+            case folderToken: return kind == .folder
+            case "*": return kind == .file
+            default: return kind == .file && name.hasSuffix("." + ext.lowercased()) && name.count > ext.count + 1
+            }
         }
     }
 
@@ -236,9 +282,9 @@ final class FiletypeStore {
     func menuSteps(for urls: [URL]) -> [FiletypeStep] {
         guard let first = urls.first else { return [] }
         reloadIfNeeded()
-        let names = urls.map { $0.lastPathComponent.lowercased() }
+        let names = urls.map { ($0.lastPathComponent.lowercased(), Self.kind(of: $0)) }
         var steps: [FiletypeStep] = []
-        for rule in rules(for: first) where names.allSatisfy({ Self.matches(rule, name: $0) }) {
+        for rule in rules(for: first) where names.allSatisfy({ Self.matches(rule, name: $0.0, kind: $0.1) }) {
             guard let menu = rule.menu, !menu.isEmpty else { continue }
             if !steps.isEmpty { steps.append(FiletypeStep(action: .separator)) }
             steps.append(contentsOf: menu)

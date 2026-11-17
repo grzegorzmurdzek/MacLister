@@ -367,16 +367,19 @@ struct StatusBarView: View {
             Divider()
             HStack(spacing: 10) {
                 if let progress = model.progress {
+                    // The bar and the Cancel button come first and have a fixed size, so Cancel stays where it is
+                    // whatever the file name or the text after it is; the text takes what is left.
                     // Clicking the bar or its text opens the details window (speed, graph, Pause).
-                    Button { if let details = progress.details { TransferDetailsWindows.show(details) } } label: {
-                        HStack(spacing: 10) {
+                    let showDetails = { if let details = progress.details { TransferDetailsWindows.show(details) } }
+                    Button(action: showDetails) {
+                        Group {
                             if let fraction = progress.fraction {
-                                ProgressView(value: min(max(fraction, 0), 1)).frame(width: 150)
+                                ProgressView(value: min(max(fraction, 0), 1))
                             } else {
-                                ProgressView().controlSize(.small)
+                                ProgressView().progressViewStyle(.linear)
                             }
-                            Text(progress.text).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                         }
+                        .frame(width: 150, alignment: .leading)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -384,6 +387,12 @@ struct StatusBarView: View {
                     Button { progress.cancel() } label: { Image(systemName: "xmark.circle.fill") }
                         .buttonStyle(.plain).foregroundStyle(.secondary).help("Cancel")
                     if !queue.waiting.isEmpty { queueMenu }
+                    Button(action: showDetails) {
+                        Text(progress.text).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Show details: speed, graph, pause")
                 } else {
                     status
                 }

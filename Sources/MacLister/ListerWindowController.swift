@@ -706,6 +706,15 @@ final class ListerManager {
         }
     }
 
+    /// A disk was unmounted: listers that were showing something on it go to the Devices list.
+    func leaveVolume(_ volume: URL) {
+        let root = volume.standardizedFileURL.path
+        for controller in controllers where !controller.model.isVirtual && !controller.model.isRemote {
+            let path = controller.model.url.standardizedFileURL.path
+            if path == root || path.hasPrefix(root + "/") { controller.model.navigate(to: VirtualPlace.devices.url) }
+        }
+    }
+
     /// A second lister on the same folder with the same size, sort, hidden-files and filter settings.
     @discardableResult
     func duplicate(_ original: ListerWindowController) -> ListerWindowController {

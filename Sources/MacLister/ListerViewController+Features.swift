@@ -188,6 +188,11 @@ extension ListerViewController {
         if refuseInArchive(tr("Duplicate")) { return }
         let urls = model.selectedURLs
         guard !urls.isEmpty else { NSSound.beep(); return }
+        duplicate(urls)
+    }
+
+    /// Copies the files next to the originals under new names ("name copy"), and selects the first copy.
+    func duplicate(_ urls: [URL]) {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let result = FileTransfer.duplicate(urls)
             DispatchQueue.main.async {

@@ -65,6 +65,7 @@ struct ButtonEditorView: View {
                     }
                     .tag(index)
                 }
+                .onMove { source, destination in moveButtons(from: source, to: destination) }      // drag a row to a new place
             }
             Divider()
             HStack(spacing: 4) {
@@ -80,6 +81,14 @@ struct ButtonEditorView: View {
             .buttonStyle(.borderless)
             .padding(6)
         }
+    }
+
+    /// Drag and drop in the list; the selection stays on the button it was on.
+    private func moveButtons(from source: IndexSet, to destination: Int) {
+        var order = Array(buttons.indices)
+        order.move(fromOffsets: source, toOffset: destination)
+        buttons = order.map { buttons[$0] }
+        if let selected = selection, let newIndex = order.firstIndex(of: selected) { selection = newIndex }
     }
 
     private func insert(_ button: ListerButton) {

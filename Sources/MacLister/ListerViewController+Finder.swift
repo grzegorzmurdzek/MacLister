@@ -198,17 +198,62 @@ extension ListerViewController {
         addFinderItem(title, to: menu, symbol: "trash", run)
     }
 
-    // MARK: Copy
+    // MARK: Copy, Cut and Paste
 
-    /// Puts the files on the pasteboard so they can be pasted in Finder, Mail …
-    func copyFilesToPasteboard() {
+    /// What ⌘X took: the files and the pasteboard it put them on. They move when pasted, but only while that pasteboard
+    /// still holds them (a later ⌘C, or a copy in another app, makes the paste a plain copy).
+    private static var cutFiles: (changeCount: Int, urls: [URL])?
+
+    /// Is the next paste a move? True when the files on the pasteboard are the ones ⌘X took.
+    static func pasteMoves(_ urls: [URL], pasteboardChangeCount: Int) -> Bool {
+        guard let cut = cutFiles else { return false }
+        return cut.changeCount == pasteboardChangeCount && cut.urls == urls
+    }
+
+    /// Puts the files on the pasteboard so they can be pasted in Finder, Mail … (⌘C). With `cut` (⌘X) they are
+    /// moved, not copied, when pasted in a lister.
+    func copyFilesToPasteboard(cut: Bool = false) {
+        let what = cut ? tr("Cut") : tr("Copy")
+        if remoteUnavailable(what) { return }
+        if model.virtualPlace == .devices { _ = refuseInList(what); return }
         let urls = model.selectedURLs
-        guard !urls.isEmpty, !isRemote else { NSSound.beep(); return }
+        guard !urls.isEmpty, urls.allSatisfy(\.isFileURL) else { NSSound.beep(); return }
+        if cut {
+            if refuseInArchive(what) { return }
+            if refuseIfBusy(urls) { return }
+        }
         materialized(urls) { [weak self] in
             NSPasteboard.general.clearContents()
             NSPasteboard.general.writeObjects(urls as [NSURL])
-            self?.flash(urls.count == 1 ? tr("Copied “%@”", urls[0].lastPathComponent) : trCount("Copied %d items", urls.count))
+            Self.cutFiles = cut ? (NSPasteboard.general.changeCount, urls.map(\.standardizedFileURL)) : nil
+            let name = urls.count == 1 ? urls[0].lastPathComponent : nil
+            self?.flash(cut ? (name.map { tr("Cut “%@”: paste it where it should go", $0) } ?? tr("Cut %d items: paste them where they should go", urls.count))
+                            : (name.map { tr("Copied “%@”", $0) } ?? trCount("Copied %d items", urls.count)))
         }
+    }
+
+    /// Pastes the files on the pasteboard into this folder (⌘V): a copy, or a move after ⌘X. Pasting copies into the
+    /// folder they came from makes duplicates, as in Finder.
+    func pasteFiles() {
+        if refuseInList(tr("Paste")) { return }
+        if refuseInArchive(tr("Paste")) { return }
+        let pasteboard = NSPasteboard.general
+        let urls = Self.droppedURLs(from: pasteboard)
+        guard !urls.isEmpty else { NSSound.beep(); return }
+        let kind: TransferKind = Self.pasteMoves(urls, pasteboardChangeCount: pasteboard.changeCount) ? .move : .copy
+        let folder = model.url.standardizedFileURL
+        let here = urls.filter { $0.deletingLastPathComponent().standardizedFileURL.path == folder.path }
+        if here.count == urls.count {
+            if kind == .move { flash(tr("Already in this folder")); return }
+            if !isRemote { duplicate(urls); return }
+        }
+        transfer(kind, items: urls, into: model.url)
+        if kind == .move { Self.cutFiles = nil; pasteboard.clearContents() }       // the files are gone from there: nothing left to paste
+    }
+
+    /// Is there something to paste here? (the Paste item of the context menu)
+    var canPaste: Bool {
+        !model.isVirtual && !model.isInArchive && NSPasteboard.general.canReadObject(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true])
     }
 
     // MARK: Compress

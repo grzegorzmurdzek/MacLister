@@ -175,6 +175,40 @@ enum DeviceList {
         observers.forEach { NSWorkspace.shared.notificationCenter.removeObserver($0) }
     }
 
+    /// Is this URL a mounted disk (not a folder, not one of the usual places)? /Volumes/Macintosh HD is the startup disk too:
+    /// it is a link to "/", so links are followed before the paths are compared.
+    static func isVolume(_ url: URL) -> Bool {
+        guard url.isFileURL else { return false }
+        let path = url.resolvingSymlinksInPath().path
+        return mountedVolumes().contains { $0.resolvingSymlinksInPath().path == path }
+    }
+
+        /// Can this disk be renamed (the file system allows it)? Whether you have the right to is known only when you try.
+    static func canRename(_ url: URL) -> Bool {
+        guard isVolume(url) else { return false }
+        return (try? url.resourceValues(forKeys: [.volumeSupportsRenamingKey]))?.volumeSupportsRenaming ?? false
+    }
+
+    /// Every disk but the startup disk can be unmounted.
+    static func canEject(_ url: URL) -> Bool { isVolume(url) && url.resolvingSymlinksInPath().path != "/" }
+
+    /// "Eject “Backup”" for external disks and disk images, "Unmount “Backup”" for the others (network volumes, internal disks).
+    static func ejectTitle(for url: URL, name: String) -> String {
+        let values = try? url.resourceValues(forKeys: [.volumeIsLocalKey, .volumeIsInternalKey, .volumeIsRemovableKey, .volumeIsEjectableKey])
+        let external = kindName(local: values?.volumeIsLocal ?? true, internal: values?.volumeIsInternal,
+                                removable: values?.volumeIsRemovable ?? false, ejectable: values?.volumeIsEjectable ?? false) == tr("External disk")
+        return external ? tr("Eject “%@”", name) : tr("Unmount “%@”", name)
+    }
+
+    /// Unmounts (and ejects) the disk off the main thread; `completion` runs on the main queue with the reason it failed, if it did.
+    static func eject(_ volume: URL, completion: @escaping (Error?) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let failure: Error?
+            do { try NSWorkspace.shared.unmountAndEjectDevice(at: volume); failure = nil } catch { failure = error }
+            DispatchQueue.main.async { completion(failure) }
+        }
+    }
+
     /// "Internal disk", "External disk" or "Network volume".
     static func kindName(local: Bool, internal isInternal: Bool?, removable: Bool, ejectable: Bool) -> String {
         if !local { return tr("Network volume") }
@@ -197,6 +231,18 @@ enum DeviceList {
         }
     }
 
+    /// Free space as Finder counts it. On APFS the "important usage" figure is the plain free space plus what macOS gives
+    /// back when needed, so it is never smaller; other file systems (FAT32, exFAT …) answer 0 for it, which must not hide
+    /// the real free space, so the larger of the two is used.
+    static func freeSpace(important: Int64?, available: Int64?) -> Int64? {
+        switch (important, available) {
+        case let (i?, a?): return max(i, a)
+        case let (i?, nil): return i
+        case let (nil, a?): return a
+        default: return nil
+        }
+    }
+
     /// Rows of the disks, unsorted.
     static func rows(volumes: [URL] = DeviceList.mountedVolumes()) -> [FileItem] {
         return volumes.map { volume in
@@ -207,7 +253,7 @@ enum DeviceList {
             let kind = kindName(local: values?.volumeIsLocal ?? true, internal: values?.volumeIsInternal,
                                 removable: values?.volumeIsRemovable ?? false, ejectable: values?.volumeIsEjectable ?? false)
             // free the way Finder counts it: what is empty plus what macOS gives back when it is needed
-            let free = values?.volumeAvailableCapacityForImportantUsage ?? values?.volumeAvailableCapacity.map(Int64.init)
+            let free = freeSpace(important: values?.volumeAvailableCapacityForImportantUsage, available: values?.volumeAvailableCapacity.map(Int64.init))
             if let total = item.size, total > 0, let free {
                 item.free = min(max(free, 0), total)
                 item.used = total - (item.free ?? 0)

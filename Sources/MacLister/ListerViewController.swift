@@ -157,6 +157,8 @@ final class ListerViewController: NSViewController {
     var downloadGeneration = 0                      // the newest download to the cache owns the progress display
     var quickLookDownloadCancel: (() -> Void)?      // the download that feeds the open Quick Look panel
     private var columnsShowListLayout = false
+    /// The name being edited in place (F2, Rename…): the item, its text field, and whether Esc or a reload ended it.
+    var inlineRename: (item: FileItem, field: NSTextField, cancelled: Bool)?
     private var columnsShowDevices = false      // the Devices list has its own columns (Used, Free, Usage)
     private let columnMenu = NSMenu(title: "Columns")
     let treeController = FolderTreeController()
@@ -175,11 +177,20 @@ final class ListerViewController: NSViewController {
         return f
     }()
 
+    /// The exact size, with the thousands separator of the language: 1 234 567.
+    private static let bytesFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.usesGroupingSeparator = true
+        return f
+    }()
+
     /// Text shown in a column for an item.
     static func text(for column: ListerColumn, of item: FileItem) -> String {
         switch column {
         case .name: return item.name
         case .size: return item.size.map { sizeFormatter.string(fromByteCount: $0) } ?? "--"
+        case .bytes: return item.size.map { bytesFormatter.string(from: NSNumber(value: $0)) ?? String($0) } ?? "--"
         case .date: return item.modified.map { DateText.string($0) } ?? "--"
         case .created: return item.created.map { DateText.string($0) } ?? "--"
         case .kind: return item.kind ?? (item.isDirectory ? tr("Folder") : "--")
@@ -472,6 +483,7 @@ final class ListerViewController: NSViewController {
             tableView.sortDescriptors = [NSSortDescriptor(key: model.sortKey.rawValue, ascending: model.ascending)]
         }
         if model.isVirtual != columnsShowListLayout || (model.virtualPlace == .devices) != columnsShowDevices { rebuildColumns() }
+        if inlineRename != nil { inlineRename?.cancelled = true }      // the cells are rebuilt: the name being typed is dropped
         rows = items
         tableView.reloadData()
 
@@ -611,6 +623,12 @@ final class ListerViewController: NSViewController {
             selectNeighbourTab(forward: false)
         case 17 where command:                    // ⌘T → new tab
             newTab()
+        case 8 where command:                     // ⌘C → copy the files to the pasteboard
+            copyFilesToPasteboard()
+        case 7 where command:                     // ⌘X → cut (moves when pasted)
+            copyFilesToPasteboard(cut: true)
+        case 9 where command:                     // ⌘V → paste into this folder
+            pasteFiles()
         case 6 where command:                     // ⌘Z → undo the last copy / move
             undoLastOperation()
         case 51 where plain:                      // Backspace → Parent
@@ -644,7 +662,7 @@ final class ListerViewController: NSViewController {
         case 11 where command:                    // ⌘B → bookmark this folder
             addBookmark()
         case 120 where plain:                     // F2 → rename
-            if selectedItems.count == 1 { promptRename(selectedItems[0]) } else { promptBatchRename() }
+            renameSelection()
         case 14 where command:                    // ⌘E → extract archives
             extractSelection()
         case 96 where mods == .shift:             // ⇧F5 → copy as (new names)
@@ -937,6 +955,8 @@ extension ListerViewController {
         case .showRecents:    model.navigate(to: VirtualPlace.recents.url)
         case .showShared:     model.navigate(to: VirtualPlace.shared.url)
         case .showDevices:    model.navigate(to: VirtualPlace.devices.url)
+        case .eject:          ejectSelection()
+        case .rename:         renameSelection()
         case .undo:           undoLastOperation()
         case .showLog:        OperationLogWindow.show()
         case .nextLister:     ListerManager.shared.focusNeighbour(of: windowController, forward: true)
@@ -1352,6 +1372,11 @@ extension ListerViewController: NSMenuDelegate {
     func populate(_ menu: NSMenu, selection items: [FileItem]) {
         menu.removeAllItems()
         menu.autoenablesItems = false
+        // the Devices list, and any folder that holds disks (/Volumes, the sidebar of a tree …): a disk is not a file
+        if model.virtualPlace == .devices || (!items.isEmpty && !isRemote && items.allSatisfy { DeviceList.isVolume($0.url) }) {
+            populateDevicesMenu(menu, selection: items)
+            return
+        }
 
         func make(_ title: String, _ run: @escaping () -> Void) -> NSMenuItem {
             let item = NSMenuItem(title: title, action: #selector(contextMenuItemChosen(_:)), keyEquivalent: "")
@@ -1422,7 +1447,11 @@ extension ListerViewController: NSMenuDelegate {
                 }
             }
             add(tr("Quick Look")) { [weak self] in self?.toggleQuickLook() }
-            if local { add(tr("Copy")) { [weak self] in self?.copyFilesToPasteboard() } }
+            if local {
+                add(tr("Copy")) { [weak self] in self?.copyFilesToPasteboard() }
+                if writable { add(tr("Cut")) { [weak self] in self?.copyFilesToPasteboard(cut: true) } }
+            }
+            if local, canPaste { add(tr("Paste")) { [weak self] in self?.pasteFiles() } }
             add(tr("Copy Path")) { [weak self] in self?.copyPaths(items.map(\.url)) }
 
             let details = submenu(tr("Details"))
@@ -1499,6 +1528,7 @@ extension ListerViewController: NSMenuDelegate {
             }
             menu.addItem(.separator())
             if !model.isInArchive { add(tr("New Folder…")) { [weak self] in self?.promptNewFolder() } }
+            if canPaste { add(tr("Paste")) { [weak self] in self?.pasteFiles() } }
             if !isRemote, !model.isInArchive { add(tr("New Text File")) { [weak self] in self?.createTextFile() } }
             if !isRemote { add(tr("Terminal Here")) { [weak self] in self?.openTerminal() } }
             add(tr("Copy Folder Path")) { [weak self] in self.map { $0.copyPaths([$0.model.url]) } }
@@ -1526,6 +1556,96 @@ extension ListerViewController: NSMenuDelegate {
         (sender.representedObject as? MenuAction)?.run()
     }
 
+    /// The menu of the Devices and Places list. Disks and the usual folders are not files: they cannot be trashed,
+    /// renamed, compressed, copied or tagged, so what a file menu offers for those is left out. A disk can be
+    /// unmounted (ejected); a folder keeps what is useful for folders.
+    func populateDevicesMenu(_ menu: NSMenu, selection items: [FileItem]) {
+        func add(_ title: String, symbol: String? = nil, to target: NSMenu? = nil, _ run: @escaping () -> Void) {
+            let item = NSMenuItem(title: title, action: #selector(contextMenuItemChosen(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = MenuAction(run)
+            if let symbol { item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) }
+            (target ?? menu).addItem(item)
+        }
+        if !items.isEmpty {
+            let disks = items.filter { DeviceList.isVolume($0.url) }
+            let places = items.filter { !DeviceList.isVolume($0.url) }
+            add(items.count == 1 ? tr("Open") : trCount("Open %d Items", items.count)) { [weak self] in self?.openSelection() }
+            if items.count == 1 {
+                add(tr("Open in New Lister")) { [weak self] in self?.openFolderInNewLister() }
+                if Settings.listerTabs { add(tr("Open in New Tab")) { [weak self] in self?.openFolderInNewTab() } }
+                if let dst = ListerManager.shared.destinationController, dst.model !== model {
+                    add(tr("Open in Destination")) { [weak self] in self?.showInDestination() }
+                }
+            }
+            if items.count == 1, let disk = disks.first, DeviceList.canRename(disk.url) {
+                add(tr("Rename…")) { [weak self] in self?.promptRename(disk) }
+            }
+            let ejectable = disks.filter { DeviceList.canEject($0.url) }
+            if !ejectable.isEmpty {
+                menu.addItem(.separator())
+                let title = ejectable.count == 1 ? DeviceList.ejectTitle(for: ejectable[0].url, name: ejectable[0].name)
+                                                 : tr("Eject %d Disks", ejectable.count)
+                add(title, symbol: "eject") { [weak self] in self?.eject(ejectable.map(\.url)) }
+            }
+            menu.addItem(.separator())
+            add(tr("Info")) { [weak self] in self?.showInfo() }
+            add(tr("Reveal in Finder")) { [weak self] in self?.revealInFinder() }
+            add(tr("Copy Path")) { [weak self] in self?.copyPaths(items.map(\.url)) }
+            if !places.isEmpty, disks.isEmpty {
+                add(items.count == 1 ? tr("Calculate Folder Size") : tr("Calculate Folder Sizes")) { [weak self] in self?.calculateFolderSizes() }
+            }
+            addFiletypeEntries(to: menu, items: items)          // entries of the Disk and Folder filetypes
+            menu.addItem(.separator())
+        } else {
+            if !model.filter.isEmpty { add(tr("Clear Filter (%@)", model.filter)) { [weak self] in self?.model.setFilter("") } }
+            add(tr("Filter…")) { [weak self] in self?.promptFilter() }
+            add(tr("Refresh")) { [weak self] in self?.model.reload() }
+            menu.addItem(.separator())
+        }
+        let lister = NSMenu(title: tr("This Lister"))
+        lister.autoenablesItems = false
+        if !items.isEmpty { add(tr("Refresh"), to: lister) { [weak self] in self?.model.reload() } }
+        add(tr("Duplicate Lister"), to: lister) { [weak self] in self?.duplicateLister() }
+        if Settings.listerTabs { add(tr("New Tab"), to: lister) { [weak self] in self?.newTab() } }
+        add(nameMenuTitle, to: lister) { [weak self] in self?.promptLabel() }
+        let parent = NSMenuItem(title: lister.title, action: nil, keyEquivalent: "")
+        parent.submenu = lister
+        parent.image = NSImage(systemSymbolName: "macwindow", accessibilityDescription: nil)
+        menu.addItem(parent)
+    }
+
+    /// F2 and the Rename action: one item is renamed in its row, several go to Batch Rename.
+    func renameSelection() {
+        let items = selectedItems
+        if items.count == 1 { promptRename(items[0]) } else if items.isEmpty { NSSound.beep() } else { promptBatchRename() }
+    }
+
+    /// The Eject action: the selected disks (the startup disk and ordinary folders are left out).
+    func ejectSelection() {
+        let disks = selectedItems.map(\.url).filter(DeviceList.canEject)
+        if disks.isEmpty { flash(tr("Select a disk to eject")); return }
+        eject(disks)
+    }
+
+    /// Unmounts and ejects disks (a disk image is detached, a network volume disconnected). A busy disk says why it stays.
+    func eject(_ volumes: [URL]) {
+        for volume in volumes {
+            let name = FileManager.default.displayName(atPath: volume.path)
+            model.statusMessage = tr("Ejecting “%@”…", name)
+            DeviceList.eject(volume) { [weak self] error in
+                guard let self else { return }
+                self.model.statusMessage = nil
+                if let error {
+                    self.model.errorMessage = tr("Cannot eject “%@”: %@", name, error.localizedDescription)
+                } else {
+                    ListerManager.shared.leaveVolume(volume)
+                    self.flash(tr("Ejected “%@”", name))
+                }
+            }
+        }
+    }
+
     private func copyPaths(_ urls: [URL]) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(urls.map(ListerModel.displayPath).joined(separator: "\n"), forType: .string)
@@ -1533,9 +1653,17 @@ extension ListerViewController: NSMenuDelegate {
 
     // MARK: Rename
 
+    /// Rename: the name turns into a text field in the row (Return renames, Esc cancels). A disk is renamed too, when
+    /// the volume allows it. The old question in a sheet remains for an item whose row is not on screen.
     func promptRename(_ item: FileItem) {
-        if refuseInArchive(tr("Rename")) { return }
-        if refuseIfBusy([item.url]) { return }
+        if item.url.scheme == VirtualPlace.scheme { NSSound.beep(); return }
+        if model.virtualPlace == .devices {
+            guard DeviceList.canRename(item.url) else { NSSound.beep(); return }
+        } else {
+            if refuseInArchive(tr("Rename")) { return }
+            if refuseIfBusy([item.url]) { return }
+        }
+        if beginInlineRename(item) { return }
         if isRemote { promptRemoteRename(item); return }
         guard let window = view.window else { return }
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
@@ -1550,11 +1678,67 @@ extension ListerViewController: NSMenuDelegate {
 
         alert.beginSheetModal(for: window) { [weak self] response in
             guard let self, response == .alertFirstButtonReturn else { return }
-            if case .failure(let error) = self.rename(item, to: field.stringValue) {
-                self.model.errorMessage = error.message
-            }
+            self.commitRename(item, to: field.stringValue)
         }
         field.selectText(nil)
+    }
+
+    /// Puts the name of the row into edit mode. False when the row is not there (scrolled away, filtered out).
+    @discardableResult
+    func beginInlineRename(_ item: FileItem) -> Bool {
+        guard let row = rows.firstIndex(where: { $0.url == item.url }), let window = view.window,
+              let column = tableView.tableColumns.firstIndex(where: { $0.identifier.rawValue == "name" }) else { return false }
+        if inlineRename != nil { return false }
+        tableView.scrollRowToVisible(row)
+        guard let cell = tableView.view(atColumn: column, row: row, makeIfNecessary: true) as? NSTableCellView, let field = cell.textField else { return false }
+        field.isEditable = true
+        field.isSelectable = true
+        field.drawsBackground = true
+        field.backgroundColor = .textBackgroundColor
+        field.textColor = .labelColor
+        field.stringValue = item.name
+        field.delegate = self
+        inlineRename = (item, field, false)
+        guard window.makeFirstResponder(field) else { endInlineRename(restoring: item); return false }
+        // like Finder: the name without its extension is selected
+        let base = item.isDirectory ? item.name : (item.name as NSString).deletingPathExtension
+        (field.currentEditor() as? NSTextView)?.setSelectedRange(NSRange(location: 0, length: (base.isEmpty ? item.name : base).utf16.count))
+        return true
+    }
+
+    private func endInlineRename(restoring item: FileItem) {
+        guard let edit = inlineRename else { return }
+        inlineRename = nil
+        edit.field.isEditable = false
+        edit.field.isSelectable = false
+        edit.field.drawsBackground = false
+        edit.field.delegate = nil
+        edit.field.stringValue = item.name
+        view.window?.makeFirstResponder(tableView)
+    }
+
+    /// Renames after the user typed a new name: a file or folder here, on a server, or a disk.
+    func commitRename(_ item: FileItem, to newName: String) {
+        if model.virtualPlace == .devices { renameVolume(item, to: newName); return }
+        if isRemote { remoteRename(item, to: newName); return }
+        if case .failure(let error) = rename(item, to: newName) { model.errorMessage = error.message }
+    }
+
+    /// A disk keeps its mount point in step with its name (/Volumes/Old becomes /Volumes/New); the list notices by itself.
+    private func renameVolume(_ item: FileItem, to newName: String) {
+        let name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, !name.contains("/"), !name.contains(":") else { model.errorMessage = tr("Invalid name"); return }
+        guard name != item.name else { return }
+        var url = item.url
+        var values = URLResourceValues()
+        values.name = name
+        do {
+            try url.setResourceValues(values)
+            flash(tr("Renamed “%@” to “%@”", item.name, name))
+            model.reload()
+        } catch {
+            model.errorMessage = tr("Cannot rename “%@”: %@", item.name, error.localizedDescription)
+        }
     }
 
     struct RenameError: Error { let message: String }
@@ -1799,7 +1983,8 @@ extension ListerViewController {
 
     /// The entries the user gave the filetype of these files (filetypes.json, "menu"), after Open With.
     fileprivate func addFiletypeEntries(to menu: NSMenu, items: [FileItem]) {
-        guard model.virtualPlace == nil, !items.contains(where: { $0.isNavigable }) else { return }
+        guard model.virtualPlace == nil || model.virtualPlace == .devices else { return }
+        if model.isInArchive, items.contains(where: { $0.isNavigable }) { return }       // folders inside an archive are not real folders
         let steps = FiletypeStore.shared.menuSteps(for: items.map(\.url))
         guard steps.contains(where: { $0.action != .separator }) else { return }
 
@@ -1946,5 +2131,27 @@ final class TreeSplitView: NSSplitView {
     override func drawDivider(in rect: NSRect) {
         guard arrangedSubviews.first?.isHidden != true else { return }
         super.drawDivider(in: rect)
+    }
+}
+
+
+// MARK: - Editing a name in the row
+
+extension ListerViewController: NSTextFieldDelegate {
+    func controlTextDidEndEditing(_ notification: Notification) {
+        guard let edit = inlineRename, notification.object as? NSTextField === edit.field else { return }
+        let movement = notification.userInfo?["NSTextMovement"] as? Int ?? NSOtherTextMovement
+        let text = edit.field.stringValue
+        let keep = !edit.cancelled && movement != NSCancelTextMovement
+        endInlineRename(restoring: edit.item)
+        if keep { commitRename(edit.item, to: text) }
+    }
+
+    /// Esc cancels (the field editor would otherwise only complete a word).
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+        guard selector == #selector(NSResponder.cancelOperation(_:)), inlineRename?.field === control else { return false }
+        inlineRename?.cancelled = true
+        view.window?.makeFirstResponder(tableView)
+        return true
     }
 }

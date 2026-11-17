@@ -388,6 +388,8 @@ extension ListerAction {
     var defaultHelp: String? {
         switch self {
         case .toggleTree: return "Show or hide the folder tree beside the list (⌥⌘T)"
+        case .eject: return "Unmount and eject the selected disks"
+        case .rename: return "Rename the selected item in its row (F2)"
         case .find: return "Search this folder and everything below it (⇧⌘F)"
         case .findDuplicates: return "Find files with the same content below this folder"
         case .checksums: return "MD5, SHA-1, SHA-256 and SHA-512 of the selected files"

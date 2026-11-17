@@ -3,6 +3,8 @@ import AppKit
 /// What a bottom-bar button does.
 enum ListerAction: String, Codable, CaseIterable, Identifiable {
     case newFolder, newTextFile, terminalHere, delete, parent, back, refresh
+    /// Renames the selected item in its row (a disk too, when the volume allows it); eject unmounts the selected disks.
+    case rename, eject
     case revealInFinder, open, newLister, toggleHidden
     /// Source → destination lister (see the SRC / DST toggles in the path bar).
     case copy, move, copyAs, moveAs, setSource, setDestination, swapSourceDestination
@@ -117,9 +119,14 @@ struct ListerButton: Codable, Hashable {
 
     var needsSelection: Bool { requiresSelection ?? action.needsSelection }
 
+    /// The first button of the bar: the list of disks (and the usual folders), with eject in its context menu.
+    static let showDevicesButton = ListerButton(title: "Show devices", symbol: "externaldrive.fill", action: .showDevices,
+                                                help: "List the disks of this Mac and the usual folders; right-click a disk to eject it", color: "gray")
+
     /// Short on purpose: the rest (select, filter, sizes, duplicate lister, swap …) lives in the context and
     /// title-bar menus and in keyboard shortcuts, and can be added back through buttons.json.
     static let defaults: [ListerButton] = [
+        showDevicesButton,
         ListerButton(title: "New Folder", symbol: "folder.fill.badge.plus", action: .newFolder, help: "Create a folder here", color: "blue"),
         ListerButton(title: "New Text File", symbol: "doc.badge.plus", action: .newTextFile, help: "Create a text file here and open it in your text editor", color: "green"),
         ListerButton(title: "Terminal Here", symbol: "terminal.fill", action: .terminalHere, help: "Open a terminal in this folder", color: "gray"),
@@ -147,10 +154,30 @@ final class ButtonStore: ObservableObject {
 
     private init() { reload() }
 
+    /// Remembers that Show devices was put at the front of a saved bar once, so removing it later sticks.
+    static let showDevicesMigrationKey = "buttonsShowDevicesAdded"
+
+    /// `buttons` with Show devices as the first button, or nil when the bar has it somewhere already (also in a menu).
+    static func addingShowDevices(to buttons: [ListerButton]) -> [ListerButton]? {
+        func has(_ list: [ListerButton]) -> Bool { list.contains { $0.action == .showDevices || has($0.menu ?? []) } }
+        return has(buttons) ? nil : [ListerButton.showDevicesButton] + buttons
+    }
+
+    /// A bar saved by an earlier version gets Show devices as its first button, once.
+    private func migrateShowDevices(at url: URL) {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: Self.showDevicesMigrationKey) else { return }
+        defer { defaults.set(true, forKey: Self.showDevicesMigrationKey) }
+        guard let data = try? Data(contentsOf: url), let saved = try? JSONDecoder().decode([ListerButton].self, from: data),
+              let updated = Self.addingShowDevices(to: saved), let encoded = try? encode(updated) else { return }
+        try? encoded.write(to: url, options: .atomic)
+    }
+
     /// Writes the default file if there is none yet.
     func ensureConfigFileExists() {
         let url = Self.configURL
-        guard !FileManager.default.fileExists(atPath: url.path) else { return }
+        guard !FileManager.default.fileExists(atPath: url.path) else { migrateShowDevices(at: url); return }
+        UserDefaults.standard.set(true, forKey: Self.showDevicesMigrationKey)      // the defaults have it already
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try encode(ListerButton.defaults).write(to: url, options: .atomic)
@@ -238,6 +265,8 @@ extension ListerAction {
         case .connectToServer, .showShared: return "network"
         case .showRecents: return "clock.fill"
         case .showDevices: return "externaldrive.fill"
+        case .eject: return "eject.fill"
+        case .rename: return "pencil"
         case .undo: return "arrow.uturn.backward.circle.fill"
         case .showLog: return "list.bullet.rectangle.fill"
         case .nextLister: return "arrow.right.circle.fill"
@@ -274,7 +303,7 @@ enum ActionCategory: CaseIterable {
 extension ListerAction {
     var category: ActionCategory {
         switch self {
-        case .newFolder, .newTextFile, .delete, .open, .revealInFinder, .duplicateFile, .makeAlias, .makeSymlink, .batchRename, .attributes, .info, .checksums, .extract, .calcSizes:
+        case .newFolder, .newTextFile, .delete, .open, .rename, .eject, .revealInFinder, .duplicateFile, .makeAlias, .makeSymlink, .batchRename, .attributes, .info, .checksums, .extract, .calcSizes:
             return .files
         case .copy, .move, .copyAs, .moveAs, .compare, .synchronize, .showInDestination, .destinationHere, .undo, .showLog:
             return .transfer

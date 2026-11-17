@@ -49,7 +49,7 @@ enum ListerRole { case none, source, destination }
 
 /// State of one lister: current folder, its (sorted) contents, selection, history.
 final class ListerModel: ObservableObject {
-    enum SortKey: String { case name, size, date, created, kind, ext, permissions, tags, comment, folder, used, free, usage }
+    enum SortKey: String { case name, size, bytes, date, created, kind, ext, permissions, tags, comment, folder, used, free, usage }
 
     @Published private(set) var url: URL
     @Published private(set) var items: [FileItem] = []
@@ -588,7 +588,7 @@ final class ListerModel: ObservableObject {
             switch key {
             case .name:
                 order = a.name.localizedStandardCompare(b.name)
-            case .size:
+            case .size, .bytes:
                 order = compare(a.size ?? -1, b.size ?? -1)
             case .date:
                 order = compare(a.modified ?? .distantPast, b.modified ?? .distantPast)

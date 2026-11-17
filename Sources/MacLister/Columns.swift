@@ -3,7 +3,7 @@ import AppKit
 /// Columns of the file list. Name is always shown; the others can be switched on and off by
 /// right-clicking the column header.
 enum ListerColumn: String, CaseIterable {
-    case name, size, date, created, kind, ext, permissions, tags, comment, folder
+    case name, size, bytes, date, created, kind, ext, permissions, tags, comment, folder
     /// Only in the Devices and Places list, which always shows them; the column menu does not offer them.
     case used, free, usage
 
@@ -13,6 +13,7 @@ enum ListerColumn: String, CaseIterable {
         switch self {
         case .name: return tr("Name")
         case .size: return tr("Size")
+        case .bytes: return tr("Size in Bytes")
         case .date: return tr("Modified")
         case .created: return tr("Created")
         case .kind: return tr("Kind")
@@ -31,6 +32,7 @@ enum ListerColumn: String, CaseIterable {
         switch self {
         case .name: return 260
         case .size: return 76
+        case .bytes: return 110
         case .date, .created: return 176
         case .kind: return 150
         case .ext: return 80
@@ -47,6 +49,7 @@ enum ListerColumn: String, CaseIterable {
         switch self {
         case .name: return 110
         case .size: return 60
+        case .bytes: return 70
         case .date, .created: return 120
         case .kind: return 90
         case .ext: return 50
@@ -59,7 +62,7 @@ enum ListerColumn: String, CaseIterable {
         }
     }
 
-    var rightAligned: Bool { self == .size || self == .used || self == .free }
+    var rightAligned: Bool { self == .size || self == .bytes || self == .used || self == .free }
 }
 
 extension Notification.Name {

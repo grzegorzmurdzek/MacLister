@@ -82,7 +82,7 @@ run `defaults delete com.example.MacLister`, and remove MacLister from the two P
   type a path instead, `~` works) and the **SRC** / **DST** badges.
 - **File list:** icon, name, size, modified date. Click a header to sort; folders come first by default, or switch *Keep folders above files when sorting* off (Settings → Listers, or the column header menu) to sort folders and files together.
   Double-click or Return opens a file or enters a folder. **Right-click the column header** to choose the
-  columns: Size, Modified, Created, Kind, Extension, Permissions, Tags, Comment. The widths you drag are remembered
+  columns: Size, Size in Bytes (the exact number, off by default), Modified, Created, Kind, Extension, Permissions, Tags, Comment. The widths you drag are remembered
   (Name always takes the space that is left).
 - **The list refreshes itself** when files are added, removed or changed on disk (FSEvents), and the window
   subtitle shows the free space of the volume.
@@ -178,7 +178,8 @@ Dock icon then open a two-panel window instead of a lister (the *New Lister* com
 | Return, ⌘↓ | open file / enter folder |
 | Backspace, ⌘↑ | parent folder |
 | ⌘⌫ | move selection to the Trash |
-| F2 | rename (with several items selected: batch rename) |
+| F2 | rename in the row (with several items selected: batch rename) |
+| ⌘C / ⌘X / ⌘V | copy, cut and paste files: paste copies into the folder shown, or moves after ⌘X (a copy made later cancels the cut); pasting into the folder the files came from makes copies next to them |
 | F5 / F6 | copy / move to the destination lister |
 | ⌘E | extract archives |
 | ⌘I | info (size, dates, permissions, owner) |
@@ -376,6 +377,8 @@ is what **⌥ + double-click** does. Example:
 ]
 ```
 
+**Disks and folders are filetypes too** (as in Directory Opus): `"extensions": ["@disk"]` stands for every mounted disk and `["@folder"]` for every folder. They only add entries to the context menu (a double-click always opens the disk or folder), after the built-in entries. Both are in the list by default, without entries; a `filetypes.json` from an earlier version gets them once.
+
 **`menu`** lists the entries that the **context menu** shows for files of this type, right after *Open With* (a
 *title* is optional for `app`, `extract`, `quicklook` and `lister`). The entries of **every** rule that fits the
 file are shown, one rule after another; `"*"` fits every file, and a rule without `action` only adds menu entries.
@@ -549,6 +552,8 @@ Directory Opus kept in the same list as its assigns. Each row shows the capacity
 where it is mounted (*Where*). All of these columns can be sorted, so the fullest or the emptiest disk comes first. Free space is counted the way Finder does (it includes what macOS gives back when it is needed); a network volume that does not report its size shows no figures. Opening a row shows the disk's files. The list follows disks being plugged in and ejected.
 Like Recents it is a list, not a folder, so folder-only commands are refused in it.
 
+A disk is not a file, so **right-clicking a disk** (here, in `/Volumes`, or anywhere a disk is listed) gives a menu of its own: *Open*, *Open in New Lister / Tab / Destination*, **Rename…** (in the row, like Finder; the volume decides whether it may be renamed), **Eject** or **Unmount** (“Eject” for external disks and disk images, “Unmount” for network and internal volumes; a busy disk says why it stays; the startup disk cannot be ejected), *Info*, *Reveal in Finder* and *Copy Path* – without Trash, Copy, Compress and the other commands for files. The usual folders in the list get the same menu without Eject and Rename. Both menus can be extended: the **Disk** and **Folder** filetypes (see *Filetypes*) add your own entries to them. The actions `eject` and `rename` can also be buttons, keys or filetype entries.
+
 ### Naming listers
 
 With many listers open it helps to tell them apart: right-click the title bar (or the empty list area) →
@@ -638,7 +643,7 @@ never grows without limit. Undo itself is available only for the current session
 <p align="center"><img src="docs/screenshots/button-editor.jpg" alt="The button editor with Copy selected: left click Copy, right click Move, middle click Compare" width="620"></p>
 
 As in Directory Opus 5, every button can do a different thing for the **left, right and middle mouse button**. Menu-bar
-icon → **Edit Buttons…**: pick a button, choose the action for each mouse button (or a shell command), reorder,
+icon → **Edit Buttons…**: pick a button, choose the action for each mouse button (or a shell command), reorder (drag the rows, or use the arrows),
 add, remove, change the icon, color and tooltip, **Save**. Buttons that have extra clicks show a small marker in the
 editor and list them in their tooltip. The action is chosen in a popover with a search field, grouped and sorted by
 name. The icon is an **SF Symbol** (one of the icons that come with macOS; pick one from the grid or type any name) or

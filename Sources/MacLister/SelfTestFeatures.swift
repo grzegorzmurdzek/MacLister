@@ -961,7 +961,11 @@ enum SelfTestFeatures {
         // button bar position, default buttons, remembered window size
         later {
             let real = ListerButton.defaults.filter { $0.action != .separator }
-            check(real.count == 9 && real.allSatisfy { $0.symbol != nil }, "default button bar is short and every button has an icon (\(real.count))")
+            check(real.count == 10 && real.allSatisfy { $0.symbol != nil }, "default button bar is short and every button has an icon (\(real.count))")
+            check(ListerButton.defaults.first?.action == .showDevices, "Show devices is the first button of the default bar")
+            let old = Array(ListerButton.defaults.dropFirst())
+            check(ButtonStore.addingShowDevices(to: old)?.first?.action == .showDevices && ButtonStore.addingShowDevices(to: old)?.count == old.count + 1
+                  && ButtonStore.addingShowDevices(to: ListerButton.defaults) == nil, "a saved bar without Show devices gets it first; one that has it is left alone")
             let missing = real.compactMap(\.symbol).filter { NSImage(systemSymbolName: $0, accessibilityDescription: nil) == nil }
             check(missing.isEmpty, "every default icon exists as an SF Symbol on this macOS (missing: \(missing))")
             check(real.allSatisfy { $0.color.map(ListerButton.knownColors.contains) ?? true }, "default icon colours are known names")
@@ -2373,6 +2377,8 @@ enum SelfTestFeatures {
                 check(diskRows.count == 2 && diskRows.allSatisfy { $0.isNavigable && ($0.size ?? 0) > 0 && $0.kind?.isEmpty == false }, "Devices rows are folders with a capacity and a description: \(diskRows.map { $0.kind ?? "" })")
                 check(diskRows.allSatisfy { row in row.used.map { used in row.free.map { used >= 0 && $0 >= 0 && used + $0 == row.size } ?? false } ?? false }, "Devices rows: used plus free is the capacity: \(diskRows.map { "\($0.used ?? -1)+\($0.free ?? -1)/\($0.size ?? -1)" })")
                 check(diskRows.allSatisfy { ($0.usedFraction ?? -1) >= 0 && ($0.usedFraction ?? 2) <= 1 }, "Devices rows: usage is a share between 0 and 1")
+                check(DeviceList.freeSpace(important: 0, available: 1_220_000_000) == 1_220_000_000 && DeviceList.freeSpace(important: 90, available: 50) == 90
+                      && DeviceList.freeSpace(important: nil, available: 7) == 7 && DeviceList.freeSpace(important: nil, available: nil) == nil, "free space: a file system that answers 0 for important usage (FAT32) still shows what is free")
                 let byFree = ListerModel.sorted(diskRows, by: .free, ascending: true).map { $0.free ?? -1 }
                 let byUsage = ListerModel.sorted(diskRows, by: .usage, ascending: false).map { $0.usedFraction ?? -1 }
                 check(byFree == byFree.sorted() && byUsage == byUsage.sorted(by: >), "Devices rows sort by free space and by usage")
@@ -2383,6 +2389,26 @@ enum SelfTestFeatures {
                 check(one.model.virtualPlace == .devices && one.model.items.count == 2 + DeviceList.placeRows().count && !one.model.canGoParent, "the lister shows Devices: \(one.model.items.map(\.name))")
                 check(DeviceList.placeRows().first?.name == "Home" && one.model.items.suffix(DeviceList.placeRows().count).allSatisfy { $0.kind == tr("Place") }, "the folders come after the disks")
                 check(ListerAction.showDevices.title == "Show devices" || ListerAction.showDevices.title == "Pokaż urządzenia", "the Show devices action has a name: \(ListerAction.showDevices.title)")
+                // the menu of the Devices list: disks can be ejected and are not files; the startup disk cannot be ejected
+                func menuTitles(_ items: [FileItem]) -> [String] {
+                    let menu = NSMenu()
+                    vc.populate(menu, selection: items)
+                    return menu.items.map(\.title)
+                }
+                if let disk = one.model.items.first(where: { $0.url.path == dirB.path }), let root = one.model.items.first(where: { $0.url.path == "/" }),
+                   let place = one.model.items.first(where: { $0.kind == tr("Place") }) {
+                    let diskMenu = menuTitles([disk]), rootMenu = menuTitles([root]), placeMenu = menuTitles([place])
+                    check(diskMenu.contains(DeviceList.ejectTitle(for: disk.url, name: disk.name)), "a disk can be unmounted from the Devices list: \(diskMenu)")
+                    check(!rootMenu.contains { $0.hasPrefix(tr("Eject “%@”", "")) || $0.hasPrefix(tr("Unmount “%@”", "")) }, "the startup disk cannot be unmounted: \(rootMenu)")
+                    let fileOnly = [tr("Move to Trash"), tr("Copy"), tr("Cut"), tr("Paste"), tr("Details"), tr("Make"), tr("Quick Look")]
+                    check(Set(diskMenu + rootMenu + placeMenu).isDisjoint(with: fileOnly), "no file commands (trash, rename, copy, details …) for disks and places: \(diskMenu + placeMenu)")
+                    check(!placeMenu.contains { $0.hasPrefix(tr("Eject “%@”", "")) || $0.hasPrefix(tr("Unmount “%@”", "")) } && placeMenu.contains(tr("Open")), "a place can be opened but not ejected: \(placeMenu)")
+                    check(!menuTitles([]).contains(tr("New Folder…")) && menuTitles([]).contains(tr("Refresh")), "the empty part of the Devices list has no folder commands: \(menuTitles([]))")
+                }
+                var bytesItem = FileItem(url: dirB, name: "x", isDirectory: false, isPackage: false, isHidden: false, size: 1_234_567, modified: nil)
+                check(ListerViewController.text(for: .bytes, of: bytesItem).filter(\.isNumber) == "1234567" && ListerViewController.text(for: .bytes, of: bytesItem).count > 7, "the bytes column shows the exact size with separators: \(ListerViewController.text(for: .bytes, of: bytesItem))")
+                bytesItem.size = nil
+                check(ListerViewController.text(for: .bytes, of: bytesItem) == "--" && !ColumnSettings.visible.contains(.bytes), "no size, no bytes; and the column is off by default")
                 DeviceList.override = [dirB]
                 one.model.reload()
                 check(one.model.virtualPlace == .devices && one.model.items.count == 1 + DeviceList.placeRows().count, "Refresh rereads the disks: \(one.model.items.count)")
@@ -2419,6 +2445,117 @@ enum SelfTestFeatures {
         }
         later(1.2) { }
         // layout
+        // ⌘C, ⌘X and ⌘V: copy and cut put the files on the pasteboard, paste copies or moves them into the folder shown
+        var pasteBoardBefore: [[(NSPasteboard.PasteboardType, Data)]] = []
+        var pasteSource: ListerWindowController?, pasteTarget: ListerWindowController?
+        let pasteFrom = dirA.appendingPathComponent("paste-from"), pasteTo = dirB.appendingPathComponent("paste-to")
+        /// The URL a lister shows for a file (the temporary folder may be spelled /var or /private/var).
+        func shown(_ vc: ListerViewController, _ name: String) -> URL { vc.rows.first { $0.name == name }?.url ?? URL(fileURLWithPath: "/missing/\(name)") }
+        later {
+            pasteBoardBefore = (NSPasteboard.general.pasteboardItems ?? []).map { item in item.types.compactMap { type in item.data(forType: type).map { (type, $0) } } }
+            for folder in [pasteFrom, pasteTo] { try? fm.createDirectory(at: folder, withIntermediateDirectories: true) }
+            for name in ["copy1.txt", "cut1.txt"] { try? Data(name.utf8).write(to: pasteFrom.appendingPathComponent(name)) }
+            pasteSource = manager.openLister(directory: pasteFrom, anchor: .origin(NSPoint(x: 40, y: 40)))
+            pasteTarget = manager.openLister(directory: pasteTo, anchor: .origin(NSPoint(x: 60, y: 60)))
+        }
+        later(0.6) {
+            guard let from = pasteSource?.listerViewController, let to = pasteTarget?.listerViewController else { check(false, "listers for the paste test"); return }
+            from.setSelectionForSheetTest([shown(from, "copy1.txt")])
+            from.copyFilesToPasteboard()
+            to.pasteFiles()
+        }
+        later(0.8) {
+            check(fm.fileExists(atPath: pasteTo.appendingPathComponent("copy1.txt").path) && fm.fileExists(atPath: pasteFrom.appendingPathComponent("copy1.txt").path), "⌘C then ⌘V copies the file into the other folder")
+            guard let from = pasteSource?.listerViewController, let to = pasteTarget?.listerViewController else { return }
+            from.setSelectionForSheetTest([shown(from, "cut1.txt")])
+            from.copyFilesToPasteboard(cut: true)
+            to.pasteFiles()
+        }
+        later(0.8) {
+            check(fm.fileExists(atPath: pasteTo.appendingPathComponent("cut1.txt").path) && !fm.fileExists(atPath: pasteFrom.appendingPathComponent("cut1.txt").path), "⌘X then ⌘V moves the file")
+            guard let from = pasteSource?.listerViewController, let to = pasteTarget?.listerViewController else { return }
+            check(!to.canPaste || NSPasteboard.general.pasteboardItems?.isEmpty != false, "after a move there is nothing left to paste")
+            // a later copy turns the pasteboard back into a plain copy
+            from.setSelectionForSheetTest([shown(from, "copy1.txt")])
+            from.copyFilesToPasteboard(cut: true)
+            from.copyFilesToPasteboard()
+            to.setSelectionForSheetTest([])
+            to.pasteFiles()
+        }
+        later(0.8) {
+            check(fm.fileExists(atPath: pasteFrom.appendingPathComponent("copy1.txt").path), "a ⌘C after a ⌘X cancels the cut: the file stays where it was")
+            guard let to = pasteTarget?.listerViewController else { return }
+            // pasting into the folder the files came from makes a copy next to them, as in Finder
+            to.setSelectionForSheetTest([shown(to, "copy1.txt")])
+            to.copyFilesToPasteboard()
+            to.pasteFiles()
+        }
+        later(0.8) {
+            let names = (try? fm.contentsOfDirectory(atPath: pasteTo.path)) ?? []
+            check(names.contains { $0.hasPrefix("copy1 ") }, "pasting into the same folder duplicates the file: \(names.sorted())")
+            // Disk and Folder filetypes: entries added there show up in the menus of disks and folders
+            do {
+                let types = FiletypeStore.defaults
+                check(types.contains { $0.extensions == ["@disk"] } && types.contains { $0.extensions == ["@folder"] }, "the default filetypes include Disk and Folder")
+                let old = [FiletypeRule(extensions: ["zip"], action: .extract)]
+                check(FiletypeStore.addingDiskAndFolderTypes(to: old)?.count == 3 && FiletypeStore.addingDiskAndFolderTypes(to: FiletypeStore.defaults) == nil
+                      && FiletypeStore.addingDiskAndFolderTypes(to: old + [FiletypeRule(extensions: ["@disk"])])?.count == 3, "an old filetypes.json gets Disk and Folder; a file that has them is left alone")
+                check(FiletypeStore.kind(of: pasteTo) == .folder && FiletypeStore.kind(of: pasteTo.appendingPathComponent("copy1.txt")) == .file && FiletypeStore.kind(of: URL(fileURLWithPath: "/")) == .disk
+                      && FiletypeStore.kind(of: URL(fileURLWithPath: "/Applications/Safari.app")) == .file, "a URL is a file, a folder (a package is a file) or a disk")
+                let saved = FiletypeStore.shared.currentRules()
+                var disk = FiletypeRule(extensions: ["@disk"], name: "Disk"); disk.menu = [FiletypeStep(action: .shell, command: "true", title: "Disk entry", lister: nil)]
+                var folder = FiletypeRule(extensions: ["@folder"], name: "Folder"); folder.menu = [FiletypeStep(action: .shell, command: "true", title: "Folder entry", lister: nil)]
+                FiletypeStore.shared.save(saved.filter { !$0.extensions.contains("@disk") && !$0.extensions.contains("@folder") } + [disk, folder])
+                let root = URL(fileURLWithPath: "/")
+                check(FiletypeStore.shared.menuSteps(for: [root]).map(\.title) == ["Disk entry"] && FiletypeStore.shared.menuSteps(for: [pasteTo]).map(\.title) == ["Folder entry"]
+                      && FiletypeStore.shared.menuSteps(for: [pasteTo, root]).isEmpty, "Disk entries are for disks, Folder entries for folders, and not for a mix")
+                if let to = pasteTarget?.listerViewController {
+                    let item = FileItem(url: pasteTo, name: "paste-to", isDirectory: true, isPackage: false, isHidden: false, size: nil, modified: nil)
+                    let menu = NSMenu(); to.populate(menu, selection: [item])
+                    check(menu.items.map(\.title).contains("Folder entry"), "a folder's context menu shows the entries of the Folder filetype: \(menu.items.map(\.title))")
+                    DeviceList.override = [pasteTo]
+                    let diskMenu = NSMenu(); to.populate(diskMenu, selection: [item]); DeviceList.override = nil
+                    check(diskMenu.items.map(\.title).contains("Disk entry"), "a disk's context menu shows the entries of the Disk filetype: \(diskMenu.items.map(\.title))")
+                }
+                FiletypeStore.shared.save(saved)
+                check(ListerAction.eject.title == "Eject" || ListerAction.eject.title == "Wysuń", "Eject is an action: \(ListerAction.eject.title)")
+            }
+            // a disk in an ordinary folder (/Volumes) gets the disk menu, not the file menu
+            if let to = pasteTarget?.listerViewController {
+                DeviceList.override = [pasteTo, URL(fileURLWithPath: "/")]
+                let disk = FileItem(url: pasteTo, name: "NO NAME", isDirectory: true, isPackage: false, isHidden: false, size: nil, modified: nil)
+                let startup = FileItem(url: URL(fileURLWithPath: "/Volumes/Macintosh HD"), name: "Macintosh HD", isDirectory: true, isPackage: false, isHidden: false, size: nil, modified: nil)
+                let diskMenu = NSMenu(), startupMenu = NSMenu(), mixedMenu = NSMenu()
+                to.populate(diskMenu, selection: [disk]); to.populate(startupMenu, selection: [startup])
+                let plain = to.rows.first { $0.name == "copy1.txt" }
+                if let plain { to.populate(mixedMenu, selection: [disk, plain]) }
+                let eject = DeviceList.ejectTitle(for: pasteTo, name: "NO NAME")
+                check(diskMenu.items.map(\.title).contains(eject) && !diskMenu.items.map(\.title).contains(tr("Move to Trash")), "a disk row in a folder gets the disk menu: \(diskMenu.items.map(\.title))")
+                check(!startupMenu.items.map(\.title).contains { $0.hasPrefix(tr("Eject “%@”", "")) || $0.hasPrefix(tr("Unmount “%@”", "")) } && !startupMenu.items.map(\.title).contains(tr("Move to Trash")), "/Volumes/Macintosh HD is the startup disk: no eject, no trash: \(startupMenu.items.map(\.title))")
+                check(plain == nil || mixedMenu.items.map(\.title).contains(tr("Move to Trash")), "a disk selected together with a file keeps the file menu")
+                DeviceList.override = nil
+            }
+            // rename in the row: the name becomes a field, and leaving it renames the file
+            if let to = pasteTarget?.listerViewController, let item = to.rows.first(where: { $0.name == "cut1.txt" }) {
+                check(to.beginInlineRename(item) && to.inlineRename?.field.isEditable == true, "Rename turns the name in the row into a text field")
+                to.inlineRename?.field.stringValue = "inline.txt"
+                to.view.window?.makeFirstResponder(to.tableView)
+                check(fm.fileExists(atPath: pasteTo.appendingPathComponent("inline.txt").path) && !fm.fileExists(atPath: pasteTo.appendingPathComponent("cut1.txt").path) && to.inlineRename == nil, "leaving the field renames the file")
+                if let again = to.rows.first(where: { $0.name == "copy1.txt" }) {
+                    check(to.beginInlineRename(again), "a second rename can start")
+                    to.inlineRename?.cancelled = true
+                    to.view.window?.makeFirstResponder(to.tableView)
+                    check(fm.fileExists(atPath: pasteTo.appendingPathComponent("copy1.txt").path), "a cancelled rename changes nothing")
+                }
+            } else { check(false, "a row to rename in place") }
+            NSPasteboard.general.clearContents()
+            for entries in pasteBoardBefore {
+                let restored = NSPasteboardItem()
+                for (type, data) in entries { restored.setData(data, forType: type) }
+                NSPasteboard.general.writeObjects([restored])
+            }
+            pasteSource?.window?.close(); pasteTarget?.window?.close()
+        }
         later {
             let count = manager.openCount
             check(LayoutStore.save(from: manager) == count, "layout saves every open lister")

@@ -961,7 +961,7 @@
 "Open filetypes.json" = "Otwórz filetypes.json";
 "Which files" = "Które pliki";
 "Extensions" = "Rozszerzenia";
-"Extensions without the dot, separated by commas or spaces: md, txt, tar.gz. A * stands for every file." = "Rozszerzenia bez kropki, oddzielone przecinkami lub spacjami: md, txt, tar.gz. Gwiazdka * oznacza każdy plik.";
+"Extensions without the dot, separated by commas or spaces: md, txt, tar.gz. A * stands for every file, @folder for every folder and @disk for every disk (these two only add entries to the context menu)." = "Rozszerzenia bez kropki, oddzielone przecinkami lub spacjami: md, txt, tar.gz. Gwiazdka * oznacza każdy plik, @folder każdy folder, a @disk każdy dysk (te dwa tylko dodają pozycje do menu podręcznego).";
 "Double-click" = "Dwuklik";
 "⌥ + double-click" = "⌥ + dwuklik";
 "None (another filetype or the system decides)" = "Brak (decyduje inny typ pliku lub system)";
@@ -1042,3 +1042,22 @@
 "Used" = "Zajęte";
 "Free" = "Wolne";
 "Usage" = "Zapełnienie";
+
+/* Devices: eject, cut and paste, bytes column */
+"List the disks of this Mac and the usual folders; right-click a disk to eject it" = "Pokaż dyski tego Maca i zwykłe foldery; kliknij dysk prawym przyciskiem, aby go wysunąć";
+"Eject “%@”" = "Wysuń „%@”";
+"Unmount “%@”" = "Odmontuj „%@”";
+"Eject %d Disks" = "Wysuń dyski: %d";
+"Ejecting “%@”…" = "Wysuwanie „%@”…";
+"Cannot eject “%@”: %@" = "Nie można wysunąć „%@”: %@";
+"Ejected “%@”" = "Wysunięto „%@”";
+"Cut “%@”: paste it where it should go" = "Wycięto „%@”: wklej tam, gdzie ma trafić";
+"Cut %d items: paste them where they should go" = "Wycięto elementy: %d. Wklej je tam, gdzie mają trafić";
+"Already in this folder" = "Już jest w tym folderze";
+"Size in Bytes" = "Rozmiar w bajtach";
+"Renamed “%@” to “%@”" = "Zmieniono nazwę „%@” na „%@”";
+"Cannot rename “%@”: %@" = "Nie można zmienić nazwy „%@”: %@";
+"Eject" = "Wysuń";
+"Select a disk to eject" = "Zaznacz dysk do wysunięcia";
+"Unmount and eject the selected disks" = "Odmontuj i wysuń zaznaczone dyski";
+"Rename the selected item in its row (F2)" = "Zmień nazwę zaznaczonego elementu w jego wierszu (F2)";
