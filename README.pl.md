@@ -287,12 +287,14 @@ MacListerem przez adres `maclister://open?path=/ścieżka/do/folderu`, którego 
 
 ### Otwieranie folderów z Findera
 
-Są dwa sposoby, żeby przekazać folder MacListerowi z Findera: prawy przycisk na folderze → **Otwórz w programie → MacLister**
-(albo upuszczenie folderów na ikonę MacListera w Docku) oraz prawy przycisk na dowolnym folderze lub pliku → **Usługi → Otwórz w MacListerze**.
-Folder otwiera się w listerze albo przed siebie wychodzi lister, który już go pokazuje; dla pliku MacLister otwiera folder, w którym
-leży, z zaznaczonym plikiem. W *Ustawieniach systemowych → Klawiatura → Skróty klawiszowe → Usługi → Pliki i foldery* możesz
-nadać *Otwórz w MacListerze* skrót. Usługa pojawia się, gdy aplikacja chwilę postoi w `/Applications` (jeśli nie, wyloguj się i zaloguj
-albo uruchom `/System/Library/CoreServices/pbs -flush`).
+**Ustawienia → Operacje → Finder → Dodaj do Findera** instaluje w `~/Library/Services` szybką akcję *Otwórz w MacListerze*
+(*Usuń* ją zdejmuje). Potem kliknij folder lub plik w Finderze prawym przyciskiem → **Szybkie akcje → Otwórz w MacListerze**
+(jest też w *Finder → Usługi*). Folder otwiera się w listerze albo przed siebie wychodzi lister, który już go pokazuje; dla
+pliku MacLister otwiera folder, w którym leży, z zaznaczonym plikiem. Foldery można też upuścić na ikonę MacListera w Docku.
+W *Ustawieniach systemowych → Klawiatura → Skróty klawiszowe → Usługi → Pliki i foldery* możesz nadać akcji skrót. Jeśli
+pozycja nie pojawi się od razu, wyloguj się i zaloguj albo uruchom `/System/Library/CoreServices/pbs -flush`. (Finder nie ma
+*Otwórz w programie* dla folderów i nie pokazuje usługi, którą MacLister deklaruje sam, dlatego akcja jest szybką akcją.)
+Ze skryptu to samo robi `open -b com.example.MacLister /ścieżka/do/folderu`.
 
 ### Czyszczenie historii
 

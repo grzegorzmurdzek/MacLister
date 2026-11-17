@@ -284,12 +284,14 @@ address, which you can also use from scripts (`open "maclister://open?path=$HOME
 
 ### Opening folders from Finder
 
-Two ways to hand a folder to MacLister from Finder: right-click a folder → **Open With → MacLister** (or drop folders on the
-MacLister icon in the Dock), and right-click any folder or file → **Services → Open in MacLister**. A folder opens in a
-lister, or the lister that already shows it comes forward; for a file MacLister opens the folder it is in with the file
-selected. In *System Settings → Keyboard → Keyboard Shortcuts → Services → Files and Folders* you can give *Open in MacLister* a key.
-The service appears once the app has been in `/Applications` for a moment (if it does not, log out and in, or run
-`/System/Library/CoreServices/pbs -flush`).
+**Settings → Operations → Finder → Add to Finder** installs a Quick Action, *Open in MacLister*, in `~/Library/Services`
+(*Remove* takes it away again). After that, right-click a folder or file in Finder → **Quick Actions → Open in MacLister**
+(it is also in *Finder → Services*). A folder opens in a lister, or the lister that already shows it comes forward; for a
+file MacLister opens the folder it is in with the file selected. Folders can also be dropped on the MacLister icon in the
+Dock. In *System Settings → Keyboard → Keyboard Shortcuts → Services → Files and Folders* you can give the action a key.
+If the entry does not appear at once, log out and in, or run `/System/Library/CoreServices/pbs -flush`. (Finder has no
+*Open With* for folders, and it does not list the service that MacLister declares itself, which is why the action is a
+Quick Action.) From a script, `open -b com.example.MacLister /path/to/folder` does the same.
 
 ### Clearing the history
 

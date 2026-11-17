@@ -249,6 +249,47 @@ private struct TabsSettingsView: View {
     }
 }
 
+// MARK: - Finder
+
+/// "Open in MacLister" for Finder: the Quick Action is added to ~/Library/Services and removed again here.
+private struct FinderActionSection: View {
+    @State private var installed = FinderIntegration.isInstalled()
+    @State private var problem: String?
+
+    var body: some View {
+            Section {
+                LabeledContent("Quick Action “Open in MacLister”") {
+                    HStack {
+                        if installed {
+                            Text("Installed").foregroundStyle(.secondary)
+                            Button("Remove") { set(add: false) }
+                        } else {
+                            Button("Add to Finder") { set(add: true) }
+                        }
+                    }
+                }
+                if let problem = problem {
+                    Text(problem).font(.caption).foregroundStyle(.red)
+                }
+            } header: {
+                Text("Finder")
+            } footer: {
+                Text("Adds a Quick Action to ~/Library/Services. Then right-click a folder or file in Finder → Quick Actions → Open in MacLister (also in Finder → Services). A folder opens in a lister; for a file, the folder it is in opens with the file selected. A key for it can be set in System Settings → Keyboard → Keyboard Shortcuts → Services.")
+            }
+    }
+
+    private func set(add: Bool) {
+        do {
+            if add { try FinderIntegration.install() } else { try FinderIntegration.uninstall() }
+            problem = nil
+        } catch {
+            problem = tr("Cannot change ~/Library/Services: %@", error.localizedDescription)
+        }
+        installed = FinderIntegration.isInstalled()
+    }
+
+}
+
 // MARK: - Operations
 
 private struct OperationsSettingsView: View {
@@ -290,6 +331,7 @@ private struct OperationsSettingsView: View {
             } header: {
                 Text("Undo")
             }
+            FinderActionSection()
         }
         .formStyle(.grouped)
         .frame(width: 520)

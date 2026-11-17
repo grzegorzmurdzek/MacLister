@@ -1062,3 +1062,11 @@
 "Unmount and eject the selected disks" = "Odmontuj i wysuń zaznaczone dyski";
 "Rename the selected item in its row (F2)" = "Zmień nazwę zaznaczonego elementu w jego wierszu (F2)";
 "No folder or file to open" = "Brak folderu lub pliku do otwarcia";
+
+/* Finder Quick Action */
+"Quick Action “Open in MacLister”" = "Szybka akcja „Otwórz w MacListerze”";
+"Add to Finder" = "Dodaj do Findera";
+"Adds a Quick Action to ~/Library/Services. Then right-click a folder or file in Finder → Quick Actions → Open in MacLister (also in Finder → Services). A folder opens in a lister; for a file, the folder it is in opens with the file selected. A key for it can be set in System Settings → Keyboard → Keyboard Shortcuts → Services." = "Dodaje szybką akcję do ~/Library/Services. Potem kliknij folder lub plik w Finderze prawym przyciskiem → Szybkie akcje → Otwórz w MacListerze (także w Finder → Usługi). Folder otwiera się w listerze; dla pliku otwiera się folder, w którym leży, z zaznaczonym plikiem. Skrót można nadać w Ustawieniach systemowych → Klawiatura → Skróty klawiszowe → Usługi.";
+"Cannot change ~/Library/Services: %@" = "Nie można zmienić ~/Library/Services: %@";
+"Installed" = "Zainstalowana";
+"Finder" = "Finder";

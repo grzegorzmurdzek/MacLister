@@ -2551,6 +2551,28 @@ enum SelfTestFeatures {
                 FiletypeStore.shared.save(saved)
                 check(ListerAction.eject.title == "Eject" || ListerAction.eject.title == "Wysuń", "Eject is an action: \(ListerAction.eject.title)")
             }
+            // the Finder Quick Action: a valid workflow that opens the selection in MacLister
+            do {
+                let services = fm.temporaryDirectory.appendingPathComponent("maclister-services-\(UUID().uuidString)")
+                check(!FinderIntegration.isInstalled(in: services), "no Quick Action before it is added")
+                let workflow = try? FinderIntegration.install(in: services, title: "Open in MacLister", refresh: false)
+                check(workflow != nil && FinderIntegration.isInstalled(in: services), "the Quick Action is written")
+                let info = (workflow.flatMap { try? Data(contentsOf: $0.appendingPathComponent("Contents/Info.plist")) })
+                    .flatMap { try? PropertyListSerialization.propertyList(from: $0, format: nil) } as? [String: Any]
+                let service = (info?["NSServices"] as? [[String: Any]])?.first
+                check(service?["NSMessage"] as? String == "runWorkflowAsService" && (service?["NSMenuItem"] as? [String: String])?["default"] == "Open in MacLister"
+                      && (service?["NSSendFileTypes"] as? [String]) == ["public.item"], "its Info.plist is a Services entry for any file or folder")
+                let wflow = (workflow.flatMap { try? Data(contentsOf: $0.appendingPathComponent("Contents/document.wflow")) })
+                    .flatMap { try? PropertyListSerialization.propertyList(from: $0, format: nil) } as? [String: Any]
+                let step = ((wflow?["actions"] as? [[String: Any]])?.first?["action"]) as? [String: Any]
+                let parameters = step?["ActionParameters"] as? [String: Any]
+                check(parameters?["COMMAND_STRING"] as? String == "open -b com.example.MacLister \"$@\"" && parameters?["inputMethod"] as? Int == 1
+                      && (wflow?["workflowMetaData"] as? [String: Any])?["workflowTypeIdentifier"] as? String == "com.apple.Automator.servicesMenu", "the workflow runs `open` on its arguments with the selected items as arguments")
+                _ = try? FinderIntegration.install(in: services, refresh: false)          // again: replaces, no error
+                try? FinderIntegration.uninstall(in: services, refresh: false)
+                check(!FinderIntegration.isInstalled(in: services), "the Quick Action can be removed")
+                try? fm.removeItem(at: services)
+            }
             // a disk in an ordinary folder (/Volumes) gets the disk menu, not the file menu
             if let to = pasteTarget?.listerViewController {
                 DeviceList.override = [pasteTo, URL(fileURLWithPath: "/")]
