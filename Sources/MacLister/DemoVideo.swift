@@ -21,6 +21,7 @@ enum DemoVideo {
     private static var recorder: Recorder?
     private static var startTime: CFTimeInterval = 0
     private static var markers: [[String: Any]] = []
+    private static var buttonHider: Timer?
 
     // MARK: Entry
 
@@ -42,6 +43,7 @@ enum DemoVideo {
         region = NSRect(x: (visible.midX - size.width / 2).rounded(), y: (visible.midY - size.height / 2).rounded(),
                         width: size.width, height: size.height)
         makeBackdrop(covering: visible)
+        hideWindowButtons()
         cursor = CursorWindow()
         cursor?.place(at: NSPoint(x: region.maxX + 80, y: region.minY - 80))
         NSApp.activate(ignoringOtherApps: true)
@@ -59,7 +61,22 @@ enum DemoVideo {
         }
     }
 
+    /// The video shows no close, minimise and zoom dots in the corner of the windows: every window the scenes open
+    /// (listers, settings, dialogs) has them hidden as soon as it exists.
+    private static func hideWindowButtons() {
+        func hide() {
+            for window in NSApp.windows {
+                for kind in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+                    window.standardWindowButton(kind)?.isHidden = true
+                }
+            }
+        }
+        hide()
+        buttonHider = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in MainActor.assumeIsolated { hide() } }
+    }
+
     private static func finish() {
+        buttonHider?.invalidate()
         ListerManager.shared.closeAll()
         backdrop?.close()
         cursor?.close()
