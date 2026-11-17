@@ -704,7 +704,8 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
             let cell = reusableCell("Cell-\(kind.rawValue)", in: tableView) {
                 self.makeTextCell($0, alignment: kind.rightAligned ? .right : .left)
             }
-            cell.textField?.stringValue = Self.text(for: kind, of: item)
+            // in the Devices list "Where" is where the disk is mounted, not the folder that holds it
+            cell.textField?.stringValue = kind == .folder && model.virtualPlace == .devices ? PathText.short(item.url.path) : Self.text(for: kind, of: item)
             return cell
         }
     }
@@ -914,6 +915,7 @@ extension ListerViewController {
         case .nameLister:     promptLabel()
         case .showRecents:    model.navigate(to: VirtualPlace.recents.url)
         case .showShared:     model.navigate(to: VirtualPlace.shared.url)
+        case .showDevices:    model.navigate(to: VirtualPlace.devices.url)
         case .undo:           undoLastOperation()
         case .showLog:        OperationLogWindow.show()
         case .nextLister:     ListerManager.shared.focusNeighbour(of: windowController, forward: true)

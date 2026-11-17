@@ -73,7 +73,7 @@ run `defaults delete com.example.MacLister`, and remove MacLister from the two P
   **single click of the middle button** open a lister instead of, or in addition to, the double-click.
 - Or use the menu-bar icon → **New Lister**.
 - By default the window's top-left corner sits on the click; **Settings → General → Center the lister on the pointer**
-  centres it instead. A lister opens on your home folder (see *startDirectory* below).
+  centres it instead. A lister opens on your home folder (see *startDirectory* below); Settings → General → *Start folder* can also set another folder or the Devices and Places list, and shows which of the three is in use.
 
 ### Anatomy of a lister
 
@@ -538,6 +538,15 @@ copy and drag the files, but Parent, New Folder, bookmarks and "copy into this l
 an SMB or AFP computer hands it to Finder to mount; an SFTP or FTP computer opens the *Connect to Server* form filled
 in. The first visit to Shared makes macOS ask once for **Local Network** access.
 
+### Devices and Places
+
+**Go → Devices and Places** (or a button with the action `showDevices`, *Show devices* in the button editor) lists the disks mounted
+on this Mac the way the device list of Directory Opus did: the startup disk, internal and external drives, disk images
+and network volumes, and under them the folders you go to most (Home, Desktop, Documents, Downloads, Applications), which
+Directory Opus kept in the same list as its assigns. Each row shows the capacity (*Size*), what the disk is, its format and how much is free (*Kind*), and
+where it is mounted (*Where*). Opening a row shows the disk's files. The list follows disks being plugged in and ejected.
+Like Recents it is a list, not a folder, so folder-only commands are refused in it.
+
 ### Naming listers
 
 With many listers open it helps to tell them apart: right-click the title bar (or the empty list area) →
@@ -720,7 +729,7 @@ brown gray`; default neutral), `help` the tooltip, `requiresSelection` (true/fal
 enabled. `{ "title": "", "action": "separator" }` draws a thin divider between groups. **Actions:** `newFolder terminalHere delete parent back refresh revealInFinder open newLister
 toggleHidden copy move setSource setDestination swapSourceDestination extract bringAllToFront duplicateLister
 duplicateFile selectPattern deselectPattern selectAll selectNone invertSelection filter clearFilter calcSizes
-compare info showInDestination destinationHere addBookmark makeAlias makeSymlink selectByAttributes toggleRoleLock batchRename attributes nameLister showRecents showShared undo showLog nextLister previousLister separator shell`.
+compare info showInDestination destinationHere addBookmark makeAlias makeSymlink selectByAttributes toggleRoleLock batchRename attributes nameLister showRecents showShared showDevices undo showLog nextLister previousLister separator shell`.
 `shell` runs `command` with `/bin/zsh` in the current folder; `$LISTER_DIR` is that folder and
 `$LISTER_SELECTION` the selected paths, one per line.
 The command may also use the **codes** of filetype commands (see *Filetypes*): `{f}` / `{F}` the selected files
@@ -738,7 +747,7 @@ Set with `defaults write com.example.MacLister <key> <value>`:
 | `showStatusItem` | true | show the menu-bar icon (if you hide it, quit via Activity Monitor) |
 | `showDockIcon` | true | the Dock icon (also: Settings → General) |
 | `listersOnAllDesktops` | false | show listers on every desktop (also: Settings → General) |
-| `startDirectory` | `~` | folder a desktop double-click opens |
+| `startDirectory` | `~` | folder a desktop double-click opens (`maclister://devices`: the Devices and Places list) |
 | `terminalBundleID` | `com.apple.Terminal` | terminal used by *Terminal Here* (also: Settings → Buttons) |
 | `restoreLayoutAtLaunch` | false | reopen the saved layout at start |
 | `autoAssignRoles` | true | the first lister is the source, the next the destination (also: Settings → General) |

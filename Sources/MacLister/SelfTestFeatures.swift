@@ -2263,6 +2263,24 @@ enum SelfTestFeatures {
                 one.model.navigate(to: VirtualPlace.shared.url)
                 check(one.model.virtualPlace == .shared && one.model.sortKey == .name, "the lister shows Shared")
                 check(ListerViewController.icon(for: rows[2]) != nil && ListerViewController.icon(for: rows[1]) != nil, "rows without a file get a symbol icon")
+                // Devices: the mounted disks, each a folder that opens
+                check(VirtualPlace.place(for: VirtualPlace.devices.url) == .devices && (VirtualPlace.devices.title == "Urządzenia i miejsca" || VirtualPlace.devices.title == "Devices and Places"), "the Devices address and title")
+                let diskRows = DeviceList.rows(volumes: [dirB, URL(fileURLWithPath: "/")])
+                check(diskRows.count == 2 && diskRows.allSatisfy { $0.isNavigable && ($0.size ?? 0) > 0 && $0.kind?.isEmpty == false }, "Devices rows are folders with a capacity and a description: \(diskRows.map { $0.kind ?? "" })")
+                DeviceList.override = [dirB, URL(fileURLWithPath: "/")]
+                one.model.navigate(to: VirtualPlace.devices.url)
+                check(one.model.virtualPlace == .devices && one.model.items.count == 2 + DeviceList.placeRows().count && !one.model.canGoParent, "the lister shows Devices: \(one.model.items.map(\.name))")
+                check(DeviceList.placeRows().first?.name == "Home" && one.model.items.suffix(DeviceList.placeRows().count).allSatisfy { $0.kind == tr("Place") }, "the folders come after the disks")
+                check(ListerAction.showDevices.title == "Show devices" || ListerAction.showDevices.title == "Pokaż urządzenia", "the Show devices action has a name: \(ListerAction.showDevices.title)")
+                DeviceList.override = [dirB]
+                one.model.reload()
+                check(one.model.virtualPlace == .devices && one.model.items.count == 1 + DeviceList.placeRows().count, "Refresh rereads the disks: \(one.model.items.count)")
+                DeviceList.override = nil
+                check(Settings.startLocation(from: VirtualPlace.devices.url.absoluteString) == VirtualPlace.devices.url && Settings.startLocation(from: nil).path == fm.homeDirectoryForCurrentUser.path
+                      && Settings.startLocation(from: dirA.path).path == dirA.path, "the start folder can be the Devices list")
+                let startedOnDevices = manager.openLister(directory: Settings.startLocation(from: VirtualPlace.devices.url.absoluteString), anchor: .origin(NSPoint(x: 40, y: 40)))
+                check(startedOnDevices.model.virtualPlace == .devices, "a lister can start on the Devices list")
+                startedOnDevices.window?.close()
                 // leaving restores the sort order and the columns
                 one.model.navigate(to: backTo)
                 check(!one.model.isVirtual && one.model.sortKey == sortBefore.0 && one.model.ascending == sortBefore.1, "going back to a folder restores the sort order")

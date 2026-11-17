@@ -13,8 +13,22 @@ private struct GeneralSettingsView: View {
     @AppStorage("listersOnAllDesktops") private var allDesktops = false
     @State private var language = AppLanguage.current
 
+    private var startsOnDevices: Bool { startDirectory == VirtualPlace.devices.url.absoluteString }
+    private var startsOnHome: Bool { startDirectory.isEmpty }
+    private var startsOnFolder: Bool { !startsOnHome && !startsOnDevices }
+
     private var startFolderText: String {
-        startDirectory.isEmpty ? tr("Home") : PathText.short((startDirectory as NSString).expandingTildeInPath)
+        if startsOnDevices { return VirtualPlace.devices.title }
+        return startsOnHome ? tr("Home") : PathText.short((startDirectory as NSString).expandingTildeInPath)
+    }
+
+    /// The button of the start place that is in use looks pressed.
+    @ViewBuilder private func startButton(_ title: String, active: Bool, action: @escaping () -> Void) -> some View {
+        if active {
+            Button(title, action: action).buttonStyle(.borderedProminent)
+        } else {
+            Button(title, action: action)
+        }
     }
 
     var body: some View {
@@ -30,8 +44,9 @@ private struct GeneralSettingsView: View {
                 LabeledContent("Start folder") {
                     HStack {
                         Text(startFolderText).foregroundStyle(.secondary).lineLimit(1).truncationMode(.head)
-                        Button("Choose…") { chooseStartFolder() }
-                        Button("Home") { startDirectory = "" }.disabled(startDirectory.isEmpty)
+                        startButton(tr("Choose…"), active: startsOnFolder) { chooseStartFolder() }
+                        startButton(tr("Home"), active: startsOnHome) { startDirectory = "" }
+                        startButton(tr("Devices"), active: startsOnDevices) { startDirectory = VirtualPlace.devices.url.absoluteString }
                     }
                 }
                 Toggle("Reopen the saved layout when MacLister starts", isOn: $restoreLayout)
@@ -68,7 +83,7 @@ private struct GeneralSettingsView: View {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
-        panel.directoryURL = Settings.startDirectory
+        panel.directoryURL = Settings.startDirectory.isFileURL ? Settings.startDirectory : FileManager.default.homeDirectoryForCurrentUser
         panel.prompt = tr("Choose")
         if panel.runModal() == .OK, let url = panel.url { startDirectory = url.path }
     }

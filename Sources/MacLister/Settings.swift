@@ -87,7 +87,7 @@ enum TabDoubleClickAction: String, CaseIterable {
 ///
 /// Hidden switches (set with `defaults write com.example.MacLister <key> ...`):
 ///   showStatusItem   (bool,   default true)  – menu bar icon
-///   startDirectory   (string, default ~)     – folder a desktop double-click opens
+///   startDirectory   (string, default ~)     – folder a desktop double-click opens (maclister://devices: the Devices list)
 ///   terminalBundleID (string, default com.apple.Terminal) – app used by "Terminal Here"
 ///   textEditorBundleID (string, default com.apple.TextEdit) – app that opens a file made by "New Text File"
 ///   debugHitTest     (bool,   default false) – log every desktop hit-test decision (Console.app)
@@ -308,11 +308,14 @@ enum Settings {
         set { defaults.set(newValue, forKey: "terminalBundleID") }
     }
 
-    static var startDirectory: URL {
-        if let path = defaults.string(forKey: "startDirectory"), !path.isEmpty {
-            return URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
-        }
-        return FileManager.default.homeDirectoryForCurrentUser
+    /// Where a new lister starts: the folder stored in `startDirectory`, the Devices list (stored as its
+    /// maclister://devices address), or the home folder when nothing is stored.
+    static var startDirectory: URL { startLocation(from: defaults.string(forKey: "startDirectory")) }
+
+    static func startLocation(from stored: String?) -> URL {
+        guard let stored, !stored.isEmpty else { return FileManager.default.homeDirectoryForCurrentUser }
+        if stored == VirtualPlace.devices.url.absoluteString { return VirtualPlace.devices.url }
+        return URL(fileURLWithPath: (stored as NSString).expandingTildeInPath)
     }
 }
 

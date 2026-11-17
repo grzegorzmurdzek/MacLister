@@ -33,8 +33,8 @@ enum ListerAction: String, Codable, CaseIterable, Identifiable {
     case makeAlias, makeSymlink, selectByAttributes, toggleRoleLock, batchRename, attributes, connectToServer
     /// Gives this lister a name and colour of your own.
     case nameLister
-    /// Show the lists of recently opened files and of what is shared on the network.
-    case showRecents, showShared
+    /// Show the lists of recently opened files, of what is shared on the network and of the disks (devices) of this Mac.
+    case showRecents, showShared, showDevices
     /// Takes back the last copy, move, duplicate or Move to Trash; shows the operation log.
     case undo, showLog
     /// Moves the keyboard focus to the next / previous lister (Tab / Shift-Tab).
@@ -237,6 +237,7 @@ extension ListerAction {
         case .batchRename, .attributes, .nameLister: return "pencil.circle.fill"
         case .connectToServer, .showShared: return "network"
         case .showRecents: return "clock.fill"
+        case .showDevices: return "externaldrive.fill"
         case .undo: return "arrow.uturn.backward.circle.fill"
         case .showLog: return "list.bullet.rectangle.fill"
         case .nextLister: return "arrow.right.circle.fill"
@@ -280,7 +281,7 @@ extension ListerAction {
         case .selectPattern, .deselectPattern, .selectAll, .selectNone, .invertSelection, .selectByAttributes,
              .filter, .clearFilter, .find, .findDuplicates, .flatView, .toggleHidden, .refresh:
             return .selecting
-        case .parent, .back, .toggleTree, .addBookmark, .snapshot, .forgetSnapshot, .showRecents, .showShared, .connectToServer:
+        case .parent, .back, .toggleTree, .addBookmark, .snapshot, .forgetSnapshot, .showRecents, .showShared, .showDevices, .connectToServer:
             return .navigation
         case .newLister, .duplicateLister, .setSource, .setDestination, .swapSourceDestination, .toggleRoleLock, .nameLister,
              .nextLister, .previousLister, .bringAllToFront, .gatherListers,

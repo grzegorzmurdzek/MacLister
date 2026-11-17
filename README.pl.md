@@ -76,7 +76,7 @@ wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list 
   otwierać lister **pojedynczym kliknięciem środkowego przycisku** zamiast dwukliku albo oprócz niego.
 - Albo ikona w pasku menu → **New Lister**.
 - Domyślnie lewy górny róg okna leży w punkcie kliknięcia; **Ustawienia → Ogólne → Wyśrodkuj lister na kursorze**
-  wyśrodkowuje okno. Lister otwiera się w folderze domowym (zob. *startDirectory* niżej).
+  wyśrodkowuje okno. Lister otwiera się w folderze domowym (zob. *startDirectory* niżej); w Ustawieniach → Ogólne → *Folder startowy* można wybrać inny folder albo listę Urządzenia i miejsca, a użyty wariant jest podświetlony.
 
 ### Budowa listera
 
@@ -546,6 +546,15 @@ kopiować i przeciągać, ale Nadrzędny, Nowy folder, zakładki i „kopiuj do 
 komputera SMB lub AFP przekazuje go Finderowi do zamontowania; komputer SFTP lub FTP otwiera formularz *Połącz z serwerem*
 z wypełnionymi polami. Pierwsza wizyta w Udostępnianych powoduje, że macOS jednorazowo prosi o dostęp do **sieci lokalnej**.
 
+### Urządzenia i miejsca
+
+**Go → Urządzenia i miejsca** (albo przycisk z akcją `showDevices`, *Pokaż urządzenia* w edytorze przycisków) wyświetla dyski
+zamontowane w tym Macu tak, jak robiła to lista urządzeń Directory Opus: dysk startowy, dyski wewnętrzne i zewnętrzne,
+obrazy dysków i woluminy sieciowe, a pod nimi najczęściej używane foldery (Początek, Biurko, Dokumenty, Pobrane, Programy),
+które Directory Opus trzymał w tej samej liście co przypisy. Wiersz pokazuje pojemność (*Rozmiar*), rodzaj dysku, jego format i wolne miejsce
+(*Rodzaj*) oraz miejsce zamontowania (*Gdzie*). Otwarcie wiersza pokazuje pliki z dysku. Lista nadąża za podłączaniem i
+wysuwaniem dysków. Jak Ostatnie jest listą, nie folderem, więc polecenia tylko dla folderów są w niej odrzucane.
+
 ### Nazwy listerów
 
 Gdy listerów jest wiele, warto je odróżniać: prawy przycisk na belce okna (albo na pustym miejscu listy) →
@@ -747,7 +756,7 @@ Ustawiane przez `defaults write com.example.MacLister <klucz> <wartość>`:
 | `showDockIcon` | true | ikona w Docku (także: Ustawienia → Ogólne) |
 | `listersOnAllDesktops` | false | listery na każdym pulpicie (także: Ustawienia → Ogólne) |
 | `showStatusItem` | true | pokaż ikonę w pasku menu (po ukryciu zamykasz aplikację z Monitora aktywności) |
-| `startDirectory` | `~` | folder otwierany dwuklikiem na pulpicie |
+| `startDirectory` | `~` | folder otwierany dwuklikiem na pulpicie (`maclister://devices`: lista Urządzenia i miejsca) |
 | `terminalBundleID` | `com.apple.Terminal` | terminal dla *Terminal Here* (także: Ustawienia → Przyciski) |
 | `restoreLayoutAtLaunch` | false | otwórz zapisany układ przy starcie |
 | `autoAssignRoles` | true | pierwszy lister jest źródłem, następny celem (także: Ustawienia → Ogólne) |

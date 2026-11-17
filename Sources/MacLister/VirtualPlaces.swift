@@ -3,9 +3,9 @@ import Network
 
 /// Places in the Go menu that are lists, not folders: files opened recently, and what is shared on the
 /// network, and the results of a search. A lister showing one has the address maclister://recents, maclister://shared
-/// or maclister://find?….
+/// or maclister://find?…; maclister://devices lists the disks (volumes) mounted on this Mac, as the device list of Directory Opus did.
 enum VirtualPlace: String, CaseIterable {
-    case recents, shared, find
+    case recents, shared, find, devices
 
     static let scheme = "maclister"
 
@@ -16,6 +16,7 @@ enum VirtualPlace: String, CaseIterable {
         case .recents: return tr("Recents")
         case .shared: return tr("Shared")
         case .find: return tr("Find")
+        case .devices: return tr("Devices and Places")
         }
     }
 
@@ -31,6 +32,7 @@ enum VirtualPlace: String, CaseIterable {
         case .recents: return "clock"
         case .shared: return "network"
         case .find: return "magnifyingglass"
+        case .devices: return "externaldrive"
         }
     }
 
@@ -139,6 +141,80 @@ final class RecentFiles: NSObject {
         var isDirectory: ObjCBool = false
         guard fm.fileExists(atPath: path, isDirectory: &isDirectory), !isDirectory.boolValue else { return nil }
         return Seed(url: URL(fileURLWithPath: path), lastUsed: date)
+    }
+}
+
+// MARK: - Devices
+
+/// The disks mounted on this Mac: the startup disk, internal and external drives, disk images and network volumes.
+/// A row is the volume itself (a folder: opening it shows its files); the size is the capacity of the disk.
+/// Below the disks come the folders you go to most (Home, Desktop …), which Directory Opus kept in the same list as its assigns.
+enum DeviceList {
+    private static let keys: [URLResourceKey] = [
+        .volumeNameKey, .volumeTotalCapacityKey, .volumeAvailableCapacityForImportantUsageKey, .volumeAvailableCapacityKey,
+        .volumeIsLocalKey, .volumeIsInternalKey, .volumeIsRemovableKey, .volumeIsEjectableKey, .volumeLocalizedFormatDescriptionKey,
+    ]
+
+    /// Tests give a fixed set of volumes instead of the ones mounted.
+    static var override: [URL]?
+
+    static func mountedVolumes() -> [URL] {
+        if let override { return override }
+        return FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes]) ?? []
+    }
+
+    /// Calls `changed` (on the main queue) when a disk is mounted, unmounted or renamed.
+    static func observeChanges(_ changed: @escaping () -> Void) -> [NSObjectProtocol] {
+        [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification, NSWorkspace.didRenameVolumeNotification].map { name in
+            NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { _ in changed() }
+        }
+    }
+
+    static func stopObserving(_ observers: [NSObjectProtocol]) {
+        observers.forEach { NSWorkspace.shared.notificationCenter.removeObserver($0) }
+    }
+
+    /// "Internal disk", "External disk" or "Network volume".
+    static func kindName(local: Bool, internal isInternal: Bool?, removable: Bool, ejectable: Bool) -> String {
+        if !local { return tr("Network volume") }
+        if removable || ejectable || isInternal == false { return tr("External disk") }
+        return tr("Internal disk")
+    }
+
+    /// The usual folders of this Mac, one row each (they are not disks, so they have no size).
+    static func placeRows() -> [FileItem] {
+        let fm = FileManager.default
+        func user(_ directory: FileManager.SearchPathDirectory) -> URL? { fm.urls(for: directory, in: .userDomainMask).first }
+        let places: [(String, URL?)] = [(tr("Home"), fm.homeDirectoryForCurrentUser), (tr("Desktop"), user(.desktopDirectory)),
+                                        (tr("Documents"), user(.documentDirectory)), (tr("Downloads"), user(.downloadsDirectory)),
+                                        (tr("Applications"), URL(fileURLWithPath: "/Applications"))]
+        return places.compactMap { title, url in
+            guard let url, fm.fileExists(atPath: url.path) else { return nil }
+            var item = FileItem(url: url, name: title, isDirectory: true, isPackage: false, isHidden: false, size: nil, modified: nil)
+            item.kind = tr("Place")
+            return item
+        }
+    }
+
+    /// Rows of the disks, unsorted.
+    static func rows(volumes: [URL] = DeviceList.mountedVolumes()) -> [FileItem] {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return volumes.map { volume in
+            let values = try? volume.resourceValues(forKeys: Set(keys))
+            let name = values?.volumeName ?? FileManager.default.displayName(atPath: volume.path)
+            var item = FileItem(url: volume, name: name, isDirectory: true, isPackage: false, isHidden: false,
+                                size: values?.volumeTotalCapacity.map(Int64.init), modified: nil)
+            let kind = kindName(local: values?.volumeIsLocal ?? true, internal: values?.volumeIsInternal,
+                                removable: values?.volumeIsRemovable ?? false, ejectable: values?.volumeIsEjectable ?? false)
+            let free = values?.volumeAvailableCapacityForImportantUsage ?? values?.volumeAvailableCapacity.map(Int64.init)
+            var parts = [kind]
+            if let format = values?.volumeLocalizedFormatDescription { parts.append(format) }
+            var text = parts.joined(separator: " · ")
+            if let free { text += ", " + tr("%@ free", formatter.string(fromByteCount: free)) }
+            item.kind = text
+            return item
+        }
     }
 }
 

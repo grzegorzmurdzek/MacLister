@@ -157,6 +157,7 @@ extension PathBarView {
                 ForEach(Self.places, id: \.title) { place in
                     Button { model.navigate(to: place.url) } label: { Label(place.title, systemImage: place.symbol) }
                 }
+                Button { model.navigate(to: VirtualPlace.devices.url) } label: { Label(VirtualPlace.devices.title, systemImage: VirtualPlace.devices.symbol) }
                 ForEach(Self.volumes, id: \.path) { volume in
                     Button { model.navigate(to: volume) } label: { Label(volume.lastPathComponent, systemImage: "externaldrive") }
                 }

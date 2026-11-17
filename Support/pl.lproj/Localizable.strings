@@ -520,6 +520,13 @@
 "Servers and computers in the Shared list cannot be copied: open them first" = "Serwerów i komputerów z listy Udostępniane nie można kopiować: najpierw je otwórz";
 "Show recents" = "Pokaż ostatnie";
 "Show shared" = "Pokaż udostępniane";
+"Show devices" = "Pokaż urządzenia";
+"Devices" = "Urządzenia";
+"Devices and Places" = "Urządzenia i miejsca";
+"Place" = "Miejsce";
+"Internal disk" = "Dysk wewnętrzny";
+"External disk" = "Dysk zewnętrzny";
+"%@ free" = "wolne: %@";
 "Work" = "Praca";
 "%d days" = "%d dni";
 "1 year" = "1 rok";

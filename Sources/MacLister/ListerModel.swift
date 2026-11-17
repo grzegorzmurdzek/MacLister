@@ -102,11 +102,12 @@ final class ListerModel: ObservableObject {
         return url.isFileURL ? url.path : (RemoteURL.normalized(url).absoluteString.removingPercentEncoding ?? url.absoluteString)
     }
 
-    /// Recents and Shared are lists, not folders.
+    /// Recents, Shared and Devices are lists, not folders.
     var virtualPlace: VirtualPlace? { VirtualPlace.place(for: url) }
     var isVirtual: Bool { virtualPlace != nil }
     private var sortBeforeVirtual: (key: SortKey, ascending: Bool)?
     private var sharedObserver: NSObjectProtocol?
+    private var volumeObservers: [NSObjectProtocol] = []
 
     init(url: URL) {
         self.url = VirtualPlace.place(for: url) != nil ? url : (RemoteURL.isRemote(url) ? RemoteURL.normalized(url) : url.standardizedFileURL)
@@ -115,6 +116,10 @@ final class ListerModel: ObservableObject {
         watchCurrentFolder()
         sharedObserver = NotificationCenter.default.addObserver(forName: .sharedPlacesChanged, object: nil, queue: .main) { [weak self] _ in
             if self?.virtualPlace == .shared { self?.loadVirtual() }
+        }
+        // a disk plugged in, ejected or renamed while the Devices list is open
+        volumeObservers = DeviceList.observeChanges { [weak self] in
+            if self?.virtualPlace == .devices { self?.loadVirtual() }
         }
     }
 
@@ -127,7 +132,11 @@ final class ListerModel: ObservableObject {
         if progress != nil, virtualPlace == .find { progress = nil }
     }
 
-    deinit { findToken?.cancel(); if let sharedObserver { NotificationCenter.default.removeObserver(sharedObserver) } }
+    deinit {
+        findToken?.cancel()
+        if let sharedObserver { NotificationCenter.default.removeObserver(sharedObserver) }
+        DeviceList.stopObserving(volumeObservers)
+    }
 
     // MARK: Recents and Shared
 
@@ -192,6 +201,8 @@ final class ListerModel: ObservableObject {
             }
         case .find:
             loadFind(generation: generation, shown: shown)
+        case .devices:
+            items = shown(DeviceList.rows()) + shown(DeviceList.placeRows())      // the disks, then the folders, each sorted
         case .shared:
             SharedPlaces.shared.start()
             items = shown(SharedPlaces.shared.rows())
