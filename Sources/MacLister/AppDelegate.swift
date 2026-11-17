@@ -119,7 +119,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         // Only a normal launch brings the saved listers back; the scripting and test modes above start clean.
-        if Settings.restoreLayoutAtLaunch { LayoutStore.restore(into: ListerManager.shared) }
+        if Settings.restoreLayoutAtLaunch {
+            LayoutStore.restore(into: ListerManager.shared)
+            // Nothing was ever saved (a fresh install): start with two listers side by side, not an empty screen.
+            // Not for a launch that was given something to open (`--open`, a Dock app, a maclister:// link).
+            if !FileManager.default.fileExists(atPath: LayoutStore.url.path), !CommandLine.arguments.dropFirst().contains(where: { $0.hasPrefix("--") }) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                    if ListerManager.shared.openCount == 0 { self?.openStarterListers() }     // else a Dock app or a link opened something
+                }
+            }
+        }
 
         // The Dock icon follows the setting, now and whenever it changes (the self-test modes above stay agents).
         applyDockIconPreference()
@@ -137,6 +146,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let folder = args.indices.contains(flag + 1) ? URL(fileURLWithPath: args[flag + 1]) : Settings.startDirectory
             let center = NSPoint(x: (NSScreen.main?.frame.midX ?? 600), y: (NSScreen.main?.frame.midY ?? 400))
             ListerManager.shared.openLister(directory: folder, anchor: .cursor(center, centered: true))
+        }
+    }
+
+    /// Two ordinary listers next to each other on the main screen (not a two-panel window): the start folder on the
+    /// left, Downloads on the right. With automatic roles they become the source and the destination.
+    @discardableResult
+    func openStarterListers() -> [ListerWindowController] {
+        let manager = ListerManager.shared
+        let area = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let gap: CGFloat = 16
+        let size = NSSize(width: min(720, (area.width - 3 * gap) / 2), height: min(640, area.height - 2 * gap - 40))
+        let left = NSPoint(x: area.midX - gap / 2 - size.width, y: area.midY - size.height / 2)
+        let right = NSPoint(x: area.midX + gap / 2, y: left.y)
+        let start = Settings.startDirectory
+        let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+        let second = downloads.flatMap { FileManager.default.fileExists(atPath: $0.path) && $0.standardizedFileURL != start.standardizedFileURL ? $0 : nil } ?? start
+        return [(start, left), (second, right)].map { folder, origin in
+            manager.openLister(directory: folder, anchor: .origin(origin)) { controller in
+                controller.window?.setFrame(NSRect(origin: origin, size: size), display: false)
+            }
         }
     }
 

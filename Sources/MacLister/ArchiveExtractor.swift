@@ -1,8 +1,21 @@
 import Foundation
 
+/// A folder that Cancel left half filled.
+struct IncompleteExtraction {
+    let archive: URL
+    let folder: URL
+    /// Entries that were extracted completely.
+    let items: Int
+    /// The file that was being written when the job stopped; it was deleted because it is cut short.
+    let removed: String?
+}
+
 struct ExtractResult {
     var outputs: [URL] = []        // created folders
     var failures: [String] = []
+    var cancelled = false
+    /// Set when Cancel stopped an archive after something was already unpacked: the user decides what happens to it.
+    var incomplete: IncompleteExtraction?
 }
 
 /// Unpacks archives into a fresh sub-folder named after the archive (like Archive Utility).
@@ -39,63 +52,44 @@ enum ArchiveExtractor {
     /// Unpacks into exactly `folder` (which exists). Returns the problem, or nil when it worked.
     static func extractContents(of archive: URL, to folder: URL) -> String? {
         guard case .archive? = kind(of: archive) else { return tr("not a supported archive") }
-        let outcome = run("/usr/bin/bsdtar", ["-xf", archive.path, "-C", folder.path], stdoutTo: nil)
+        let outcome = ExtractProcess.run("/usr/bin/bsdtar", ["-xf", archive.path, "-C", folder.path], stdoutTo: nil)
         if outcome.status == 0 { return nil }
         return outcome.error.split(separator: "\n").last.map(String.init) ?? "exit \(outcome.status)"
-    }
-
-    /// Runs on a background queue; `completion` is called on the main queue.
-    static func extract(_ archives: [URL], into parent: URL, completion: @escaping (ExtractResult) -> Void) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let result = extractSync(archives, into: parent)
-            DispatchQueue.main.async { completion(result) }
-        }
-    }
-
-    static func extractSync(_ archives: [URL], into parent: URL) -> ExtractResult {
-        var result = ExtractResult()
-        for archive in archives {
-            switch extractOne(archive, into: parent) {
-            case .success(let folder): result.outputs.append(folder)
-            case .failure(let error):  result.failures.append("\(archive.lastPathComponent): \(error.message)")
-            }
-        }
-        return result
     }
 
     // MARK: -
 
     struct ExtractError: Error { let message: String }
 
-    private static func extractOne(_ archive: URL, into parent: URL) -> Result<URL, ExtractError> {
-        guard let kind = kind(of: archive) else { return .failure(.init(message: tr("not a supported archive"))) }
-        let fm = FileManager.default
+    /// What `ExtractJob` needs to run one archive.
+    struct Plan {
+        let tool: String
+        let arguments: [String]
+        let folder: URL
+        let outputFile: URL?          // a single compressed file: where the tool's stdout goes
+        let isStream: Bool
+    }
 
+    /// Creates the fresh folder for `archive` in `parent` and says how to unpack into it.
+    static func plan(for archive: URL, into parent: URL) -> Result<Plan, ExtractError> {
+        guard let kind = kind(of: archive) else { return .failure(.init(message: tr("not a supported archive"))) }
         let suffix: String
         switch kind { case .archive(let s), .stream(let s): suffix = s }
-        let name = archive.lastPathComponent
-        let stem = String(name.dropLast(suffix.count + 1))
+        let stem = String(archive.lastPathComponent.dropLast(suffix.count + 1))
 
         let folder = freeURL(named: stem, in: parent)
-        do { try fm.createDirectory(at: folder, withIntermediateDirectories: false) }
+        do { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false) }
         catch { return .failure(.init(message: error.localizedDescription)) }
 
-        let outcome: (status: Int32, error: String)
         switch kind {
         case .archive:
-            outcome = run("/usr/bin/bsdtar", ["-xf", archive.path, "-C", folder.path], stdoutTo: nil)
+            // -v: bsdtar names each entry on stderr just before it unpacks it; that is the progress.
+            return .success(Plan(tool: "/usr/bin/bsdtar", arguments: ["-xvf", archive.path, "-C", folder.path],
+                                 folder: folder, outputFile: nil, isStream: false))
         case .stream:
-            let tool = suffix == "gz" ? "/usr/bin/gzip" : "/usr/bin/bzip2"
-            let output = folder.appendingPathComponent(stem)
-            outcome = run(tool, ["-dc", archive.path], stdoutTo: output)
+            return .success(Plan(tool: suffix == "gz" ? "/usr/bin/gzip" : "/usr/bin/bzip2", arguments: ["-dc", archive.path],
+                                 folder: folder, outputFile: folder.appendingPathComponent(stem), isStream: true))
         }
-
-        if outcome.status != 0 {
-            try? fm.removeItem(at: folder)    // never leave a half-empty folder behind
-            let line = outcome.error.split(separator: "\n").last.map(String.init) ?? "exit \(outcome.status)"
-            return .failure(.init(message: line))
-        }
-        return .success(folder)
     }
 
     private static func freeURL(named base: String, in parent: URL) -> URL {
@@ -106,34 +100,5 @@ enum ArchiveExtractor {
             n += 1
         }
         return candidate
-    }
-
-    private static func run(_ tool: String, _ arguments: [String], stdoutTo file: URL?) -> (status: Int32, error: String) {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: tool)
-        process.arguments = arguments
-        let errorPipe = Pipe()
-        process.standardError = errorPipe
-
-        var outputHandle: FileHandle?
-        if let file {
-            // Without a file to write to, the tool would print the data into this app's own stdout.
-            guard FileManager.default.createFile(atPath: file.path, contents: nil),
-                  let handle = try? FileHandle(forWritingTo: file) else {
-                return (-1, tr("Cannot create “%@”", file.lastPathComponent))
-            }
-            outputHandle = handle
-            process.standardOutput = handle
-        } else {
-            process.standardOutput = FileHandle.nullDevice
-        }
-        defer { try? outputHandle?.close() }
-
-        do { try process.run() }
-        catch { return (-1, error.localizedDescription) }
-        let data = errorPipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        let text = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return (process.terminationStatus, text)
     }
 }

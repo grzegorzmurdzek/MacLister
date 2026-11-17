@@ -419,10 +419,10 @@ Plik zastępuje reguły domyślne, a zmiany są wczytywane od razu.
 ### Układy
 
 Ikona w pasku menu → **Save Layout** zapamiętuje każdy otwarty lister (folder, pozycję, rozmiar, rolę,
-sortowanie, pliki ukryte, filtr oraz to, które listery były kartami jednego okna); **Restore Layout** otwiera je z powrotem. Automatyczne przywracanie przy starcie:
+sortowanie, pliki ukryte, filtr oraz to, które listery były kartami jednego okna); **Restore Layout** otwiera je z powrotem. Zapisany układ otwiera się automatycznie przy starcie (Ustawienia → Ogólne); dopóki żaden nie został zapisany, MacLister startuje z dwoma listerami obok siebie (Twój folder startowy i Pobrane) zamiast z pustym ekranem. Wyłączenie:
 
 ```bash
-defaults write com.example.MacLister restoreLayoutAtLaunch -bool true
+defaults write com.example.MacLister restoreLayoutAtLaunch -bool false
 ```
 
 ### Migawka
@@ -551,8 +551,10 @@ z wypełnionymi polami. Pierwsza wizyta w Udostępnianych powoduje, że macOS je
 **Go → Urządzenia i miejsca** (albo przycisk z akcją `showDevices`, *Pokaż urządzenia* w edytorze przycisków) wyświetla dyski
 zamontowane w tym Macu tak, jak robiła to lista urządzeń Directory Opus: dysk startowy, dyski wewnętrzne i zewnętrzne,
 obrazy dysków i woluminy sieciowe, a pod nimi najczęściej używane foldery (Początek, Biurko, Dokumenty, Pobrane, Programy),
-które Directory Opus trzymał w tej samej liście co przypisy. Wiersz pokazuje pojemność (*Rozmiar*), rodzaj dysku, jego format i wolne miejsce
-(*Rodzaj*) oraz miejsce zamontowania (*Gdzie*). Otwarcie wiersza pokazuje pliki z dysku. Lista nadąża za podłączaniem i
+które Directory Opus trzymał w tej samej liście co przypisy. Wiersz pokazuje pojemność (*Rozmiar*), ile z niej jest zajęte (*Zajęte*) i wolne (*Wolne*), pasek z procentem zapełnienia dysku
+(*Zapełnienie*, pomarańczowy od 75 %, czerwony od 90 %), rodzaj dysku i jego format (*Rodzaj*) oraz miejsce zamontowania (*Gdzie*).
+Wszystkie te kolumny można sortować, więc najbardziej zapełniony albo najpustszy dysk ląduje na górze. Wolne miejsce liczone jest tak jak w Finderze
+(razem z tym, co macOS zwolni w razie potrzeby); wolumin sieciowy, który nie podaje rozmiaru, nie pokazuje liczb. Otwarcie wiersza pokazuje pliki z dysku. Lista nadąża za podłączaniem i
 wysuwaniem dysków. Jak Ostatnie jest listą, nie folderem, więc polecenia tylko dla folderów są w niej odrzucane.
 
 ### Nazwy listerów
@@ -758,7 +760,7 @@ Ustawiane przez `defaults write com.example.MacLister <klucz> <wartość>`:
 | `showStatusItem` | true | pokaż ikonę w pasku menu (po ukryciu zamykasz aplikację z Monitora aktywności) |
 | `startDirectory` | `~` | folder otwierany dwuklikiem na pulpicie (`maclister://devices`: lista Urządzenia i miejsca) |
 | `terminalBundleID` | `com.apple.Terminal` | terminal dla *Terminal Here* (także: Ustawienia → Przyciski) |
-| `restoreLayoutAtLaunch` | false | otwórz zapisany układ przy starcie |
+| `restoreLayoutAtLaunch` | true | otwórz zapisany układ przy starcie (do pierwszego zapisu: dwa listery obok siebie) |
 | `autoAssignRoles` | true | pierwszy lister jest źródłem, następny celem (także: Ustawienia → Ogólne) |
 | `desktopTrigger` | `doubleClick` | `doubleClick`, `middleClick` albo `both` (także: Ustawienia → Ogólne) |
 | `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` albo `bottom` |

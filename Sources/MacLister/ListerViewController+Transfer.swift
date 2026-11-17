@@ -111,10 +111,13 @@ extension ListerViewController {
     }
 
     /// "Copying 3 of 12 · 1,2 GB of 6 GB · 37,8 MB/s · name" — the status-line text.
-    static func progressText(verb: String, progress: TransferProgress, speed: Double, paused: Bool, queued: Int = TransferQueue.shared.waiting.count) -> String {
+    /// `peer` names the other end ("from NAS: Downloads"), for the lister at the other side of the operation.
+    static func progressText(verb: String, progress: TransferProgress, speed: Double, paused: Bool, peer: String? = nil,
+                             queued: Int = TransferQueue.shared.waiting.count) -> String {
         let byteFormatter = ByteCountFormatter()
         byteFormatter.countStyle = .file
         var text = tr("%@ %d of %d", verb, min(progress.itemsDone + 1, progress.itemsTotal), progress.itemsTotal)
+        if let peer { text += " · " + peer }
         if progress.bytesTotal > 0 {
             text += " · " + tr("%@ of %@", byteFormatter.string(fromByteCount: min(progress.effectiveBytes, progress.bytesTotal)), byteFormatter.string(fromByteCount: progress.bytesTotal))
         }
@@ -129,6 +132,12 @@ extension ListerViewController {
         let first = RemoteURL.isRemote(items[0]) ? (RemoteURL.path(of: items[0]) as NSString).lastPathComponent : items[0].lastPathComponent
         let more = items.count > 1 ? " +\(items.count - 1)" : ""
         return "\(verb): \(first)\(more) → \(Self.placeName(folder))"
+    }
+
+    /// How a lister is called: its own name when the user gave it one ("NAS: Downloads"), else just the folder.
+    static func listerName(_ model: ListerModel) -> String {
+        let place = placeName(model.url)
+        return model.label.isEmpty ? place : "\(model.label): \(place)"
     }
 
     /// A short place name for the details window: "Downloads", or the server for a remote folder.
@@ -200,6 +209,41 @@ extension ListerViewController {
             }
         }
         if !started { for m in models { m.statusMessage = tr("Waiting in queue…") } }
+    }
+
+    // MARK: - Cancelled extraction
+
+    /// Cancel stopped an archive after part of it was unpacked: keep what is there, or move the folder to the Trash.
+    func askAboutIncompleteExtraction(_ incomplete: IncompleteExtraction, then finished: @escaping () -> Void) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = tr("Extraction of “%@” was cancelled", incomplete.archive.lastPathComponent)
+        var lines = [tr("The folder “%@” holds only part of the archive. Items extracted so far: %d.", incomplete.folder.lastPathComponent, incomplete.items)]
+        if let removed = incomplete.removed {
+            lines.append(tr("“%@” was being written and was deleted because it is incomplete.", (removed as NSString).lastPathComponent))
+        }
+        alert.informativeText = lines.joined(separator: "\n\n")
+        alert.addButton(withTitle: tr("Keep Extracted Files"))
+        alert.addButton(withTitle: tr("Move Folder to Trash"))
+
+        let finish: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            if response == .alertSecondButtonReturn {
+                do {
+                    try FileManager.default.trashItem(at: incomplete.folder, resultingItemURL: nil)
+                    self?.flash(tr("“%@” moved to the Trash", incomplete.folder.lastPathComponent))
+                } catch {
+                    self?.model.errorMessage = "\(incomplete.folder.lastPathComponent): \(error.localizedDescription)"
+                }
+            } else {
+                self?.flash(tr("Kept the incomplete folder “%@”", incomplete.folder.lastPathComponent))
+            }
+            finished()
+        }
+        if let window = view.window, window.isVisible {
+            alert.beginSheetModal(for: window, completionHandler: finish)
+        } else {
+            finish(alert.runModal())
+        }
     }
 
     // MARK: - Asking about a conflict

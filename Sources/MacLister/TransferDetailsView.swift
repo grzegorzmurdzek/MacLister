@@ -64,10 +64,6 @@ struct TransferDetailsView: View {
                 }
             }
 
-            if monitor.isPaused && monitor.speed > 0 {
-                Text("Pausing after the file that is being copied…").font(.caption).foregroundStyle(.secondary)
-            }
-
             HStack {
                 Spacer()
                 if monitor.state == .running {

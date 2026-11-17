@@ -2053,6 +2053,110 @@ enum SelfTestFeatures {
                 }
             }
         }
+        later(0.3) {
+            // extracting with progress; Cancel stops a big archive half way and reports what is left
+            let work = root.appendingPathComponent("ExtractJobTest"), out = work.appendingPathComponent("out")
+            let tree = work.appendingPathComponent("tree")
+            try? fm.createDirectory(at: out, withIntermediateDirectories: true)
+            try? fm.createDirectory(at: tree, withIntermediateDirectories: true)
+            for i in 0..<3000 { try? Data(count: 2000).write(to: tree.appendingPathComponent(String(format: "f%04d.bin", i))) }
+            let tgz = work.appendingPathComponent("many.tgz")
+            let pack = Process()
+            pack.executableURL = URL(fileURLWithPath: "/usr/bin/bsdtar")
+            pack.arguments = ["-czf", tgz.path, "-C", tree.path, "."]
+            try? pack.run(); pack.waitUntilExit()
+            check(fm.fileExists(atPath: tgz.path), "extract test: the test archive exists")
+
+            // pause as soon as a file name is reported, then cancel while stopped
+            func cancelHalfWay() {
+            let job = ExtractJob(archives: [tgz, tgz], into: out)
+            var stopped = false
+            job.onProgress = { p in
+                if !stopped, p.current.hasPrefix("f0") { stopped = true; job.pause() }
+            }
+            var outcome: ExtractResult?
+            job.start { outcome = $0 }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                check(stopped && outcome == nil, "extract job: Pause stops the unpacking (stopped \(stopped))")
+                job.cancel()
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                check(outcome?.cancelled == true && outcome?.failures.isEmpty == true, "extract job: Cancel ends it without a failure: \(String(describing: outcome))")
+                if let partial = outcome?.incomplete {
+                    let left = (try? fm.contentsOfDirectory(atPath: partial.folder.path).count) ?? 0
+                    check(partial.items >= 1 && partial.items < 3000 && left >= partial.items, "extract job: the incomplete folder keeps what was unpacked: \(partial.items) of 3000, \(left) on disk")
+                    if let removed = partial.removed {
+                        check(!fm.fileExists(atPath: partial.folder.appendingPathComponent(removed).path), "extract job: the file that was cut short is deleted")
+                    }
+                } else {
+                    check(false, "extract job: a cancelled archive reports what is left")
+                }
+                let folders = ((try? fm.contentsOfDirectory(atPath: out.path)) ?? []).filter { $0.hasPrefix("many") }
+                check(folders.count == 2, "extract job: the second archive was never started: \(folders)")
+                check(ExtractJob.decodeEscapes("za\\305\\274") == "zaż" && ExtractJob.decodeEscapes("a\\b") == "a\\b", "extract job: escaped names are decoded")
+                try? fm.removeItem(at: work)
+            }
+            }
+            let whole = ExtractJob(archives: [tgz], into: out)
+            var seen: [TransferProgress] = []
+            whole.onProgress = { seen.append($0) }
+            whole.start { finished in
+                check(finished.failures.isEmpty && !finished.cancelled && finished.incomplete == nil && finished.outputs.count == 1, "extract job: a whole archive unpacks: \(finished)")
+                let count = (try? fm.contentsOfDirectory(atPath: finished.outputs.first?.path ?? "/nonexistent").count) ?? 0
+                check(count == 3000, "extract job: all files are there: \(count)")
+                check(seen.last?.itemsDone == 1 && seen.last?.itemsTotal == 1 && (seen.last?.bytesDone ?? 0) == seen.last?.bytesTotal, "extract job: progress ends at the total: \(String(describing: seen.last))")
+                cancelHalfWay()
+            }
+        }
+        // Cancel and Pause inside one big file. Needs another volume (on the same one APFS clones the file at once):
+        // MACLISTER_SELFTEST_VOLUME=/path/to/a/folder/on/another/volume
+        if let other = ProcessInfo.processInfo.environment["MACLISTER_SELFTEST_VOLUME"] {
+            later(0.3) {
+                let src = root.appendingPathComponent("BigCopySrc"), dst = URL(fileURLWithPath: other).appendingPathComponent("MacListerBigCopy")
+                try? fm.createDirectory(at: src, withIntermediateDirectories: true)
+                try? fm.createDirectory(at: dst, withIntermediateDirectories: true)
+                let big = src.appendingPathComponent("big.bin")
+                fm.createFile(atPath: big.path, contents: nil)
+                if let handle = try? FileHandle(forWritingTo: big) {
+                    for _ in 0..<500 { handle.write(Data(count: 1_000_000)) }
+                    try? handle.close()
+                }
+                let job = TransferJob(kind: .move, items: [big], destination: dst)
+                var reports = 0
+                job.onProgress = { _ in reports += 1 }
+                var outcome: TransferResult?
+                var cancelledAt = Date(), finishedAt = Date.distantFuture
+                job.start { outcome = $0; finishedAt = Date() }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    cancelledAt = Date()
+                    job.cancel()
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    check(outcome?.cancelled == true && outcome?.failures.isEmpty == true, "big file: Cancel stops a file half way: \(String(describing: outcome))")
+                    check(!fm.fileExists(atPath: dst.appendingPathComponent("big.bin").path), "big file: no partial copy is left")
+                    check(fm.fileExists(atPath: big.path), "big file: a cancelled move keeps the source")
+                    check(reports > 2, "big file: progress was reported while copying (\(reports))")
+                    check(finishedAt.timeIntervalSince(cancelledAt) < 0.5, "big file: Cancel acts at once (\(finishedAt.timeIntervalSince(cancelledAt)) s)")
+                    try? fm.removeItem(at: src)
+                    try? fm.removeItem(at: dst)
+                }
+            }
+        }
+        later(0.3) {
+            // a fresh install starts with two ordinary listers side by side, not a two-panel window
+            guard let delegate = NSApp.delegate as? AppDelegate else { check(false, "starter listers: no app delegate"); return }
+            let before = ListerManager.shared.openCount
+            let starters = delegate.openStarterListers()
+            check(starters.count == 2 && ListerManager.shared.openCount == before + 2, "starter listers: two listers open (\(starters.count))")
+            if starters.count == 2, let a = starters[0].window?.frame, let b = starters[1].window?.frame {
+                check(!a.intersects(b) && a.maxX <= b.minX && abs(a.minY - b.minY) < 1 && a.width > 300 && b.width > 300, "starter listers: side by side, not overlapping: \(a) \(b)")
+                check(starters.allSatisfy { $0.dualHost == nil }, "starter listers: not a two-panel window")
+                if before == 0 {
+                    check(starters[0].model.role == .source && starters[1].model.role == .destination, "starter listers: source on the left, destination on the right")
+                }
+            }
+            for controller in starters { controller.window?.close() }
+        }
         later(2.2) {
             // the details window
             let monitor = TransferMonitor(title: "Copying", from: "Downloads", to: "NAS")
@@ -2267,8 +2371,15 @@ enum SelfTestFeatures {
                 check(VirtualPlace.place(for: VirtualPlace.devices.url) == .devices && (VirtualPlace.devices.title == "Urządzenia i miejsca" || VirtualPlace.devices.title == "Devices and Places"), "the Devices address and title")
                 let diskRows = DeviceList.rows(volumes: [dirB, URL(fileURLWithPath: "/")])
                 check(diskRows.count == 2 && diskRows.allSatisfy { $0.isNavigable && ($0.size ?? 0) > 0 && $0.kind?.isEmpty == false }, "Devices rows are folders with a capacity and a description: \(diskRows.map { $0.kind ?? "" })")
+                check(diskRows.allSatisfy { row in row.used.map { used in row.free.map { used >= 0 && $0 >= 0 && used + $0 == row.size } ?? false } ?? false }, "Devices rows: used plus free is the capacity: \(diskRows.map { "\($0.used ?? -1)+\($0.free ?? -1)/\($0.size ?? -1)" })")
+                check(diskRows.allSatisfy { ($0.usedFraction ?? -1) >= 0 && ($0.usedFraction ?? 2) <= 1 }, "Devices rows: usage is a share between 0 and 1")
+                let byFree = ListerModel.sorted(diskRows, by: .free, ascending: true).map { $0.free ?? -1 }
+                let byUsage = ListerModel.sorted(diskRows, by: .usage, ascending: false).map { $0.usedFraction ?? -1 }
+                check(byFree == byFree.sorted() && byUsage == byUsage.sorted(by: >), "Devices rows sort by free space and by usage")
                 DeviceList.override = [dirB, URL(fileURLWithPath: "/")]
                 one.model.navigate(to: VirtualPlace.devices.url)
+                check(["used", "free", "usage"].allSatisfy { id in vc.tableView.tableColumns.contains { $0.identifier.rawValue == id } }
+                      && vc.tableView.tableColumns.map(\.identifier.rawValue).starts(with: ["name", "size", "used", "free", "usage"]), "the Devices list shows Used, Free and Usage after Size: \(vc.tableView.tableColumns.map(\.identifier.rawValue))")
                 check(one.model.virtualPlace == .devices && one.model.items.count == 2 + DeviceList.placeRows().count && !one.model.canGoParent, "the lister shows Devices: \(one.model.items.map(\.name))")
                 check(DeviceList.placeRows().first?.name == "Home" && one.model.items.suffix(DeviceList.placeRows().count).allSatisfy { $0.kind == tr("Place") }, "the folders come after the disks")
                 check(ListerAction.showDevices.title == "Show devices" || ListerAction.showDevices.title == "Pokaż urządzenia", "the Show devices action has a name: \(ListerAction.showDevices.title)")
@@ -2285,6 +2396,17 @@ enum SelfTestFeatures {
                 one.model.navigate(to: backTo)
                 check(!one.model.isVirtual && one.model.sortKey == sortBefore.0 && one.model.ascending == sortBefore.1, "going back to a folder restores the sort order")
                 check(!vc.tableView.tableColumns.contains { $0.identifier.rawValue == "folder" } || ColumnSettings.visible.contains(.folder), "the Where column goes away again")
+                check(!vc.tableView.tableColumns.contains { $0.identifier.rawValue == "used" }, "the disk columns go away outside the Devices list")
+                // Reset Columns clears the stored widths too: put everything back as it was afterwards
+                let columnKeys = ["visibleColumns", "columnWidths", "deviceColumns"]
+                let savedColumnSettings = columnKeys.map { UserDefaults.standard.object(forKey: $0) }
+                defer { for (key, value) in zip(columnKeys, savedColumnSettings) { UserDefaults.standard.set(value, forKey: key) } }
+                ColumnSettings.set(.free, visible: false)
+                check(ColumnSettings.deviceColumns == [.used, .usage] && !ColumnSettings.visible.contains(.free), "a disk column can be switched off in the Devices list")
+                ColumnSettings.set(.free, visible: true)
+                ColumnSettings.set(.usage, visible: false)
+                ColumnSettings.reset()
+                check(ColumnSettings.deviceColumns == [.used, .free, .usage], "Reset Columns brings the disk columns back")
                 one.model.navigate(to: VirtualPlace.recents.url)
                 one.model.goBack()
                 check(one.model.url == backTo, "Back leaves Recents for the previous folder")

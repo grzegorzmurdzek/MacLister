@@ -2,8 +2,8 @@ import Foundation
 
 // MARK: - Pause
 
-/// Lets a running job be paused. A job calls `waitWhilePaused` before it starts each file, so a pause
-/// takes effect after the file in flight (copying one file cannot be interrupted half way).
+/// Lets a running job be paused. A job calls `waitWhilePaused` before it starts each file and, while a big
+/// file is copied, about once per megabyte, so a pause takes effect at once.
 final class PauseGate {
     private let condition = NSCondition()
     private var paused = false
@@ -48,7 +48,7 @@ final class GrowthWatcher {
     deinit { timer.cancel() }
 }
 
-/// Bytes of the current file already written, shared between the worker thread and the poller.
+/// Bytes of the current file already written, shared between the worker thread and the progress reports.
 final class LiveBytes {
     private let lock = NSLock()
     private var value: Int64 = 0

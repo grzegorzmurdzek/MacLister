@@ -9,6 +9,9 @@ struct FileItem: Hashable {
     let isHidden: Bool
     var size: Int64?
     var modified: Date?
+    /// Devices list only: the disk's used and free space (`size` is its capacity).
+    var used: Int64? = nil
+    var free: Int64? = nil
     // Loaded only while the matching column is visible:
     var created: Date? = nil
     var kind: String? = nil
@@ -16,6 +19,12 @@ struct FileItem: Hashable {
     var tags: [String] = []
     var comment: String? = nil
     var isSymlink = false          // servers only: shown as a file, but may point to a folder
+
+    /// How full the disk is, 0…1 (Devices list).
+    var usedFraction: Double? {
+        guard let size, size > 0, let used else { return nil }
+        return min(1, max(0, Double(used) / Double(size)))
+    }
 
     /// Folders we can descend into (bundles such as .app are opened, not entered).
     var isNavigable: Bool { isDirectory && !isPackage }
@@ -40,7 +49,7 @@ enum ListerRole { case none, source, destination }
 
 /// State of one lister: current folder, its (sorted) contents, selection, history.
 final class ListerModel: ObservableObject {
-    enum SortKey: String { case name, size, date, created, kind, ext, permissions, tags, comment, folder }
+    enum SortKey: String { case name, size, date, created, kind, ext, permissions, tags, comment, folder, used, free, usage }
 
     @Published private(set) var url: URL
     @Published private(set) var items: [FileItem] = []
@@ -597,6 +606,12 @@ final class ListerModel: ObservableObject {
                 order = (a.comment ?? "").localizedStandardCompare(b.comment ?? "")
             case .folder:
                 order = a.url.deletingLastPathComponent().path.localizedStandardCompare(b.url.deletingLastPathComponent().path)
+            case .used:
+                order = compare(a.used ?? -1, b.used ?? -1)
+            case .free:
+                order = compare(a.free ?? -1, b.free ?? -1)
+            case .usage:
+                order = compare(a.usedFraction ?? -1, b.usedFraction ?? -1)
             }
             if order == .orderedSame { return a.name.localizedStandardCompare(b.name) == .orderedAscending }
             return ascending ? order == .orderedAscending : order == .orderedDescending

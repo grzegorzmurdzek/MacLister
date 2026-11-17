@@ -4,6 +4,10 @@ import AppKit
 /// right-clicking the column header.
 enum ListerColumn: String, CaseIterable {
     case name, size, date, created, kind, ext, permissions, tags, comment, folder
+    /// Only in the Devices and Places list, which always shows them; the column menu does not offer them.
+    case used, free, usage
+
+    var isForDevicesOnly: Bool { self == .used || self == .free || self == .usage }
 
     var title: String {
         switch self {
@@ -17,6 +21,9 @@ enum ListerColumn: String, CaseIterable {
         case .tags: return tr("Tags")
         case .comment: return tr("Comment")
         case .folder: return tr("Where")
+        case .used: return tr("Used")
+        case .free: return tr("Free")
+        case .usage: return tr("Usage")
         }
     }
 
@@ -31,6 +38,8 @@ enum ListerColumn: String, CaseIterable {
         case .tags: return 150
         case .comment: return 220
         case .folder: return 200
+        case .used, .free: return 76
+        case .usage: return 130
         }
     }
 
@@ -45,10 +54,12 @@ enum ListerColumn: String, CaseIterable {
         case .tags: return 70
         case .comment: return 80
         case .folder: return 100
+        case .used, .free: return 60
+        case .usage: return 80
         }
     }
 
-    var rightAligned: Bool { self == .size }
+    var rightAligned: Bool { self == .size || self == .used || self == .free }
 }
 
 extension Notification.Name {
@@ -63,11 +74,27 @@ enum ColumnSettings {
     static var visible: [ListerColumn] {
         let stored = UserDefaults.standard.stringArray(forKey: key)
         let chosen = stored.map { $0.compactMap(ListerColumn.init(rawValue:)) } ?? defaultVisible
-        return [.name] + ListerColumn.allCases.filter { $0 != .name && chosen.contains($0) }
+        return [.name] + ListerColumn.allCases.filter { $0 != .name && !$0.isForDevicesOnly && chosen.contains($0) }
+    }
+
+    // The Devices list has three columns of its own (how full each disk is); they are on until switched off there.
+    private static let deviceKey = "deviceColumns"
+
+    static var deviceColumns: [ListerColumn] {
+        let stored = UserDefaults.standard.stringArray(forKey: deviceKey)
+        let chosen = stored.map { $0.compactMap(ListerColumn.init(rawValue:)) } ?? [.used, .free, .usage]
+        return ListerColumn.allCases.filter { $0.isForDevicesOnly && chosen.contains($0) }
     }
 
     static func set(_ column: ListerColumn, visible on: Bool) {
         guard column != .name else { return }
+        if column.isForDevicesOnly {
+            var chosen = Set(deviceColumns)
+            if on { chosen.insert(column) } else { chosen.remove(column) }
+            UserDefaults.standard.set(chosen.map(\.rawValue), forKey: deviceKey)
+            NotificationCenter.default.post(name: .columnsChanged, object: nil)
+            return
+        }
         var chosen = Set(visible)
         if on { chosen.insert(column) } else { chosen.remove(column) }
         setVisible(Array(chosen))
@@ -81,6 +108,7 @@ enum ColumnSettings {
     static func reset() {
         UserDefaults.standard.removeObject(forKey: key)
         UserDefaults.standard.removeObject(forKey: widthsKey)
+        UserDefaults.standard.removeObject(forKey: deviceKey)
         NotificationCenter.default.post(name: .columnsChanged, object: nil)
     }
 

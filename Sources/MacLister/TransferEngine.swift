@@ -226,6 +226,8 @@ final class TransferJob {
             }
             advance(size)
             return true
+        } catch is CopyCancelled {
+            return false                // stopped by the user: not a failure, and the source stays where it is
         } catch {
             result.failures.append("\(source.lastPathComponent): \(error.localizedDescription)")
             return false
@@ -300,15 +302,58 @@ final class TransferJob {
         report(force: false)
     }
 
-    /// Copies one file; a big one is watched while it grows so progress and speed move smoothly.
+    /// Thrown when Cancel stopped a file half way; the partial file is already gone.
+    private struct CopyCancelled: Error {}
+
+    /// What the copyfile(3) callback needs; lives for the duration of one file.
+    private final class CopyContext {
+        let job: TransferJob
+        let size: Int64
+        var lastReport = Date.distantPast
+        init(job: TransferJob, size: Int64) { self.job = job; self.size = size }
+    }
+
+    /// Copies one file. A big one goes through copyfile(3) with a callback (about once per megabyte), so Cancel
+    /// and Pause take effect at once, not after the whole file, and progress and speed move smoothly. A cancelled
+    /// copy leaves no partial file behind.
     private func copyWatched(_ source: URL, to target: URL, size: Int64) throws {
-        guard size >= 4_000_000, onProgress != nil else { try fm.copyItem(at: source, to: target); return }
-        let watcher = GrowthWatcher(url: target) { [weak self] written in self?.reportLive(min(written, size)) }
+        guard size >= 4_000_000, Self.isRegularFile(source) else { try fm.copyItem(at: source, to: target); return }
+        let context = CopyContext(job: self, size: size)
+        let callback: copyfile_callback_t = { what, stage, state, _, _, raw in
+            guard let raw else { return COPYFILE_CONTINUE }
+            let context = Unmanaged<CopyContext>.fromOpaque(raw).takeUnretainedValue()
+            guard what == COPYFILE_COPY_DATA, stage == COPYFILE_PROGRESS else { return COPYFILE_CONTINUE }
+            let job = context.job
+            job.gate.waitWhilePaused { job.isCancelled }
+            if job.isCancelled { return COPYFILE_QUIT }
+            var copied: off_t = 0
+            copyfile_state_get(state, UInt32(COPYFILE_STATE_COPIED), &copied)
+            let now = Date()
+            if now.timeIntervalSince(context.lastReport) >= 0.2 {
+                context.lastReport = now
+                job.reportLive(min(Int64(copied), context.size))
+            }
+            return COPYFILE_CONTINUE
+        }
+        let state = copyfile_state_alloc()
         defer {
-            watcher.stop()
+            copyfile_state_free(state)
             live.set(0)
         }
-        try fm.copyItem(at: source, to: target)
+        copyfile_state_set(state, UInt32(COPYFILE_STATE_STATUS_CB), unsafeBitCast(callback, to: UnsafeRawPointer.self))
+        copyfile_state_set(state, UInt32(COPYFILE_STATE_STATUS_CTX), Unmanaged.passUnretained(context).toOpaque())
+        // EXCL: whatever is in the way was dealt with already; never write over something by accident.
+        let flags = copyfile_flags_t(COPYFILE_ALL | COPYFILE_EXCL | COPYFILE_NOFOLLOW)
+        if copyfile(source.path, target.path, state, flags) == 0 { return }
+        let code = errno
+        if isCancelled || code == ECANCELED { throw CopyCancelled() }
+        if code != EEXIST { unlink(target.path) }       // a half-written file is no copy (never the one that was in the way)
+        throw NSError(domain: NSPOSIXErrorDomain, code: Int(code), userInfo: nil)
+    }
+
+    private static func isRegularFile(_ url: URL) -> Bool {
+        var info = stat()
+        return lstat(url.path, &info) == 0 && (info.st_mode & S_IFMT) == S_IFREG
     }
 
     /// Called from the poller's queue: the last snapshot, with the bytes written so far.

@@ -414,10 +414,12 @@ The file replaces the defaults; changes are picked up immediately.
 ### Layouts
 
 Menu-bar icon → **Save Layout** remembers every open lister (folder, position, size, role, sort, hidden files,
-filter, and which listers were tabs of one window); **Restore Layout** reopens them. To restore automatically at launch:
+filter, and which listers were tabs of one window); **Restore Layout** reopens them. The saved layout is reopened
+automatically at launch (Settings → General); until a layout has been saved, MacLister starts with two listers
+side by side (your start folder and Downloads) instead of an empty screen. To turn it off:
 
 ```bash
-defaults write com.example.MacLister restoreLayoutAtLaunch -bool true
+defaults write com.example.MacLister restoreLayoutAtLaunch -bool false
 ```
 
 ### Snapshot
@@ -543,8 +545,8 @@ in. The first visit to Shared makes macOS ask once for **Local Network** access.
 **Go → Devices and Places** (or a button with the action `showDevices`, *Show devices* in the button editor) lists the disks mounted
 on this Mac the way the device list of Directory Opus did: the startup disk, internal and external drives, disk images
 and network volumes, and under them the folders you go to most (Home, Desktop, Documents, Downloads, Applications), which
-Directory Opus kept in the same list as its assigns. Each row shows the capacity (*Size*), what the disk is, its format and how much is free (*Kind*), and
-where it is mounted (*Where*). Opening a row shows the disk's files. The list follows disks being plugged in and ejected.
+Directory Opus kept in the same list as its assigns. Each row shows the capacity (*Size*), how much of it is used (*Used*) and free (*Free*) with a bar and percentage of how full the disk is (*Usage*, orange from 75 %, red from 90 %), what the disk is and its format (*Kind*), and
+where it is mounted (*Where*). All of these columns can be sorted, so the fullest or the emptiest disk comes first. Free space is counted the way Finder does (it includes what macOS gives back when it is needed); a network volume that does not report its size shows no figures. Opening a row shows the disk's files. The list follows disks being plugged in and ejected.
 Like Recents it is a list, not a folder, so folder-only commands are refused in it.
 
 ### Naming listers
@@ -749,7 +751,7 @@ Set with `defaults write com.example.MacLister <key> <value>`:
 | `listersOnAllDesktops` | false | show listers on every desktop (also: Settings → General) |
 | `startDirectory` | `~` | folder a desktop double-click opens (`maclister://devices`: the Devices and Places list) |
 | `terminalBundleID` | `com.apple.Terminal` | terminal used by *Terminal Here* (also: Settings → Buttons) |
-| `restoreLayoutAtLaunch` | false | reopen the saved layout at start |
+| `restoreLayoutAtLaunch` | true | reopen the saved layout at start (two listers side by side until one is saved) |
 | `autoAssignRoles` | true | the first lister is the source, the next the destination (also: Settings → General) |
 | `desktopTrigger` | `doubleClick` | `doubleClick`, `middleClick` or `both` (also: Settings → General) |
 | `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` or `bottom` (also: Settings → Listers) |

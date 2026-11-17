@@ -99,7 +99,7 @@ enum Settings {
             "centerOnCursor": false,
             "showStatusItem": true,
             "debugHitTest": false,
-            "restoreLayoutAtLaunch": false,
+            "restoreLayoutAtLaunch": true,
             "showButtonLabels": false,
             "buttonBarPosition": ButtonBarPosition.abovePath.rawValue,
             "showButtonMenuArrows": false,

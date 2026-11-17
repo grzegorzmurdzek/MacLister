@@ -147,7 +147,8 @@ final class RecentFiles: NSObject {
 // MARK: - Devices
 
 /// The disks mounted on this Mac: the startup disk, internal and external drives, disk images and network volumes.
-/// A row is the volume itself (a folder: opening it shows its files); the size is the capacity of the disk.
+/// A row is the volume itself (a folder: opening it shows its files); the size is the capacity of the disk, and the
+/// Used, Free and Usage columns say how much of it is taken.
 /// Below the disks come the folders you go to most (Home, Desktop …), which Directory Opus kept in the same list as its assigns.
 enum DeviceList {
     private static let keys: [URLResourceKey] = [
@@ -198,8 +199,6 @@ enum DeviceList {
 
     /// Rows of the disks, unsorted.
     static func rows(volumes: [URL] = DeviceList.mountedVolumes()) -> [FileItem] {
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .file
         return volumes.map { volume in
             let values = try? volume.resourceValues(forKeys: Set(keys))
             let name = values?.volumeName ?? FileManager.default.displayName(atPath: volume.path)
@@ -207,14 +206,70 @@ enum DeviceList {
                                 size: values?.volumeTotalCapacity.map(Int64.init), modified: nil)
             let kind = kindName(local: values?.volumeIsLocal ?? true, internal: values?.volumeIsInternal,
                                 removable: values?.volumeIsRemovable ?? false, ejectable: values?.volumeIsEjectable ?? false)
+            // free the way Finder counts it: what is empty plus what macOS gives back when it is needed
             let free = values?.volumeAvailableCapacityForImportantUsage ?? values?.volumeAvailableCapacity.map(Int64.init)
+            if let total = item.size, total > 0, let free {
+                item.free = min(max(free, 0), total)
+                item.used = total - (item.free ?? 0)
+            }
             var parts = [kind]
             if let format = values?.volumeLocalizedFormatDescription { parts.append(format) }
-            var text = parts.joined(separator: " · ")
-            if let free { text += ", " + tr("%@ free", formatter.string(fromByteCount: free)) }
-            item.kind = text
+            item.kind = parts.joined(separator: " · ")
             return item
         }
+    }
+}
+
+// MARK: - Usage column
+
+/// A thin bar for how full a disk is: blue, orange from 75 %, red from 90 %.
+final class UsageBarView: NSView {
+    var fraction: Double? { didSet { needsDisplay = true } }
+
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.quaternaryLabelColor.setFill()
+        NSBezierPath(roundedRect: bounds, xRadius: bounds.height / 2, yRadius: bounds.height / 2).fill()
+        guard let fraction, fraction > 0 else { return }
+        var fill = bounds
+        fill.size.width = max(bounds.height, bounds.width * fraction)
+        (fraction >= 0.9 ? NSColor.systemRed : fraction >= 0.75 ? NSColor.systemOrange : NSColor.controlAccentColor).setFill()
+        NSBezierPath(roundedRect: fill, xRadius: bounds.height / 2, yRadius: bounds.height / 2).fill()
+    }
+}
+
+/// The Usage cell of the Devices list: the bar and the percentage.
+final class UsageCell: NSTableCellView {
+    private let bar = UsageBarView()
+    private let label = NSTextField(labelWithString: "")
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        label.alignment = .right
+        label.font = .monospacedDigitSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
+        label.textColor = .secondaryLabelColor
+        for view in [bar, label] as [NSView] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
+        }
+        textField = label
+        NSLayoutConstraint.activate([
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            label.widthAnchor.constraint(equalToConstant: 38),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+            bar.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            bar.trailingAnchor.constraint(equalTo: label.leadingAnchor, constant: -6),
+            bar.heightAnchor.constraint(equalToConstant: 8),
+            bar.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    func show(fraction: Double?, text: String) {
+        bar.fraction = fraction
+        bar.isHidden = fraction == nil
+        label.stringValue = text
     }
 }
 

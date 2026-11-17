@@ -7,7 +7,7 @@ private struct GeneralSettingsView: View {
     @AppStorage("desktopTrigger") private var trigger = DesktopTrigger.doubleClick.rawValue
     @AppStorage("centerOnCursor") private var center = false
     @AppStorage("startDirectory") private var startDirectory = ""
-    @AppStorage("restoreLayoutAtLaunch") private var restoreLayout = false
+    @AppStorage("restoreLayoutAtLaunch") private var restoreLayout = true
     @AppStorage("autoAssignRoles") private var autoRoles = true
     @AppStorage("showDockIcon") private var showDockIcon = true
     @AppStorage("listersOnAllDesktops") private var allDesktops = false

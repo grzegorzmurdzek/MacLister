@@ -297,7 +297,6 @@
 "Path" = "Ścieżka";
 "Pause" = "Wstrzymaj";
 "Paused" = "Wstrzymano";
-"Pausing after the file that is being copied…" = "Wstrzymanie nastąpi po zakończeniu kopiowanego pliku…";
 "Permissions" = "Uprawnienia";
 "Permissions:" = "Uprawnienia:";
 "Places, bookmarks and recent folders" = "Miejsca, zakładki i ostatnie foldery";
@@ -526,7 +525,6 @@
 "Place" = "Miejsce";
 "Internal disk" = "Dysk wewnętrzny";
 "External disk" = "Dysk zewnętrzny";
-"%@ free" = "wolne: %@";
 "Work" = "Praca";
 "%d days" = "%d dni";
 "1 year" = "1 rok";
@@ -1030,3 +1028,17 @@
 "Two-panel window, like a classic file manager" = "Okno dwupanelowe, jak w klasycznym menedżerze plików";
 "Copy to the other pane" = "Kopiuj do drugiego panelu";
 "The other pane is the source now" = "Teraz drugi panel jest źródłem";
+"Extracting" = "Rozpakowywanie";
+"from %@" = "z %@";
+"to %@" = "do %@";
+"Extraction cancelled" = "Rozpakowywanie przerwane";
+"Extraction of “%@” was cancelled" = "Rozpakowywanie „%@” zostało przerwane";
+"The folder “%@” holds only part of the archive. Items extracted so far: %d." = "Folder „%@” zawiera tylko część archiwum. Rozpakowane do tej pory pliki: %d.";
+"“%@” was being written and was deleted because it is incomplete." = "Plik „%@” był właśnie zapisywany i został usunięty, bo jest niekompletny.";
+"Keep Extracted Files" = "Zachowaj rozpakowane pliki";
+"Move Folder to Trash" = "Przenieś folder do Kosza";
+"“%@” moved to the Trash" = "„%@” przeniesiono do Kosza";
+"Kept the incomplete folder “%@”" = "Zachowano niekompletny folder „%@”";
+"Used" = "Zajęte";
+"Free" = "Wolne";
+"Usage" = "Zapełnienie";

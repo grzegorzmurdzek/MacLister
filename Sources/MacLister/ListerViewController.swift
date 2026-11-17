@@ -157,6 +157,7 @@ final class ListerViewController: NSViewController {
     var downloadGeneration = 0                      // the newest download to the cache owns the progress display
     var quickLookDownloadCancel: (() -> Void)?      // the download that feeds the open Quick Look panel
     private var columnsShowListLayout = false
+    private var columnsShowDevices = false      // the Devices list has its own columns (Used, Free, Usage)
     private let columnMenu = NSMenu(title: "Columns")
     let treeController = FolderTreeController()
     var splitView: NSSplitView?
@@ -188,6 +189,9 @@ final class ListerViewController: NSViewController {
         case .comment: return item.comment ?? ""
         case .folder:
             return item.url.isFileURL ? PathText.short(item.url.deletingLastPathComponent().path) : (item.kind ?? "")
+        case .used: return item.used.map { sizeFormatter.string(fromByteCount: $0) } ?? "--"
+        case .free: return item.free.map { sizeFormatter.string(fromByteCount: $0) } ?? "--"
+        case .usage: return item.usedFraction.map { "\(Int(($0 * 100).rounded()))%" } ?? ""
         }
     }
 
@@ -392,12 +396,18 @@ final class ListerViewController: NSViewController {
     /// (Re)creates the table columns from the visible-columns setting.
     /// The columns the user chose; lists such as Recents always get "Where", since their files come from everywhere.
     private var activeColumns: [ListerColumn] {
-        let chosen = ColumnSettings.visible
-        return model.isVirtual && !chosen.contains(.folder) ? chosen + [.folder] : chosen
+        var chosen = ColumnSettings.visible
+        if model.isVirtual && !chosen.contains(.folder) { chosen.append(.folder) }
+        if model.virtualPlace == .devices {          // how much room each disk has, right behind its capacity
+            let at = (chosen.firstIndex(of: .size) ?? 0) + 1
+            chosen.insert(contentsOf: ColumnSettings.deviceColumns, at: at)
+        }
+        return chosen
     }
 
     private func rebuildColumns() {
         columnsShowListLayout = model.isVirtual
+        columnsShowDevices = model.virtualPlace == .devices
         isBuildingColumns = true
         defer { isBuildingColumns = false }
         for column in tableView.tableColumns { tableView.removeTableColumn(column) }
@@ -461,7 +471,7 @@ final class ListerViewController: NSViewController {
         if tableView.sortDescriptors.first?.key != model.sortKey.rawValue || tableView.sortDescriptors.first?.ascending != model.ascending {
             tableView.sortDescriptors = [NSSortDescriptor(key: model.sortKey.rawValue, ascending: model.ascending)]
         }
-        if model.isVirtual != columnsShowListLayout { rebuildColumns() }
+        if model.isVirtual != columnsShowListLayout || (model.virtualPlace == .devices) != columnsShowDevices { rebuildColumns() }
         rows = items
         tableView.reloadData()
 
@@ -701,6 +711,11 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
             return cell
         default:
             guard let kind = ListerColumn(rawValue: column.identifier.rawValue) else { return nil }
+            if kind == .usage {
+                let cell = reusableCell("Cell-usage", in: tableView, make: makeUsageCell) as? UsageCell
+                cell?.show(fraction: item.usedFraction, text: Self.text(for: .usage, of: item))
+                return cell
+            }
             let cell = reusableCell("Cell-\(kind.rawValue)", in: tableView) {
                 self.makeTextCell($0, alignment: kind.rightAligned ? .right : .left)
             }
@@ -822,6 +837,12 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
             text.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
             text.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
         ])
+        return cell
+    }
+
+    private func makeUsageCell(_ identifier: NSUserInterfaceItemIdentifier) -> NSTableCellView {
+        let cell = UsageCell()
+        cell.identifier = identifier
         return cell
     }
 
@@ -1057,19 +1078,56 @@ extension ListerViewController {
         }
         let target = targetModel.url
         let message = archives.count == 1 ? tr("Extracting 1 archive…") : trCount("Extracting %d archives…", archives.count)
-        sourceModel.statusMessage = message
-        targetModel.statusMessage = message
 
-        ArchiveExtractor.extract(archives, into: target) { [weak self] result in
-            sourceModel.statusMessage = nil
-            targetModel.statusMessage = nil
+        let job = ExtractJob(archives: archives, into: target)
+        let verb = tr("Extracting")
+        let cancel: () -> Void = { [weak job] in job?.cancel() }
+        let monitor = TransferMonitor(title: verb, from: Self.placeName(archives.first?.deletingLastPathComponent()), to: Self.placeName(target))
+        monitor.onCancel = cancel
+        monitor.onPause = { [weak job] in job?.pause() }
+        monitor.onResume = { [weak job] in job?.resume() }
+        // Each lister says where the other end is: the destination shows which lister and folder the archives
+        // come from, the source shows where they go.
+        let sameLister = sourceModel === targetModel
+        let fromText = sameLister ? nil : tr("from %@", Self.listerName(sourceModel))
+        let toText = sameLister ? nil : tr("to %@", Self.listerName(targetModel))
+        let place: (TransferProgress, String?) -> TransferStatus = { progress, peer in
+            // the status line shows just the file name, so a deep path never pushes it out; the details window has the path
+            var shown = progress
+            shown.current = (progress.current as NSString).lastPathComponent
+            return TransferStatus(text: Self.progressText(verb: verb, progress: shown, speed: monitor.speed, paused: monitor.isPaused, peer: peer),
+                           fraction: progress.bytesTotal > 0 || progress.itemsTotal > 0 ? progress.fraction : nil,
+                           cancel: cancel, details: monitor)
+        }
+        job.onProgress = { progress in
+            monitor.update(progress)
+            sourceModel.progress = place(progress, toText)
+            targetModel.progress = place(progress, fromText)
+        }
+        for (m, peer) in [(sourceModel, toText), (targetModel, fromText)] {
+            m.statusMessage = nil
+            m.progress = TransferStatus(text: [message, peer].compactMap { $0 }.joined(separator: " · "), fraction: nil, cancel: cancel, details: monitor)
+        }
+
+        job.start { [weak self] result in
+            monitor.finish(result.cancelled ? .cancelled : (result.failures.isEmpty ? .finished : .failed))
+            sourceModel.progress = nil
+            targetModel.progress = nil
             var selection: [ObjectIdentifier: URL] = [:]
             if let first = result.outputs.first {
                 let shown = manager.destinationController ?? manager.sourceController
                 if let shown { selection[ObjectIdentifier(shown)] = first }
             }
             manager.reloadListers(showing: [target, sourceModel.url], selecting: selection)
-            if !result.failures.isEmpty { self?.model.errorMessage = result.failures.joined(separator: "; ") }
+            guard let self else { return }
+            if !result.failures.isEmpty { self.model.errorMessage = result.failures.joined(separator: "; ") }
+            if let incomplete = result.incomplete {
+                self.askAboutIncompleteExtraction(incomplete) {
+                    manager.reloadListers(showing: [target, sourceModel.url])
+                }
+            } else if result.cancelled {
+                self.flash(tr("Extraction cancelled"))
+            }
         }
     }
 
@@ -1820,12 +1878,14 @@ extension ListerViewController {
 extension ListerViewController {
     fileprivate func populateColumnMenu(_ menu: NSMenu) {
         menu.removeAllItems()
-        let visible = ColumnSettings.visible
-        for column in ListerColumn.allCases where column != .name {
+        // The ticks say what the table shows: a list always has Where, the Devices list has its disk columns.
+        let shown = activeColumns
+        for column in ListerColumn.allCases where column != .name && (!column.isForDevicesOnly || model.virtualPlace == .devices) {
             let item = NSMenuItem(title: column.title, action: #selector(toggleColumn(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = column.rawValue
-            item.state = visible.contains(column) ? .on : .off
+            item.state = shown.contains(column) ? .on : .off
+            if column == .folder, model.isVirtual { item.action = nil }       // a list always shows where its items are
             menu.addItem(item)
         }
         menu.addItem(.separator())
