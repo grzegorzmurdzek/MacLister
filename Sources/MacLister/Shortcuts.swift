@@ -184,6 +184,7 @@ enum BuiltInShortcuts {
         e(2, .command, "D", tr("Duplicate files")), e(2, [.command, .option], "D", tr("Duplicate lister")),
         e(3, .command, "F", tr("Filter")), e(3, [.command, .shift], "F", tr("Find")), e(17, [.command, .option], "T", tr("Folder tree")), e(11, .command, "B", tr("Bookmark")), e(37, [.command, .shift], "L", tr("Bring all listers to front")),
         e(37, .command, "L", tr("Type a path")), e(40, .command, "K", tr("Connect to Server")),
+        e(18, .command, "1", tr("Show as icons")), e(19, .command, "2", tr("Show as list")),
         e(48, [], "Tab", tr("Next lister")), e(48, .shift, "Tab", tr("Previous lister")),
         e(17, .command, "T", tr("New tab")), e(48, .control, "Tab", tr("Next tab")), e(48, [.control, .shift], "Tab", tr("Previous tab")),
         e(30, [.command, .shift], "]", tr("Next tab")), e(33, [.command, .shift], "[", tr("Previous tab")),

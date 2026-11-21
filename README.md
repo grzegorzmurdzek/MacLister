@@ -18,6 +18,8 @@ menu-bar app with an optional Dock icon.
 
 - **Desktop double-click opens a lister** at the cursor. Any number of listers at once.
 - **Source / destination listers** with Copy (F5), Move (F6), Extract, Compare, Swap.
+- **Icon view** (⌘1, ⌘2 for the list; the button in the path bar, right-click it for icon size and sort order) and a **Home button** on the bar.
+- **Network shares** (`smb://`, `afp://`, also from *Shared*) are mounted and opened in the lister, with no Finder window.
 - **Two-panel window** (⌥⌘N) for those who prefer a classic two-panel file manager: the pane you work in is the source, Tab switches panes.
 - **Drag and drop** between listers and to/from Finder (Finder rules: same volume moves, ⌥ copies, ⌘ moves).
 - **Configurable button bar**, **filetype actions** (what a double-click does), **bookmarks**, **saved layouts**.
