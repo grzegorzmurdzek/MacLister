@@ -982,11 +982,15 @@ enum SelfTestFeatures {
         // button bar position, default buttons, remembered window size
         later {
             let real = ListerButton.defaults.filter { $0.action != .separator }
-            check(real.count == 10 && real.allSatisfy { $0.symbol != nil }, "default button bar is short and every button has an icon (\(real.count))")
+            check(real.count == 11 && real.allSatisfy { $0.symbol != nil }, "default button bar is short and every button has an icon (\(real.count))")
             check(ListerButton.defaults.first?.action == .showDevices, "Show devices is the first button of the default bar")
             let old = Array(ListerButton.defaults.dropFirst())
             check(ButtonStore.addingShowDevices(to: old)?.first?.action == .showDevices && ButtonStore.addingShowDevices(to: old)?.count == old.count + 1
                   && ButtonStore.addingShowDevices(to: ListerButton.defaults) == nil, "a saved bar without Show devices gets it first; one that has it is left alone")
+            let noHome = ListerButton.defaults.filter { $0.action != .goToFolder }
+            let homed = ButtonStore.addingHome(to: noHome)
+            check(ListerButton.defaults[1].action == .goToFolder && homed?.count == noHome.count + 1 && homed?[1].action == .goToFolder
+                  && ButtonStore.addingHome(to: ListerButton.defaults) == nil, "the Home button follows Show devices; a saved bar gets it once, one that has it is left alone")
             let missing = real.compactMap(\.symbol).filter { NSImage(systemSymbolName: $0, accessibilityDescription: nil) == nil }
             check(missing.isEmpty, "every default icon exists as an SF Symbol on this macOS (missing: \(missing))")
             check(real.allSatisfy { $0.color.map(ListerButton.knownColors.contains) ?? true }, "default icon colours are known names")
@@ -2601,6 +2605,36 @@ enum SelfTestFeatures {
                     check(fm.fileExists(atPath: pasteTo.appendingPathComponent("copy1.txt").path), "a cancelled rename changes nothing")
                 }
             } else { check(false, "a row to rename in place") }
+            // icon view: the same rows as pictures; the selection, drag and menus work the same way
+            if let to = pasteTarget?.listerViewController, to.rows.count >= 2 {
+                to.model.setShowAsIcons(true, remember: false)
+                to.applyViewMode()
+                to.collectionView.layoutSubtreeIfNeeded()
+                check(to.iconMode && !to.iconScroll.isHidden && to.tableScroll.isHidden && to.listView === to.collectionView, "icons replace the list")
+                check(to.collectionView.numberOfItems(inSection: 0) == to.rows.count, "the grid has an item for every row")
+                to.selectRows([0, 1])
+                check(to.selectedRowIndexes == [0, 1] && Set(to.model.selectedURLs) == Set(to.rows.prefix(2).map(\.url)), "selecting in the grid reaches the model")
+                to.selectAllRows()
+                check(to.selectedItems.count == to.rows.count, "Select All selects every icon")
+                to.selectNoRows()
+                check(to.selectedItems.isEmpty && to.model.selectedURLs.isEmpty, "Select None clears the grid")
+                to.selectNoRows()
+                check(to.dragWriter(forRow: 0) != nil, "an icon can be dragged out")
+                let iconMenu = NSMenu()
+                to.populate(iconMenu, selection: [])
+                let viewMenu = iconMenu.items.first { $0.title == tr("This Lister") }?.submenu?.items.first { $0.title == tr("View") }?.submenu?.items.map(\.title) ?? []
+                check(viewMenu.contains(tr("as Icons")) && viewMenu.contains(tr("as List")) && viewMenu.contains(tr("Icon Size")) && viewMenu.contains(tr("Sort By")), "the menu has View with the size and the sort order: \(viewMenu)")
+                if to.collectionView.item(at: IndexPath(item: 0, section: 0)) != nil, let file = to.rows.first {
+                    check(to.beginInlineRename(file) && to.inlineRename?.field.isEditable == true, "an icon's name can be edited in place")
+                    to.inlineRename?.cancelled = true
+                    to.view.window?.makeFirstResponder(to.listView)
+                }
+                to.selectRows([0])
+                to.model.setShowAsIcons(false, remember: false)
+                to.applyViewMode()
+                check(!to.iconMode && to.listView === to.tableView && to.tableView.selectedRowIndexes == [0], "back to the list: the selection stays")
+                to.selectNoRows()
+            } else { check(false, "a lister with files for the icon view") }
             NSPasteboard.general.clearContents()
             for entries in pasteBoardBefore {
                 let restored = NSPasteboardItem()

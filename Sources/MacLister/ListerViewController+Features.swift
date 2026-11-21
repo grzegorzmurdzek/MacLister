@@ -31,19 +31,19 @@ extension ListerViewController {
     func select(urls: Set<URL>) {
         var indexes = IndexSet()
         for (i, row) in rows.enumerated() where urls.contains(row.url) { indexes.insert(i) }
-        tableView.selectRowIndexes(indexes, byExtendingSelection: false)
-        if let first = indexes.first { tableView.scrollRowToVisible(first) }
+        selectRows(indexes)
+        if let first = indexes.first { scrollRowToVisible(first) }
     }
 
-    func selectAllRows() { tableView.selectAll(nil) }
+    func selectAllRows() { selectRows(IndexSet(rows.indices)) }
 
-    func selectNoRows() { tableView.deselectAll(nil) }
+    func selectNoRows() { selectRows([]) }
 
     func invertSelection() {
-        let current = tableView.selectedRowIndexes
+        let current = selectedRowIndexes
         var inverted = IndexSet()
         for i in rows.indices where !current.contains(i) { inverted.insert(i) }
-        tableView.selectRowIndexes(inverted, byExtendingSelection: false)
+        selectRows(inverted)
     }
 
     func promptPattern(select: Bool) {
@@ -62,11 +62,11 @@ extension ListerViewController {
     func applyPattern(_ text: String, select: Bool) {
         let patterns = NamePattern.parse(text)
         guard !patterns.isEmpty else { return }
-        var indexes = tableView.selectedRowIndexes
+        var indexes = selectedRowIndexes
         for (i, row) in rows.enumerated() where NamePattern.matches(row.name, patterns: patterns) {
             if select { indexes.insert(i) } else { indexes.remove(i) }
         }
-        tableView.selectRowIndexes(indexes, byExtendingSelection: false)
+        selectRows(indexes)
     }
 
     // MARK: - Filter
@@ -397,9 +397,9 @@ extension ListerViewController {
 
     /// Adds every matching row to the selection.
     func applyAttributeFilter(_ filter: AttributeFilter) {
-        var indexes = tableView.selectedRowIndexes
+        var indexes = selectedRowIndexes
         for (i, row) in rows.enumerated() where filter.matches(row) { indexes.insert(i) }
-        tableView.selectRowIndexes(indexes, byExtendingSelection: false)
+        selectRows(indexes)
         flash(tr("%d selected", indexes.count))
     }
 

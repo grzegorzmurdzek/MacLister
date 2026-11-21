@@ -381,7 +381,8 @@ extension ListerAction {
     /// Names that read better than the one made from the action's code name.
     static let friendlyTitles: [ListerAction: String] = [.toggleTree: "Folder tree", .mergeListers: "Merge all listers into tabs",
                                                          .newTwoPanel: "New two-panel window", .joinTwoPanel: "Join into a two-panel window",
-                                                         .splitTwoPanel: "Split into two listers"]
+                                                         .splitTwoPanel: "Split into two listers", .expandToTwoPanel: "Expand into a two-panel window",
+                                                         .toggleIconView: "Show as icons or list"]
 
     /// What a button with this action shows as its tooltip when it has none of its own. English: like the texts in
     /// buttons.json it is translated when it is shown.

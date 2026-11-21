@@ -279,6 +279,18 @@ enum Settings {
         return value >= 0.2 && value <= 5 ? value : 0.8
     }
 
+    /// Files as icons instead of a list; new listers start the way you last chose.
+    static var showAsIcons: Bool {
+        get { defaults.bool(forKey: "showAsIcons") }
+        set { defaults.set(newValue, forKey: "showAsIcons") }
+    }
+
+    /// Size of the pictures in the icon view (points).
+    static var iconSize: CGFloat {
+        get { let v = defaults.double(forKey: "iconSize"); return IconGridMetrics.sizes.contains(CGFloat(v)) ? CGFloat(v) : IconGridMetrics.defaultSize }
+        set { defaults.set(Double(newValue), forKey: "iconSize") }
+    }
+
     /// The directory tree beside the file list; new listers start with the state you last chose.
     static var showFolderTree: Bool {
         get { defaults.bool(forKey: "showFolderTree") }

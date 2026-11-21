@@ -378,7 +378,7 @@ final class ListerManager {
     func focusNeighbour(of current: ListerWindowController?, forward: Bool) {
         guard let next = neighbour(of: current, forward: forward) else { NSSound.beep(); return }
         next.window?.makeKeyAndOrderFront(nil)
-        if let table = next.listerViewController?.tableView { next.window?.makeFirstResponder(table) }
+        if let table = next.listerViewController?.listView { next.window?.makeFirstResponder(table) }
     }
 
     /// Puts one lister above every other app's windows and gives it keyboard focus.
@@ -389,7 +389,7 @@ final class ListerManager {
         NSApp.bringToFront()
         raise(window)
         window.makeKeyAndOrderFront(nil)
-        if controller.isPane, let table = controller.listerViewController?.tableView { window.makeFirstResponder(table) }
+        if controller.isPane, let table = controller.listerViewController?.listView { window.makeFirstResponder(table) }
     }
 
     /// Raises every lister above all other windows, keeping their relative order; the first one
@@ -501,7 +501,7 @@ final class ListerManager {
         guard let window = controller.window else { return controller }
         hostWindow.addTabbedWindow(window, ordered: .above)    // the tab takes the window's frame
         window.makeKeyAndOrderFront(nil)
-        if let table = controller.listerViewController?.tableView { window.makeFirstResponder(table) }
+        if let table = controller.listerViewController?.listView { window.makeFirstResponder(table) }
         moveRoleToSelectedTab(in: controller)
         return controller
     }
@@ -533,7 +533,7 @@ final class ListerManager {
         guard let window = tab.window else { return }
         if let group = window.tabGroup, group.selectedWindow !== window { group.selectedWindow = window }
         window.makeKeyAndOrderFront(nil)
-        if let table = tab.listerViewController?.tableView { window.makeFirstResponder(table) }
+        if let table = tab.listerViewController?.listView { window.makeFirstResponder(table) }
         moveRoleToSelectedTab(in: tab)
     }
 

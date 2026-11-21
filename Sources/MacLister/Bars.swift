@@ -54,6 +54,8 @@ struct PathBarView: View {
     var onToggleRoleLock: (ListerRole) -> Void = { _ in }
     var onConnect: (ServerProfile?) -> Void
     var onEditLabel: () -> Void = {}
+    /// Icon size chosen in the view button's menu.
+    var onIconSize: (CGFloat) -> Void = { Settings.iconSize = $0 }
     @ObservedObject private var servers = ServerStore.shared
     @ObservedObject private var bookmarks = BookmarkStore.shared
     @ObservedObject private var history = PathHistory.shared
@@ -83,6 +85,13 @@ struct PathBarView: View {
                 pathField
 
                 if !model.label.isEmpty || model.labelColor != nil { labelBadge }
+
+                Button { model.setShowAsIcons(!model.showAsIcons) } label: {
+                    Image(systemName: model.showAsIcons ? "list.bullet" : "square.grid.2x2")
+                }
+                .buttonStyle(ToolbarIconButtonStyle(iconSize: 14))
+                .help(model.showAsIcons ? "Show as a list (⌘2); right-click: sort order, icon size" : "Show as icons (⌘1); right-click: sort order, icon size")
+                .contextMenu { viewMenuItems }
 
                 roleButton(.source, title: "SRC", tint: .blue, help: "Make this lister the source of Copy / Move")
                 roleButton(.destination, title: "DST", tint: .orange, help: "Make this lister the destination of Copy / Move")
@@ -148,6 +157,31 @@ extension PathBarView {
             BreadcrumbView(url: model.url, onSelect: { model.navigate(to: $0) }, onEdit: { model.editingPath = true })
         }
     }
+
+    /// Under a right-click on the view button: icons or list, the size of the icons, and the sort order.
+    @ViewBuilder
+    fileprivate var viewMenuItems: some View {
+        Toggle(tr("as Icons"), isOn: Binding(get: { model.showAsIcons }, set: { _ in model.setShowAsIcons(true) }))
+        Toggle(tr("as List"), isOn: Binding(get: { !model.showAsIcons }, set: { _ in model.setShowAsIcons(false) }))
+        if model.showAsIcons {
+            Menu(tr("Icon Size")) {
+                ForEach(IconGridMetrics.sizes, id: \.self) { size in
+                    Toggle("\(Int(size)) pt", isOn: Binding(get: { Settings.iconSize == size }, set: { _ in onIconSize(size) }))
+                }
+            }
+        }
+        Menu(tr("Sort By")) {
+            ForEach(Self.iconSortKeys, id: \.self) { key in
+                Toggle(ListerColumn(rawValue: key.rawValue)?.title ?? key.rawValue,
+                       isOn: Binding(get: { model.sortKey == key }, set: { _ in model.setSort(key, ascending: model.ascending) }))
+            }
+            Divider()
+            Toggle(tr("Ascending"), isOn: Binding(get: { model.ascending }, set: { _ in model.setSort(model.sortKey, ascending: true) }))
+            Toggle(tr("Descending"), isOn: Binding(get: { !model.ascending }, set: { _ in model.setSort(model.sortKey, ascending: false) }))
+        }
+    }
+
+    fileprivate static let iconSortKeys: [ListerModel.SortKey] = [.name, .size, .date, .created, .kind, .ext]
 
     /// Magellan's hotlist and path history in one menu.
     fileprivate var goMenu: some View {
@@ -246,10 +280,11 @@ extension PathBarView {
                 if active && model.roleLocked { Image(systemName: "lock.fill").imageScale(.small) }
             }
                 .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(active ? Color.white : tint)
+                // the lister that holds the role stands out; the other badge is muted, so the active one reads at a glance
+                .foregroundStyle(active ? Color.white : Color.secondary)
                 .padding(.horizontal, 9)
                 .padding(.vertical, 5)
-                .background(RoundedRectangle(cornerRadius: 4).fill(active ? tint : tint.opacity(0.15)))
+                .background(RoundedRectangle(cornerRadius: 4).fill(active ? tint : Color.primary.opacity(0.07)))
         }
         .buttonStyle(.plain)
         .overlay(MiddleClickCatcher { onToggleRoleLock(role) })
@@ -455,31 +490,35 @@ struct BreadcrumbView: View {
 
     var body: some View {
         let segments = PathSegments.make(for: url)
-        // A long path shows its tail (the folder you are in) and fades out at the left; the Go menu and the
-        // Parent button lead to the earlier folders.
-        GeometryReader { geometry in
-            HStack(spacing: 0) {
-                ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
-                    if index > 0 {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(.tertiary)
-                            .padding(.horizontal, 2)
-                    }
-                    SegmentButton(title: segment.title, isCurrent: index == segments.count - 1) { onSelect(segment.url) }
+        let path = HStack(spacing: 0) {
+            ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
+                if index > 0 {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                        .padding(.horizontal, 2)
                 }
+                SegmentButton(title: segment.title, isCurrent: index == segments.count - 1) { onSelect(segment.url) }
             }
-            .fixedSize()
-            .padding(.horizontal, 4)
-            .frame(width: geometry.size.width, height: geometry.size.height, alignment: .trailing)   // centred vertically, tail of the path at the right
-            .clipShape(Rectangle())
-            .contentShape(Rectangle())          // the part of a long path that is cut off must not take clicks meant for Back and Up
-            .mask(
-                HStack(spacing: 0) {
-                    LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing).frame(width: 18)
-                    Color.black
-                }
-            )
+        }
+        .fixedSize()
+        .padding(.horizontal, 4)
+        // A path that fits starts at the left, like a path field. A long one shows its tail (the folder you are in)
+        // and fades out at the left; the Go menu and the Parent button lead to the earlier folders.
+        GeometryReader { geometry in
+            ViewThatFits(in: .horizontal) {
+                path.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)      // its own width decides whether it fits
+                path
+                    .frame(width: geometry.size.width, height: geometry.size.height, alignment: .trailing)   // centred vertically, tail of the path at the right
+                    .clipShape(Rectangle())
+                    .contentShape(Rectangle())          // the part of a long path that is cut off must not take clicks meant for Back and Up
+                    .mask(
+                        HStack(spacing: 0) {
+                            LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing).frame(width: 18)
+                            Color.black
+                        }
+                    )
+            }
         }
         .frame(height: 28)
         .background(

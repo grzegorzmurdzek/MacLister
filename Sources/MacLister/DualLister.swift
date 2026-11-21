@@ -85,7 +85,7 @@ final class DualListerWindowController: NSWindowController, NSWindowDelegate {
 
     /// Gives a pane the keyboard (its file list).
     func focus(_ pane: ListerWindowController) {
-        guard let table = pane.listerViewController?.tableView else { return }
+        guard let table = pane.listerViewController?.listView else { return }
         window?.makeFirstResponder(table)
         if activePane !== pane { activate(pane, takeDestination: false) }
     }
@@ -231,6 +231,30 @@ extension ListerManager {
         }
     }
 
+    /// Expand into Two-Panel Window: this lister turns into the left pane of a two-panel window and gets a right pane
+    /// that opens in the same folder. The window grows to the right (about 80 % wider; it moves left to stay on the
+    /// screen), so the lister stays where it was. Returns nil for a pane, which is in a two-panel window already.
+    @discardableResult
+    func expandToTwoPanel(_ controller: ListerWindowController) -> DualListerWindowController? {
+        guard !controller.isPane, let window = controller.window else {
+            controller.model.flash(tr("This lister is already a pane of a two-panel window"))
+            return nil
+        }
+        let old = window.frame
+        let visible = (window.screen ?? NSScreen.main)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let minimum = NSSize(width: Settings.minListerSize.width * 2, height: Settings.minListerSize.height)
+        let width = min(visible.width, max(minimum.width, (old.width * 1.8).rounded()))
+        let height = min(visible.height, max(minimum.height, old.height))
+        let x = max(visible.minX, min(old.minX, visible.maxX - width))
+        let frame = NSRect(x: x, y: old.maxY - height, width: width, height: height)
+        let right = ListerModel(url: controller.model.url)
+        controller.retire()
+        let dual = DualListerWindowController(left: controller.model, right: right)
+        return openDual(dual, anchor: .origin(frame.origin), active: dual.leftPane) { dual in
+            dual.window?.setFrame(frame, display: false)
+        }
+    }
+
     /// Split into Two Listers: each pane becomes a lister window of its own where the pane was, with its folder,
     /// history, filter, name and role. Returns the two listers (left, right).
     @discardableResult
@@ -253,7 +277,7 @@ extension ListerManager {
         }
         let key = listers[active === dual.rightPane ? 1 : 0]
         key.window?.makeKeyAndOrderFront(nil)
-        if let table = key.listerViewController?.tableView { key.window?.makeFirstResponder(table) }
+        if let table = key.listerViewController?.listView { key.window?.makeFirstResponder(table) }
         return listers
     }
 

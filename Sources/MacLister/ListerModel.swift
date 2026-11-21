@@ -64,6 +64,8 @@ final class ListerModel: ObservableObject {
     @Published var editingPath = false
     /// A locked role cannot be changed, cleared or swapped away until it is unlocked.
     @Published var roleLocked = false
+    /// Icons instead of a list (this lister). Choosing it also makes it the way new listers start.
+    @Published private(set) var showAsIcons = Settings.showAsIcons
     @Published var selectedURLs: [URL] = []
     @Published private(set) var showHidden = false
     @Published private(set) var sortKey: SortKey = .name
@@ -375,6 +377,10 @@ final class ListerModel: ObservableObject {
     func navigate(toPath path: String) -> Bool {
         let typed = path.trimmingCharacters(in: .whitespaces)
         if let address = URL(string: typed), RemoteURL.isRemote(address) { return navigate(to: address) }
+        if let address = URL(string: typed), NetworkMount.isMountable(address) {      // smb://server/share: mounted, then shown
+            NetworkMount.mount(address, in: self)
+            return true
+        }
         if RemoteURL.isRemote(url) {
             // on a server: absolute, or relative to the folder shown
             let absolute = typed.hasPrefix("/") ? typed : RemoteURL.join(RemoteURL.path(of: url), typed)
@@ -517,6 +523,12 @@ final class ListerModel: ObservableObject {
                 }
             }
         }
+    }
+
+    func setShowAsIcons(_ icons: Bool, remember: Bool = true) {
+        guard icons != showAsIcons else { return }
+        showAsIcons = icons
+        if remember { Settings.showAsIcons = icons }
     }
 
     func setSort(_ key: SortKey, ascending: Bool) {

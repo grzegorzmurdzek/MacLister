@@ -225,19 +225,19 @@ struct ButtonEditorView: View {
             LabeledContent(title) {
                 ActionPicker(selection: Binding(get: { action.wrappedValue }, set: { if let value = $0 { action.wrappedValue = value } }), allowNone: false)
             }
-            if action.wrappedValue == .shell { commandField(command) }
+            if action.wrappedValue == .shell || action.wrappedValue == .goToFolder { commandField(command, folder: action.wrappedValue == .goToFolder) }
         }
     }
 
     private func actionRow(_ title: LocalizedStringKey, action: Binding<ListerAction?>, command: Binding<String?>, optional: Bool) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             LabeledContent(title) { ActionPicker(selection: action, allowNone: true) }
-            if action.wrappedValue == .shell { commandField(command) }
+            if action.wrappedValue == .shell || action.wrappedValue == .goToFolder { commandField(command, folder: action.wrappedValue == .goToFolder) }
         }
     }
 
-    private func commandField(_ command: Binding<String?>) -> some View {
-        TextField("Shell command ({f} {F} {o} {O} {d} {s}, LISTER_DIR, LISTER_SELECTION)", text: Binding(get: { command.wrappedValue ?? "" }, set: { command.wrappedValue = $0.isEmpty ? nil : $0 }))
+    private func commandField(_ command: Binding<String?>, folder: Bool = false) -> some View {
+        TextField(folder ? "Folder (~ is your home folder)" : "Shell command ({f} {F} {o} {O} {d} {s}, LISTER_DIR, LISTER_SELECTION)", text: Binding(get: { command.wrappedValue ?? "" }, set: { command.wrappedValue = $0.isEmpty ? nil : $0 }))
             .font(.system(.body, design: .monospaced))
     }
 }

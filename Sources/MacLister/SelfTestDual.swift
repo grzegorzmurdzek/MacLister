@@ -233,6 +233,27 @@ enum SelfTestDual {
                   "closing the window removes both panes")
         }
 
+        // 10. Expand into Two-Panel Window: the lister stays the left pane, the right pane opens in the same folder.
+        later(0.4) {
+            guard let lister = manager.allControllers.first(where: { !$0.isPane }) else { check(false, "a lister is left to expand"); return }
+            let widthBefore = lister.window?.frame.width ?? 0
+            let folder = lister.model.url.standardizedFileURL
+            let model = lister.model
+            let expanded = manager.expandToTwoPanel(lister)
+            check(expanded != nil && manager.dualWindows.count == 1 && manager.openCount == 2 && lister.window?.isVisible != true,
+                  "Expand turns the lister into a two-panel window")
+            check(expanded?.leftPane.model === model && expanded?.rightPane.model.url.standardizedFileURL == folder,
+                  "the lister is the left pane and the right pane shows the same folder")
+            check((expanded?.window?.frame.width ?? 0) > widthBefore, "the window is wider than the lister was")
+            if let pane = expanded?.leftPane {
+                check(manager.expandToTwoPanel(pane) == nil, "a pane cannot be expanded again")
+            }
+            expanded?.window?.performClose(nil)
+        }
+        later(0.6) {
+            check(manager.openCount == 0 && manager.dualWindows.isEmpty, "closing the expanded window closes both panes")
+        }
+
         runSteps {
             UserDefaults.standard.set(styleBefore, forKey: "newWindowStyle")      // nil removes it
             manager.closeAll()

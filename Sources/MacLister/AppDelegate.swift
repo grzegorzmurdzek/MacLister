@@ -43,7 +43,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         // The test, screenshot and demo modes (any `--option`) start from listers without roles and set the roles
         // themselves; the automatic roles have their own test.
-        if CommandLine.arguments.dropFirst().contains(where: { $0.hasPrefix("--") }) { ListerManager.autoRolesOverride = false }
+        if CommandLine.arguments.dropFirst().contains(where: { $0.hasPrefix("--") }) {
+            ListerManager.autoRolesOverride = false
+            // the tests drive the list; the user's choice of icons comes back when they end
+            iconModeBeforeTests = Settings.showAsIcons
+            Settings.showAsIcons = false
+        }
         if let flag = CommandLine.arguments.firstIndex(of: "--selftest-remote") {
             let rest = Array(CommandLine.arguments.dropFirst(flag + 1))
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestRemote.run(arguments: rest) }
@@ -606,7 +611,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    /// The icon / list choice of the user while a test, screenshot or demo mode runs with the list.
+    private var iconModeBeforeTests: Bool?
+
     func applicationWillTerminate(_ notification: Notification) {
+        if let iconModeBeforeTests { Settings.showAsIcons = iconModeBeforeTests }
         RemoteSessions.shared.closeAll()
     }
 

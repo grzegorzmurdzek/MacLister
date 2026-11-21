@@ -146,6 +146,10 @@ final class ListerTableView: NSTableView, NSServicesMenuRequestor {
 final class ListerViewController: NSViewController {
     let model: ListerModel
     let tableView = ListerTableView()
+    /// The same rows as icons (see ListerViewController+Icons); one of the two is shown, see model.showAsIcons.
+    let collectionView = ListerCollectionView()
+    let tableScroll = NSScrollView()
+    let iconScroll = NSScrollView()
     var rows: [FileItem] = []
     private var lastURL: URL?
     private var cancellables = Set<AnyCancellable>()
@@ -225,7 +229,8 @@ final class ListerViewController: NSViewController {
                                                           onToggleRole: { [weak self] in self?.toggleRole($0) },
                                                           onToggleRoleLock: { [weak self] in self?.toggleRoleLock($0) },
                                                           onConnect: { [weak self] in self?.connectChoice($0) },
-                                                          onEditLabel: { [weak self] in self?.promptLabel() }))
+                                                          onEditLabel: { [weak self] in self?.promptLabel() },
+                                                          onIconSize: { [weak self] in self?.setIconSize($0) }))
         let buttonBar = NSHostingView(rootView: ButtonBarView(model: model, store: .shared) { [weak self] in
             self?.perform($0)
         })
@@ -235,7 +240,6 @@ final class ListerViewController: NSViewController {
         buttonBar.sizingOptions = []
         statusBar.sizingOptions = []
 
-        let tableScroll = NSScrollView()
         tableScroll.hasVerticalScroller = true
         tableScroll.hasHorizontalScroller = true          // columns wider than the window scroll instead of being squeezed
         tableScroll.autohidesScrollers = true
@@ -249,7 +253,16 @@ final class ListerViewController: NSViewController {
         scrollView.dividerStyle = .thin
         scrollView.delegate = self
         scrollView.addArrangedSubview(treeController.paneView)
-        scrollView.addArrangedSubview(tableScroll)
+        let listArea = NSView()                 // the list and the icons share this place, one of them is shown
+        configureIcons()
+        for scroll in [tableScroll, iconScroll] {
+            scroll.frame = listArea.bounds
+            scroll.autoresizingMask = [.width, .height]
+            listArea.addSubview(scroll)
+        }
+        tableScroll.isHidden = model.showAsIcons
+        iconScroll.isHidden = !model.showAsIcons
+        scrollView.addArrangedSubview(listArea)
         scrollView.setHoldingPriority(NSLayoutConstraint.Priority(260), forSubviewAt: 0)
         treeController.paneView.isHidden = !treeVisible
         splitView = scrollView
@@ -343,6 +356,11 @@ final class ListerViewController: NSViewController {
                 self.treeController.refresh(ArchiveBrowser.shared.treeFolder(for: model.url))
             }
             .store(in: &cancellables)
+        model.$showAsIcons
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.applyViewMode() }
+            .store(in: &cancellables)
         model.$showHidden
             .dropFirst()
             .receive(on: DispatchQueue.main)
@@ -424,7 +442,7 @@ final class ListerViewController: NSViewController {
 
     override func viewDidAppear() {
         super.viewDidAppear()
-        view.window?.makeFirstResponder(tableView)
+        view.window?.makeFirstResponder(listView)
     }
 
     /// (Re)creates the table columns from the visible-columns setting.
@@ -512,6 +530,7 @@ final class ListerViewController: NSViewController {
         if inlineRename != nil { inlineRename?.cancelled = true }      // the cells are rebuilt: the name being typed is dropped
         rows = items
         tableView.reloadData()
+        if iconMode { collectionView.reloadData() }
 
         var toSelect = IndexSet()
         if let reveal = model.revealOnLoad, let i = rows.firstIndex(where: { $0.url == reveal }) {
@@ -520,20 +539,20 @@ final class ListerViewController: NSViewController {
             for (i, item) in rows.enumerated() where previouslySelected.contains(item.url) { toSelect.insert(i) }
         }
         model.revealOnLoad = nil
-        tableView.selectRowIndexes(toSelect, byExtendingSelection: false)
+        selectRows(toSelect)
         if let first = toSelect.first {
-            tableView.scrollRowToVisible(first)
+            scrollRowToVisible(first)
         } else if !sameFolder {
-            tableView.scrollRowToVisible(0)
+            scrollRowToVisible(0)
         }
         syncSelectionToModel()
     }
 
     var selectedItems: [FileItem] {
-        tableView.selectedRowIndexes.compactMap { rows.indices.contains($0) ? rows[$0] : nil }
+        selectedRowIndexes.compactMap { rows.indices.contains($0) ? rows[$0] : nil }
     }
 
-    private func syncSelectionToModel() {
+    func syncSelectionToModel() {
         model.selectedURLs = selectedItems.map(\.url)
         if QLPreviewPanel.sharedPreviewPanelExists(), let panel = QLPreviewPanel.shared(),
            panel.isVisible, panel.dataSource === self {
@@ -547,9 +566,11 @@ final class ListerViewController: NSViewController {
 
     // MARK: - Opening
 
-    @objc private func rowDoubleClicked() {
+    @objc private func rowDoubleClicked() { handleDoubleClick(row: tableView.clickedRow) }
+
+    func handleDoubleClick(row: Int) {
         let flags = NSEvent.modifierFlags
-        activateRow(tableView.clickedRow, inNewLister: flags.contains(.shift),
+        activateRow(row, inNewLister: flags.contains(.shift),
                     inNewTab: flags.contains(.command) && Settings.listerTabs, option: flags.contains(.option))
     }
 
@@ -609,7 +630,7 @@ final class ListerViewController: NSViewController {
 
     // MARK: - Keyboard
 
-    private func handleKey(_ event: NSEvent) -> Bool {
+    func handleKey(_ event: NSEvent) -> Bool {
         // shortcuts the user assigned (Keyboard Shortcuts…) win over everything below
         if let action = ShortcutStore.shared.action(for: event) {
             perform(ListerButton(title: action.title, symbol: nil, action: action))
@@ -631,6 +652,10 @@ final class ListerViewController: NSViewController {
         }
 
         switch event.keyCode {
+        case 18 where command:                    // ⌘1 → icons
+            model.setShowAsIcons(true)
+        case 19 where command:                    // ⌘2 → list
+            model.setShowAsIcons(false)
         case 49 where plain:                      // Space → Quick Look
             toggleQuickLook()
         case 36 where plain, 76 where plain:      // Return / Enter → open
@@ -780,13 +805,15 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
     }
 
     /// Lets files be dragged out of the lister (Finder, Mail, other listers…).
-    func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
+    func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? { dragWriter(forRow: row) }
+
+    func dragWriter(forRow row: Int) -> NSPasteboardWriting? {
         // files on a server cannot be dragged out yet (they would have to be downloaded first)
         guard rows.indices.contains(row), !isRemote else { return nil }
         let url = rows[row].url
         // a drag cannot wait: what is still inside an archive is taken out now (all selected rows in one pass, the first
         // time this is asked for), unless it is too much for that
-        let dragged = tableView.selectedRowIndexes.contains(row) ? selectedItems.map(\.url) : [url]
+        let dragged = selectedRowIndexes.contains(row) ? selectedItems.map(\.url) : [url]
         if ArchiveBrowser.shared.needsMaterialization(dragged) {
             if ArchiveBrowser.shared.pendingBytes(dragged) > 100_000_000 {
                 flash(tr("This is too big to drag out of an archive: use Copy instead"))
@@ -803,13 +830,13 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
     // MARK: Drop target
 
     /// Dropping on a folder row targets that folder; anywhere else targets the lister's own folder.
-    private func dropFolder(forRow row: Int, operation: NSTableView.DropOperation) -> URL {
+    func dropFolder(forRow row: Int, operation: NSTableView.DropOperation) -> URL {
         if operation == .on, rows.indices.contains(row), rows[row].isNavigable { return rows[row].url }
         return model.url
     }
 
     /// What a drop would do (and nothing when it cannot go here). `row` -1: not on a row.
-    private func dropOperation(for info: NSDraggingInfo, row: Int, operation: NSTableView.DropOperation) -> NSDragOperation {
+    func dropOperation(for info: NSDraggingInfo, row: Int, operation: NSTableView.DropOperation) -> NSDragOperation {
         let urls = Self.droppedURLs(from: info.draggingPasteboard)
         guard !urls.isEmpty, !model.isVirtual, !model.isInArchive else { return [] }
         let folder = dropFolder(forRow: row, operation: operation)
@@ -818,7 +845,7 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
                                   sourceMask: info.draggingSourceOperationMask)
     }
 
-    private func performDrop(_ info: NSDraggingInfo, row: Int, operation: NSTableView.DropOperation) -> Bool {
+    func performDrop(_ info: NSDraggingInfo, row: Int, operation: NSTableView.DropOperation) -> Bool {
         let urls = Self.droppedURLs(from: info.draggingPasteboard)
         guard !model.isVirtual else { return false }
         let kind = dropOperation(for: info, row: row, operation: operation)
@@ -923,7 +950,7 @@ extension ListerViewController: QLPreviewPanelDataSource, QLPreviewPanelDelegate
         guard event.type == .keyDown else { return false }
         switch event.keyCode {
         case 125, 126, 123, 124:        // arrows: move the table selection while the panel is key
-            tableView.keyDown(with: event)
+            listView.keyDown(with: event)
             return true
         case 49:                        // Space closes the panel again
             panel.orderOut(nil)
@@ -937,9 +964,8 @@ extension ListerViewController: QLPreviewPanelDataSource, QLPreviewPanelDelegate
     func previewPanel(_ panel: QLPreviewPanel!, sourceFrameOnScreenFor item: QLPreviewItem!) -> NSRect {
         guard let url = item.previewItemURL,
               let row = rows.firstIndex(where: { $0.url == url }),
-              tableView.visibleRect.intersects(tableView.rect(ofRow: row)),
-              let window = view.window else { return .zero }
-        return window.convertToScreen(tableView.convert(tableView.rect(ofRow: row), to: nil))
+              let window = view.window, let rect = rowRectInWindow(row) else { return .zero }
+        return window.convertToScreen(rect)
     }
 }
 
@@ -981,6 +1007,8 @@ extension ListerViewController {
         case .showRecents:    model.navigate(to: VirtualPlace.recents.url)
         case .showShared:     model.navigate(to: VirtualPlace.shared.url)
         case .showDevices:    model.navigate(to: VirtualPlace.devices.url)
+        case .goToFolder:     goToFolder(button.command)
+        case .toggleIconView: model.setShowAsIcons(!model.showAsIcons)
         case .eject:          ejectSelection()
         case .rename:         renameSelection()
         case .undo:           undoLastOperation()
@@ -996,6 +1024,7 @@ extension ListerViewController {
         case .newTwoPanel:    ListerManager.shared.openDual(left: model.url, anchor: .cascade(from: view.window))
         case .joinTwoPanel:   if let c = windowController { ListerManager.shared.joinIntoTwoPanel(c) }
         case .splitTwoPanel:  splitTwoPanel()
+        case .expandToTwoPanel: if let c = windowController { ListerManager.shared.expandToTwoPanel(c) }
         case .duplicateFile:  duplicateSelection()
         case .selectPattern:  promptPattern(select: true)
         case .deselectPattern: promptPattern(select: false)
@@ -1318,6 +1347,18 @@ extension ListerViewController {
         }
     }
 
+    /// A Home / Desktop / Downloads button: the lister goes to the folder named in `path` (~ for the home folder).
+    func goToFolder(_ path: String?) {
+        let typed = (path ?? "~").trimmingCharacters(in: .whitespaces)
+        let expanded = (typed.isEmpty ? "~" : typed as NSString).expandingTildeInPath
+        var isFolder: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: expanded, isDirectory: &isFolder), isFolder.boolValue else {
+            model.errorMessage = tr("Cannot find the folder “%@”", typed)
+            return
+        }
+        model.navigate(to: URL(fileURLWithPath: expanded, isDirectory: true))
+    }
+
     func runShell(_ command: String?) {
         if remoteUnavailable(tr("Shell commands")) { return }
         if refuseInList(tr("Shell commands")) { return }          // a list has no folder to run in
@@ -1382,11 +1423,11 @@ private final class MenuAction: NSObject {
 extension ListerViewController: NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         if menu === columnMenu { populateColumnMenu(menu); return }
-        let row = tableView.clickedRow
+        let row = clickedRowIndex
         if rows.indices.contains(row) {
             // Like Finder: right-clicking an unselected row selects just that row.
-            if !tableView.selectedRowIndexes.contains(row) {
-                tableView.selectRowIndexes([row], byExtendingSelection: false)
+            if !selectedRowIndexes.contains(row) {
+                selectRows([row])
             }
             populate(menu, selection: selectedItems)
         } else {
@@ -1568,6 +1609,7 @@ extension ListerViewController: NSMenuDelegate {
             if hasSnapshot { add(tr("Forget Snapshot"), to: lister) { [weak self] in self?.forgetSnapshot() } }
             add(tr("Add to Dock…"), to: lister) { [weak self] in self?.addToDock() }
         }
+        addViewMenu(to: lister, make: make)         // inside This Lister: the first level of the menu stays short
         add(treeMenuTitle, to: lister) { [weak self] in self?.toggleTree() }
         add(tr("Duplicate Lister"), to: lister) { [weak self] in self?.duplicateLister() }
         if Settings.listerTabs { add(tr("New Tab"), to: lister) { [weak self] in self?.newTab() } }
@@ -1712,11 +1754,10 @@ extension ListerViewController: NSMenuDelegate {
     /// Puts the name of the row into edit mode. False when the row is not there (scrolled away, filtered out).
     @discardableResult
     func beginInlineRename(_ item: FileItem) -> Bool {
-        guard let row = rows.firstIndex(where: { $0.url == item.url }), let window = view.window,
-              let column = tableView.tableColumns.firstIndex(where: { $0.identifier.rawValue == "name" }) else { return false }
+        guard let row = rows.firstIndex(where: { $0.url == item.url }), let window = view.window else { return false }
         if inlineRename != nil { return false }
-        tableView.scrollRowToVisible(row)
-        guard let cell = tableView.view(atColumn: column, row: row, makeIfNecessary: true) as? NSTableCellView, let field = cell.textField else { return false }
+        scrollRowToVisible(row)
+        guard let field = nameField(ofRow: row) else { return false }
         field.isEditable = true
         field.isSelectable = true
         field.drawsBackground = true
@@ -1740,7 +1781,7 @@ extension ListerViewController: NSMenuDelegate {
         edit.field.drawsBackground = false
         edit.field.delegate = nil
         edit.field.stringValue = item.name
-        view.window?.makeFirstResponder(tableView)
+        view.window?.makeFirstResponder(listView)
     }
 
     /// Renames after the user typed a new name: a file or folder here, on a server, or a disk.
@@ -1918,6 +1959,7 @@ extension ListerViewController {
         if controller?.isPane == true {
             add(tr("Split into Two Listers"), to: lister) { [weak self] in self?.splitTwoPanel() }
         } else {
+            add(tr("Expand into Two-Panel Window"), to: lister) { if let controller { manager.expandToTwoPanel(controller) } }
             // which lister it joins with: the usual partner (the destination of a source…) first, the others below
             let candidates = controller.map { manager.joinCandidates(for: $0) } ?? []
             let join = submenu(tr("Join into Two-Panel Window With"))
@@ -1981,7 +2023,7 @@ extension ListerViewController {
         let sub = NSMenu(title: tr("Open With"))
         sub.autoenablesItems = false
 
-        func appItem(_ title: String, _ appURL: URL?, _ run: @escaping () -> Void) {
+        func appItem(_ title: String, _ appURL: URL?, in submenu: NSMenu? = nil, _ run: @escaping () -> Void) {
             let item = NSMenuItem(title: title, action: #selector(contextMenuItemChosen(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = MenuAction(run)
@@ -1989,15 +2031,15 @@ extension ListerViewController {
                 icon.size = NSSize(width: 16, height: 16)
                 item.image = icon
             }
-            sub.addItem(item)
+            (submenu ?? sub).addItem(item)
         }
 
         let defaultApp = NSWorkspace.shared.urlForApplication(toOpen: first.url)
         var apps = NSWorkspace.shared.urlsForApplications(toOpen: first.url)
         if let defaultApp { apps.removeAll { $0 == defaultApp }; apps.insert(defaultApp, at: 0) }
+        func name(of app: URL) -> String { FileManager.default.displayName(atPath: app.path).replacingOccurrences(of: ".app", with: "") }
         for app in apps.prefix(15) {
-            let name = FileManager.default.displayName(atPath: app.path).replacingOccurrences(of: ".app", with: "")
-            appItem(app == defaultApp ? tr("%@ (default)", name) : name, app) { [weak self] in self?.open(urls, with: app) }
+            appItem(app == defaultApp ? tr("%@ (default)", name(of: app)) : name(of: app), app) { [weak self] in self?.open(urls, with: app) }
         }
         if !apps.isEmpty { sub.addItem(.separator()) }
         appItem(tr("Other…"), nil) { [weak self] in self?.chooseApplication(for: urls) }
@@ -2005,6 +2047,18 @@ extension ListerViewController {
         let parent = NSMenuItem(title: tr("Open With"), action: nil, keyEquivalent: "")
         parent.submenu = sub
         menu.addItem(parent)
+
+        // Finder's "Change All…": the application becomes the system's choice for every file of this kind
+        let always = NSMenu(title: tr("Always Open With"))
+        always.autoenablesItems = false
+        for app in apps.prefix(15) where app != defaultApp {
+            appItem(name(of: app), app, in: always) { [weak self] in self?.makeDefault(app, for: first.url) }
+        }
+        if always.items.isEmpty == false { always.addItem(.separator()) }
+        appItem(tr("Other…"), nil, in: always) { [weak self] in self?.chooseApplication(for: [first.url], alwaysFor: first.url) }
+        let alwaysParent = NSMenuItem(title: tr("Always Open With"), action: nil, keyEquivalent: "")
+        alwaysParent.submenu = always
+        menu.addItem(alwaysParent)
     }
 
     /// The entries the user gave the filetype of these files (filetypes.json, "menu"), after Open With.
@@ -2071,7 +2125,35 @@ extension ListerViewController {
         }
     }
 
-    private func chooseApplication(for urls: [URL]) {
+    /// Asks first, as Finder does, then makes `app` the application macOS opens files of this kind with (Open With,
+    /// double-click in Finder and everywhere else, not only in MacLister).
+    fileprivate func makeDefault(_ app: URL, for file: URL) {
+        guard let window = view.window else { return }
+        guard let type = (try? file.resourceValues(forKeys: [.contentTypeKey]))?.contentType else {
+            model.errorMessage = tr("Cannot tell the kind of “%@”", file.lastPathComponent)
+            return
+        }
+        let kind = type.localizedDescription ?? type.identifier
+        let appName = FileManager.default.displayName(atPath: app.path).replacingOccurrences(of: ".app", with: "")
+        let alert = NSAlert()
+        alert.messageText = tr("Always open “%@” files with %@?", kind, appName)
+        alert.informativeText = tr("This changes the application for all files of this kind, in Finder and in every other application, not only in MacLister.")
+        alert.addButton(withTitle: tr("Change All"))
+        alert.addButton(withTitle: tr("Cancel"))
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard response == .alertFirstButtonReturn else { return }
+            NSWorkspace.shared.setDefaultApplication(at: app, toOpen: type) { error in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    if let error { self.model.errorMessage = tr("Cannot change the application: %@", error.localizedDescription) }
+                    else { self.flash(tr("%@ now opens “%@” files", appName, kind)) }
+                }
+            }
+        }
+    }
+
+    /// `alwaysFor`: the application chosen also becomes the default for the kind of that file (after the question).
+    private func chooseApplication(for urls: [URL], alwaysFor file: URL? = nil) {
         let panel = NSOpenPanel()
         panel.title = tr("Choose an Application")
         panel.allowedContentTypes = [.application]
@@ -2079,7 +2161,8 @@ extension ListerViewController {
         panel.canChooseDirectories = false
         guard let window = view.window else { return }
         panel.beginSheetModal(for: window) { [weak self] response in
-            if response == .OK, let app = panel.url { self?.open(urls, with: app) }
+            guard response == .OK, let app = panel.url else { return }
+            if let file { self?.makeDefault(app, for: file) } else { self?.open(urls, with: app) }
         }
     }
 }
@@ -2155,6 +2238,8 @@ extension ListerViewController: NSSplitViewDelegate {
 /// Tree and file list side by side. A hidden tree keeps its old frame, so the stock split view would still draw
 /// the divider there (the list is translucent) — a stray vertical line. No tree, no divider.
 final class TreeSplitView: NSSplitView {
+    override var dividerColor: NSColor { .separatorColor }
+
     override func drawDivider(in rect: NSRect) {
         guard arrangedSubviews.first?.isHidden != true else { return }
         super.drawDivider(in: rect)
@@ -2178,7 +2263,7 @@ extension ListerViewController: NSTextFieldDelegate {
     func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
         guard selector == #selector(NSResponder.cancelOperation(_:)), inlineRename?.field === control else { return false }
         inlineRename?.cancelled = true
-        view.window?.makeFirstResponder(tableView)
+        view.window?.makeFirstResponder(listView)
         return true
     }
 }

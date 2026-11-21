@@ -109,6 +109,9 @@ final class SidebarSplitView: NSSplitView {
     var onFirstLayout: (() -> Void)?
     private var placed = false
 
+    /// The stock divider is drawn black on a dark interface and looks like a glitch between the two parts.
+    override var dividerColor: NSColor { .separatorColor }
+
     override func layout() {
         super.layout()
         guard !placed, !isHidden, bounds.height > 200, arrangedSubviews.count == 2 else { return }

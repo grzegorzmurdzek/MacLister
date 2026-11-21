@@ -37,6 +37,8 @@ enum ListerAction: String, Codable, CaseIterable, Identifiable {
     case nameLister
     /// Show the lists of recently opened files, of what is shared on the network and of the disks (devices) of this Mac.
     case showRecents, showShared, showDevices
+    /// Goes to the folder in the button's `command` (~ is the home folder): a Home, Desktop or Downloads button.
+    case goToFolder
     /// Takes back the last copy, move, duplicate or Move to Trash; shows the operation log.
     case undo, showLog
     /// Moves the keyboard focus to the next / previous lister (Tab / Shift-Tab).
@@ -46,6 +48,10 @@ enum ListerAction: String, Codable, CaseIterable, Identifiable {
     case newTab, nextTab, previousTab, moveTabToNewLister, mergeListers
     /// Two-panel windows: a new one, this lister and its partner joined into one, a two-panel window split into listers.
     case newTwoPanel, joinTwoPanel, splitTwoPanel
+    /// This lister becomes the left pane of a two-panel window; the right pane opens in the same folder.
+    case expandToTwoPanel
+    /// Shows the files as icons, or as a list again.
+    case toggleIconView
     /// Brings every lister to the macOS desktop (Space) you are on.
     case gatherListers
     /// A thin divider between groups of buttons (no action).
@@ -70,7 +76,7 @@ struct ListerButton: Codable, Hashable {
     var title: String
     var symbol: String?            // SF Symbol name, optional
     var action: ListerAction
-    var command: String?           // only for action == .shell
+    var command: String?           // for action == .shell (the command) and .goToFolder (the folder)
     var requiresSelection: Bool?   // overrides the action's default
     var help: String?              // tooltip
     var color: String?             // icon tint: blue green orange red purple teal pink yellow brown gray (default: neutral)
@@ -123,10 +129,15 @@ struct ListerButton: Codable, Hashable {
     static let showDevicesButton = ListerButton(title: "Show devices", symbol: "externaldrive.fill", action: .showDevices,
                                                 help: "List the disks of this Mac and the usual folders; right-click a disk to eject it", color: "gray")
 
+    /// Goes to the home folder with one click (the Home button of the default bar).
+    static let homeButton = ListerButton(title: "Home folder", symbol: "house.fill", action: .goToFolder, command: "~",
+                                         help: "Go to your home folder", color: "gray")
+
     /// Short on purpose: the rest (select, filter, sizes, duplicate lister, swap …) lives in the context and
     /// title-bar menus and in keyboard shortcuts, and can be added back through buttons.json.
     static let defaults: [ListerButton] = [
         showDevicesButton,
+        homeButton,
         ListerButton(title: "New Folder", symbol: "folder.fill.badge.plus", action: .newFolder, help: "Create a folder here", color: "blue"),
         ListerButton(title: "New Text File", symbol: "doc.badge.plus", action: .newTextFile, help: "Create a text file here and open it in your text editor", color: "green"),
         ListerButton(title: "Terminal Here", symbol: "terminal.fill", action: .terminalHere, help: "Open a terminal in this folder", color: "gray"),
@@ -163,13 +174,32 @@ final class ButtonStore: ObservableObject {
         return has(buttons) ? nil : [ListerButton.showDevicesButton] + buttons
     }
 
-    /// A bar saved by an earlier version gets Show devices as its first button, once.
+    /// Remembers that the Home button was added to a saved bar once, so removing it later sticks.
+    static let homeMigrationKey = "buttonsHomeAdded"
+
+    /// `buttons` with the Home button after Show devices (else first), or nil when the bar has a Go to folder button already.
+    static func addingHome(to buttons: [ListerButton]) -> [ListerButton]? {
+        func has(_ list: [ListerButton]) -> Bool { list.contains { $0.action == .goToFolder || has($0.menu ?? []) } }
+        guard !has(buttons) else { return nil }
+        var result = buttons
+        result.insert(ListerButton.homeButton, at: (buttons.firstIndex { $0.action == .showDevices }).map { $0 + 1 } ?? 0)
+        return result
+    }
+
+    /// A bar saved by an earlier version gets Show devices as its first button and a Home button after it, once each.
     private func migrateShowDevices(at url: URL) {
         let defaults = UserDefaults.standard
-        guard !defaults.bool(forKey: Self.showDevicesMigrationKey) else { return }
-        defer { defaults.set(true, forKey: Self.showDevicesMigrationKey) }
+        if !defaults.bool(forKey: Self.showDevicesMigrationKey) {
+            defaults.set(true, forKey: Self.showDevicesMigrationKey)
+            if let data = try? Data(contentsOf: url), let saved = try? JSONDecoder().decode([ListerButton].self, from: data),
+               let updated = Self.addingShowDevices(to: saved), let encoded = try? encode(updated) {
+                try? encoded.write(to: url, options: .atomic)
+            }
+        }
+        guard !defaults.bool(forKey: Self.homeMigrationKey) else { return }
+        defaults.set(true, forKey: Self.homeMigrationKey)
         guard let data = try? Data(contentsOf: url), let saved = try? JSONDecoder().decode([ListerButton].self, from: data),
-              let updated = Self.addingShowDevices(to: saved), let encoded = try? encode(updated) else { return }
+              let updated = Self.addingHome(to: saved), let encoded = try? encode(updated) else { return }
         try? encoded.write(to: url, options: .atomic)
     }
 
@@ -177,7 +207,8 @@ final class ButtonStore: ObservableObject {
     func ensureConfigFileExists() {
         let url = Self.configURL
         guard !FileManager.default.fileExists(atPath: url.path) else { migrateShowDevices(at: url); return }
-        UserDefaults.standard.set(true, forKey: Self.showDevicesMigrationKey)      // the defaults have it already
+        UserDefaults.standard.set(true, forKey: Self.showDevicesMigrationKey)      // the defaults have both already
+        UserDefaults.standard.set(true, forKey: Self.homeMigrationKey)
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try encode(ListerButton.defaults).write(to: url, options: .atomic)
@@ -265,6 +296,8 @@ extension ListerAction {
         case .connectToServer, .showShared: return "network"
         case .showRecents: return "clock.fill"
         case .showDevices: return "externaldrive.fill"
+        case .goToFolder: return "house.fill"
+        case .toggleIconView: return "square.grid.2x2"
         case .eject: return "eject.fill"
         case .rename: return "pencil"
         case .undo: return "arrow.uturn.backward.circle.fill"
@@ -279,6 +312,7 @@ extension ListerAction {
         case .newTwoPanel: return "rectangle.split.2x1"
         case .joinTwoPanel: return "rectangle.split.2x1.fill"
         case .splitTwoPanel: return "rectangle.on.rectangle"
+        case .expandToTwoPanel: return "rectangle.split.2x1"
         case .separator: return "minus"
         }
     }
@@ -310,12 +344,12 @@ extension ListerAction {
         case .selectPattern, .deselectPattern, .selectAll, .selectNone, .invertSelection, .selectByAttributes,
              .filter, .clearFilter, .find, .findDuplicates, .flatView, .toggleHidden, .refresh:
             return .selecting
-        case .parent, .back, .toggleTree, .addBookmark, .snapshot, .forgetSnapshot, .showRecents, .showShared, .showDevices, .connectToServer:
+        case .parent, .back, .toggleTree, .addBookmark, .snapshot, .forgetSnapshot, .showRecents, .showShared, .showDevices, .goToFolder, .toggleIconView, .connectToServer:
             return .navigation
         case .newLister, .duplicateLister, .setSource, .setDestination, .swapSourceDestination, .toggleRoleLock, .nameLister,
              .nextLister, .previousLister, .bringAllToFront, .gatherListers,
              .newTab, .nextTab, .previousTab, .moveTabToNewLister, .mergeListers,
-             .newTwoPanel, .joinTwoPanel, .splitTwoPanel:
+             .newTwoPanel, .joinTwoPanel, .splitTwoPanel, .expandToTwoPanel:
             return .listers
         case .terminalHere, .shell, .separator:
             return .other
