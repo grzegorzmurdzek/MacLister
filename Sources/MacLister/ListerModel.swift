@@ -18,6 +18,10 @@ struct FileItem: Hashable {
     var permissions: Int? = nil
     var tags: [String] = []
     var comment: String? = nil
+    // Loaded only while the files are grouped by them:
+    var lastOpened: Date? = nil
+    var added: Date? = nil
+    var application: String? = nil
     var isSymlink = false          // servers only: shown as a file, but may point to a folder
 
     /// How full the disk is, 0…1 (Devices list).
@@ -73,6 +77,8 @@ final class ListerModel: ObservableObject {
     @Published private(set) var showHidden = false
     @Published private(set) var sortKey: SortKey = .name
     @Published private(set) var ascending = true
+    /// What the files are grouped by (Finder's Group By). Remembered for each folder, like the icons or the list.
+    @Published private(set) var groupKey: GroupKey = .none
     /// Show-pattern filter: files must match it, folders are always shown. Empty = no filter.
     @Published private(set) var filter = ""
     /// Remembered between "select by pattern" prompts.
@@ -127,6 +133,7 @@ final class ListerModel: ObservableObject {
         self.url = VirtualPlace.place(for: url) != nil ? url : (RemoteURL.isRemote(url) ? RemoteURL.normalized(url) : url.standardizedFileURL)
         applyFolderSort(for: self.url)
         applyFolderView(for: self.url)
+        applyFolderGroup(for: self.url)
         reload()
         watchCurrentFolder()
         sharedObserver = NotificationCenter.default.addObserver(forName: .sharedPlacesChanged, object: nil, queue: .main) { [weak self] _ in
@@ -192,6 +199,30 @@ final class ListerModel: ObservableObject {
         showAsIcons = wanted
     }
 
+    /// Only real, local folders are grouped: Recents, Shared, Devices, servers and archives have no groups.
+    var canGroup: Bool { ViewModeStore.isRemembered(url) }
+
+    /// The grouping that is in force: the one of the folder, nothing where grouping is not possible.
+    var effectiveGroup: GroupKey { Self.grouping(groupKey, for: url) }
+
+    /// `key` where `target` can be grouped, else none.
+    static func grouping(_ key: GroupKey, for target: URL) -> GroupKey { ViewModeStore.isRemembered(target) ? key : .none }
+
+    /// A folder the user grouped shows its groups again; any other folder is not grouped.
+    private func applyFolderGroup(for target: URL) {
+        guard ViewModeStore.isRemembered(target) else { return }
+        groupKey = ViewModeStore.shared.group(for: target) ?? .none
+    }
+
+    /// Groups the files by `key` (`.none`: no groups) and remembers it for this folder.
+    func setGroup(_ key: GroupKey) {
+        guard canGroup, key != groupKey else { return }
+        groupKey = key
+        ViewModeStore.shared.setGroup(key, for: url)
+        objectWillChange.send()
+        reload()            // the data the groups need is read now
+    }
+
     /// The user's choice for the folder shown has been saved.
     var hasSavedView: Bool { ViewModeStore.shared.contains(url) }
 
@@ -202,6 +233,10 @@ final class ListerModel: ObservableObject {
         let wanted = Settings.showAsIcons
         if wanted != showAsIcons { viewChangedByNavigation = false; showAsIcons = wanted }
         objectWillChange.send()
+        if groupKey != .none, canGroup {
+            groupKey = .none
+            reload()
+        }
     }
 
     /// Leaving Recents / Shared brings back the sort order the user had.
@@ -307,7 +342,7 @@ final class ListerModel: ObservableObject {
             errorMessage = tr("This folder no longer exists")
             return
         }
-        guard let listing = try? Self.sorted(list(url), by: sortKey, ascending: ascending), listing != items else { return }
+        guard let listing = try? Self.sorted(list(url), by: sortKey, ascending: ascending, grouping: effectiveGroup), listing != items else { return }
         revealOnLoad = nil
         items = listing
     }
@@ -328,10 +363,12 @@ final class ListerModel: ObservableObject {
         }
         let sortBefore = (sortKey, ascending, sortBeforeVirtual)
         restoreSortAfterVirtual()
+        let groupBefore = groupKey
         applyFolderSort(for: target)
         applyFolderView(for: target)
+        applyFolderGroup(for: target)
         do {
-            let listing = Self.sorted(try list(target), by: sortKey, ascending: ascending)
+            let listing = Self.sorted(try list(target), by: sortKey, ascending: ascending, grouping: Self.grouping(groupKey, for: target))
             if recordHistory, target != url { backStack.append(url) }
             revealOnLoad = selecting
             url = target            // before items: observers of `items` already see the new url
@@ -342,6 +379,7 @@ final class ListerModel: ObservableObject {
             return true
         } catch {
             (sortKey, ascending, sortBeforeVirtual) = sortBefore          // we stay where we were, so does the sort order
+            groupKey = groupBefore
             errorMessage = error.localizedDescription
             return false
         }
@@ -451,7 +489,7 @@ final class ListerModel: ObservableObject {
             return
         }
         do {
-            let listing = Self.sorted(try list(url), by: sortKey, ascending: ascending)
+            let listing = Self.sorted(try list(url), by: sortKey, ascending: ascending, grouping: effectiveGroup)
             revealOnLoad = selecting
             items = listing
             errorMessage = nil
@@ -503,6 +541,7 @@ final class ListerModel: ObservableObject {
     func inherit(from other: ListerModel) {
         apply(sort: other.sortKey, ascending: other.ascending, showHidden: other.showHidden, filter: other.filter)
         lastPattern = other.lastPattern
+        groupKey = other.groupKey
     }
 
     /// Recursive folder sizes in the background. Each folder's size shows in the Size column as soon as it is
@@ -534,7 +573,7 @@ final class ListerModel: ObservableObject {
                     guard let self, self.url == folder else { return }
                     self.sizeCache[item] = measured.logical
                     self.items = Self.sorted(self.items.map { $0.url == item ? $0.withSize(measured.logical) : $0 },
-                                             by: self.sortKey, ascending: self.ascending)
+                                             by: self.sortKey, ascending: self.ascending, grouping: self.effectiveGroup)
                 }
             }
             let cancelled = token.isCancelled
@@ -568,22 +607,24 @@ final class ListerModel: ObservableObject {
         sortKey = key
         self.ascending = ascending
         if !isVirtual { userSort = (key, ascending) }
-        items = Self.sorted(items, by: key, ascending: ascending)
+        items = Self.sorted(items, by: key, ascending: ascending, grouping: effectiveGroup)
     }
 
     // MARK: Listing
 
     /// The resource values to read; optional ones only while their column is shown.
-    static func itemKeys(_ columns: [ListerColumn]) -> Set<URLResourceKey> {
+    static func itemKeys(_ columns: [ListerColumn], grouping: GroupKey = .none) -> Set<URLResourceKey> {
         var keys: Set<URLResourceKey> = [.isDirectoryKey, .isPackageKey, .isHiddenKey, .isSymbolicLinkKey,
                                          .fileSizeKey, .contentModificationDateKey]
-        if columns.contains(.created) { keys.insert(.creationDateKey) }
-        if columns.contains(.kind) { keys.insert(.localizedTypeDescriptionKey) }
-        if columns.contains(.tags) { keys.insert(.tagNamesKey) }
+        if columns.contains(.created) || grouping.needsCreated { keys.insert(.creationDateKey) }
+        if columns.contains(.kind) || grouping.needsKind { keys.insert(.localizedTypeDescriptionKey) }
+        if columns.contains(.tags) || grouping.needsTags { keys.insert(.tagNamesKey) }
+        if grouping == .added { keys.insert(.addedToDirectoryDateKey) }
+        if grouping == .application { keys.insert(.contentTypeKey) }
         return keys
     }
 
-    private func makeItem(for u: URL, keys: Set<URLResourceKey>, columns: [ListerColumn]) -> FileItem {
+    private func makeItem(for u: URL, keys: Set<URLResourceKey>, columns: [ListerColumn], grouping: GroupKey = .none) -> FileItem {
         let values = try? u.resourceValues(forKeys: keys)
         var isDirectory = values?.isDirectory ?? false
         if values?.isSymbolicLink == true {   // a link to a folder behaves like a folder
@@ -599,9 +640,15 @@ final class ListerModel: ObservableObject {
             size: isDirectory ? sizeCache[u] : values?.fileSize.map(Int64.init),
             modified: values?.contentModificationDate
         )
-        if columns.contains(.created) { item.created = values?.creationDate }
-        if columns.contains(.kind) { item.kind = values?.localizedTypeDescription }
-        if columns.contains(.tags) { item.tags = values?.tagNames ?? [] }
+        if columns.contains(.created) || grouping.needsCreated { item.created = values?.creationDate }
+        if columns.contains(.kind) || grouping.needsKind { item.kind = values?.localizedTypeDescription }
+        if columns.contains(.tags) || grouping.needsTags { item.tags = values?.tagNames ?? [] }
+        switch grouping {
+        case .added: item.added = values?.addedToDirectoryDate
+        case .lastOpened: item.lastOpened = GroupingData.lastOpened(of: u)
+        case .application: item.application = GroupingData.applicationName(for: u, type: values?.contentType, isDirectory: isDirectory && !item.isPackage)
+        default: break
+        }
         if columns.contains(.permissions) {
             item.permissions = ((try? FileManager.default.attributesOfItem(atPath: u.path))?[.posixPermissions] as? NSNumber)?.intValue
         }
@@ -612,21 +659,27 @@ final class ListerModel: ObservableObject {
     private func list(_ directory: URL) throws -> [FileItem] {
         ArchiveBrowser.shared.populate(directory)       // inside an archive: its files appear as placeholders
         let columns = ColumnSettings.visible          // optional data is read only when its column is shown
-        let keys = Self.itemKeys(columns)
+        let grouping = Self.grouping(groupKey, for: directory)        // or when the files are grouped by it
+        let keys = Self.itemKeys(columns, grouping: grouping)
         let urls = try FileManager.default.contentsOfDirectory(
             at: directory,
             includingPropertiesForKeys: Array(keys),
             options: showHidden ? [] : [.skipsHiddenFiles]
         )
-        let listed: [FileItem] = urls.map { makeItem(for: $0, keys: keys, columns: columns) }
+        let listed: [FileItem] = urls.map { makeItem(for: $0, keys: keys, columns: columns, grouping: grouping) }
         guard !filter.isEmpty else { return listed }
         let patterns = NamePattern.parse(filter)
         return listed.filter { $0.isNavigable || NamePattern.matches($0.name, patterns: patterns) }
     }
 
     /// Folders come first (unless the setting is off); inside each group, or among everything, the chosen column decides.
-    static func sorted(_ items: [FileItem], by key: SortKey, ascending: Bool, foldersFirst: Bool = Settings.foldersFirst) -> [FileItem] {
-        items.sorted { a, b in
+    /// With a grouping the groups come first, in their own order (Today before Yesterday), and each is sorted inside.
+    static func sorted(_ items: [FileItem], by key: SortKey, ascending: Bool, foldersFirst: Bool = Settings.foldersFirst,
+                       grouping: GroupKey = .none) -> [FileItem] {
+        let buckets: [GroupBucket]? = grouping == .none ? nil : items.map { Grouping.bucket(for: $0, by: grouping) }
+        let ranking = items.indices.sorted { i, j in
+            if let buckets, buckets[i] != buckets[j] { return buckets[i] < buckets[j] }
+            let (a, b) = (items[i], items[j])
             if foldersFirst, a.isNavigable != b.isNavigable { return a.isNavigable }
             let order: ComparisonResult
             switch key {
@@ -660,6 +713,7 @@ final class ListerModel: ObservableObject {
             if order == .orderedSame { return a.name.localizedStandardCompare(b.name) == .orderedAscending }
             return ascending ? order == .orderedAscending : order == .orderedDescending
         }
+        return ranking.map { items[$0] }
     }
 
     private static func compare<T: Comparable>(_ a: T, _ b: T) -> ComparisonResult {

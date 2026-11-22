@@ -18,7 +18,7 @@ menu-bar app with an optional Dock icon.
 
 - **Desktop double-click opens a lister** at the cursor. Any number of listers at once.
 - **Source / destination listers** with Copy (F5), Move (F6), Extract, Compare, Swap.
-- **Icon view** (⌘1, ⌘2 for the list; the button in the path bar, right-click it for icon size and sort order; the view is remembered for each folder) and a **Home button** on the bar.
+- **Icon view** (⌘1, ⌘2 for the list; the button in the path bar, right-click it for icon size, sort order and groups; the view is remembered for each folder) and a **Home button** on the bar.
 - **Network shares** (`smb://`, `afp://`, also from *Shared*) are mounted and opened in the lister, with no Finder window.
 - **Two-panel window** (⌥⌘N) for those who prefer a classic two-panel file manager: the pane you work in is the source, Tab switches panes.
 - **Drag and drop** between listers and to/from Finder (Finder rules: same volume moves, ⌥ copies, ⌘ moves).
@@ -86,6 +86,14 @@ run `defaults delete com.example.MacLister`, and remove MacLister from the two P
   Double-click or Return opens a file or enters a folder. **Right-click the column header** to choose the
   columns: Size, Size in Bytes (the exact number, off by default), Modified, Created, Kind, Extension, Permissions, Tags, Comment. The widths you drag are remembered
   (Name takes the space that is left unless you drag it to a width of your own; columns wider than the window scroll sideways. The Devices list gives disk names more room and has no Modified column).
+- **Groups, as in Finder:** right-click the view button (or the lister's context menu → *This Lister* → *View* → *Group By*) and choose what the files are
+  grouped by: Name, Kind, Application, Date Last Opened, Date Added, Date Modified, Date Created, Size or Tags. Each group gets a header
+  with its title and the number of files, in the list and in the icon view (the list keeps the header of the group at the top while you scroll).
+  Dates fall into Today, Yesterday, Previous 7 Days, Previous 30 Days, then a month for each of the rest of the year and a year for each older one;
+  sizes into Folders and ranges from 1 GB down to empty; names under their first letter; a file with several tags is under the first.
+  The groups follow their natural order, the files inside a group the sort order you chose. The grouping is remembered for each folder
+  (*Forget the View of This Folder* removes it); Recents, Shared, Devices, servers and archives are not grouped. Header rows are never selected,
+  so Select All, drag-select and the keyboard only ever touch files. `MacLister --selftest-groups --quiet` tests it.
 - **The list refreshes itself** when files are added, removed or changed on disk (FSEvents), and the window
   subtitle shows the free space of the volume.
 - **Button bar** above the path bar, as in Ambient on MorphOS (see *Configuration*): icons only, the name is in

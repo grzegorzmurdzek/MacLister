@@ -31,6 +31,12 @@ final class ListerTableView: NSTableView, NSServicesMenuRequestor {
     var keyHandler: ((NSEvent) -> Bool)?
     /// The drag left the list or ended (spring-loaded folders stop waiting).
     var onDragEnd: (() -> Void)?
+    /// Is this table row the header of a group? Headers are never selected.
+    var isGroupHeader: (Int) -> Bool = { _ in false }
+
+    override func selectRowIndexes(_ indexes: IndexSet, byExtendingSelection extend: Bool) {
+        super.selectRowIndexes(indexes.filteredIndexSet { !isGroupHeader($0) }, byExtendingSelection: extend)
+    }
 
     // Only through super when NSTableView has the method: on macOS 27 it has no draggingEnded, AppKit still calls it
     // when a drag ends (a ⌘-drag that moves files), and the call to super threw "unrecognized selector" and crashed.
@@ -151,6 +157,12 @@ final class ListerViewController: NSViewController {
     let tableScroll = NSScrollView()
     let iconScroll = NSScrollView()
     var rows: [FileItem] = []
+    /// The runs of rows that have a header above them while the files are grouped (see ListerViewController+Groups).
+    var groups: [RowGroup] = []
+    /// Grouped list: for each table row the index in `rows`, or -(group + 1) for a header. Empty when not grouped.
+    var tableEntries: [Int] = []
+    /// Grouped list: the table row of each of `rows`. Empty when not grouped.
+    var itemTableRows: [Int] = []
     private var lastURL: URL?
     private var cancellables = Set<AnyCancellable>()
     private var layouts: [ButtonBarPosition: [NSLayoutConstraint]] = [:]
@@ -529,8 +541,9 @@ final class ListerViewController: NSViewController {
         if model.isVirtual != columnsShowListLayout || (model.virtualPlace == .devices) != columnsShowDevices { rebuildColumns() }
         if inlineRename != nil { inlineRename?.cancelled = true }      // the cells are rebuilt: the name being typed is dropped
         rows = items
+        updateGroups()
         tableView.reloadData()
-        if iconMode { collectionView.reloadData() }
+        if iconMode { reloadGrid() }
 
         var toSelect = IndexSet()
         if let reveal = model.revealOnLoad, let i = rows.firstIndex(where: { $0.url == reveal }) {
@@ -566,7 +579,7 @@ final class ListerViewController: NSViewController {
 
     // MARK: - Opening
 
-    @objc private func rowDoubleClicked() { handleDoubleClick(row: tableView.clickedRow) }
+    @objc private func rowDoubleClicked() { handleDoubleClick(row: row(forTableRow: tableView.clickedRow) ?? -1) }
 
     func handleDoubleClick(row: Int) {
         let flags = NSEvent.modifierFlags
@@ -766,10 +779,23 @@ final class ListerViewController: NSViewController {
 // MARK: - Table
 
 extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
-    func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
+    func numberOfRows(in tableView: NSTableView) -> Int { rows.count + groups.count }
 
-    func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row: Int) -> NSView? {
-        guard let column, rows.indices.contains(row) else { return nil }
+    func tableView(_ tableView: NSTableView, isGroupRow row: Int) -> Bool { isHeaderTableRow(row) }
+
+    /// Group headers cannot be selected (a click on one, or a drag over it, selects nothing).
+    func tableView(_ tableView: NSTableView, selectionIndexesForProposedSelection proposed: IndexSet) -> IndexSet {
+        groups.isEmpty ? proposed : proposed.filteredIndexSet { !isHeaderTableRow($0) }
+    }
+
+    func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row tableRow: Int) -> NSView? {
+        if let group = groupIndex(forTableRow: tableRow) {
+            let header = tableView.makeView(withIdentifier: GroupHeaderView.identifier, owner: self) as? GroupHeaderView ?? GroupHeaderView()
+            header.identifier = GroupHeaderView.identifier
+            header.show(groups[group])
+            return header
+        }
+        guard let column, let row = self.row(forTableRow: tableRow), rows.indices.contains(row) else { return nil }
         let item = rows[row]
         switch column.identifier.rawValue {
         case "name":
@@ -805,7 +831,9 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
     }
 
     /// Lets files be dragged out of the lister (Finder, Mail, other listers…).
-    func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? { dragWriter(forRow: row) }
+    func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
+        self.row(forTableRow: row).flatMap { dragWriter(forRow: $0) }
+    }
 
     func dragWriter(forRow row: Int) -> NSPasteboardWriting? {
         // files on a server cannot be dragged out yet (they would have to be downloaded first)
@@ -855,7 +883,8 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
     }
 
     func tableView(_ tableView: NSTableView, validateDrop info: NSDraggingInfo,
-                   proposedRow row: Int, proposedDropOperation dropOperation: NSTableView.DropOperation) -> NSDragOperation {
+                   proposedRow tableRow: Int, proposedDropOperation dropOperation: NSTableView.DropOperation) -> NSDragOperation {
+        let (row, dropOperation) = dropTarget(forTableRow: tableRow, operation: dropOperation)
         guard !Self.droppedURLs(from: info.draggingPasteboard).isEmpty, !model.isVirtual, !model.isInArchive else { springLoader.cancel(); return [] }
         // hold the files over a folder and it opens (whether or not they could be dropped into it)
         if dropOperation == .on, rows.indices.contains(row), rows[row].isNavigable {
@@ -867,15 +896,16 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
         if self.dropFolder(forRow: row, operation: dropOperation) == model.url {
             tableView.setDropRow(-1, dropOperation: .on)        // highlight the whole table
         } else {
-            tableView.setDropRow(row, dropOperation: .on)       // highlight the folder row
+            tableView.setDropRow(self.tableRow(forRow: row), dropOperation: .on)       // highlight the folder row
         }
         return self.dropOperation(for: info, row: row, operation: dropOperation)
     }
 
     func tableView(_ tableView: NSTableView, acceptDrop info: NSDraggingInfo,
-                   row: Int, dropOperation: NSTableView.DropOperation) -> Bool {
+                   row tableRow: Int, dropOperation: NSTableView.DropOperation) -> Bool {
         springLoader.cancel()
-        return performDrop(info, row: row, operation: dropOperation)
+        let (row, operation) = dropTarget(forTableRow: tableRow, operation: dropOperation)
+        return performDrop(info, row: row, operation: operation)
     }
 
     // Cell construction

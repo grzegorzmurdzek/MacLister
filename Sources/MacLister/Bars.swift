@@ -90,7 +90,7 @@ struct PathBarView: View {
                     Image(systemName: model.showAsIcons ? "list.bullet" : "square.grid.2x2")
                 }
                 .buttonStyle(ToolbarIconButtonStyle(iconSize: 14))
-                .help(model.showAsIcons ? "Show as a list (⌘2); right-click: sort order, icon size" : "Show as icons (⌘1); right-click: sort order, icon size")
+                .help(model.showAsIcons ? "Show as a list (⌘2); right-click: sort order, groups, icon size" : "Show as icons (⌘1); right-click: sort order, groups, icon size")
                 .contextMenu { viewMenuItems }
 
                 roleButton(.source, title: "SRC", tint: .blue, help: "Make this lister the source of Copy / Move")
@@ -178,6 +178,14 @@ extension PathBarView {
             Divider()
             Toggle(tr("Ascending"), isOn: Binding(get: { model.ascending }, set: { _ in model.setSort(model.sortKey, ascending: true) }))
             Toggle(tr("Descending"), isOn: Binding(get: { !model.ascending }, set: { _ in model.setSort(model.sortKey, ascending: false) }))
+        }
+        if model.canGroup {
+            Menu(tr("Group By")) {
+                ForEach(GroupKey.allCases, id: \.self) { key in
+                    Toggle(key.title, isOn: Binding(get: { model.groupKey == key }, set: { _ in model.setGroup(key) }))
+                    if key == .none { Divider() }
+                }
+            }
         }
         if model.hasSavedView {
             Divider()

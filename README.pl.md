@@ -18,7 +18,7 @@ działa w pasku menu, z opcjonalną ikoną w Docku.
 
 - **Dwuklik na pulpicie otwiera lister** pod kursorem. Dowolna liczba listerów naraz.
 - **Listery źródłowy i docelowy**: Copy (F5), Move (F6), Extract, Compare, Swap.
-- **Widok ikon** (⌘1, ⌘2 wraca do listy; przycisk w pasku ścieżki, prawy przycisk: rozmiar ikon i sortowanie; widok jest pamiętany osobno dla każdego folderu) i przycisk **Home** na pasku.
+- **Widok ikon** (⌘1, ⌘2 wraca do listy; przycisk w pasku ścieżki, prawy przycisk: rozmiar ikon, sortowanie i grupy; widok jest pamiętany osobno dla każdego folderu) i przycisk **Home** na pasku.
 - **Udziały sieciowe** (`smb://`, `afp://`, także z listy *Shared*) są montowane i otwierane w listerze, bez okna Findera.
 - **Okno dwupanelowe** (⌥⌘N) dla tych, którzy wolą klasyczny dwupanelowy menedżer plików: panel, w którym pracujesz, jest źródłem, Tab przełącza panele.
 - **Przeciąganie i upuszczanie** między listerami oraz z/do Findera (reguły Findera: ten sam wolumin przenosi,
@@ -89,6 +89,14 @@ wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list 
   na początku (wyłączysz to w **Ustawienia → Listery → Foldery nad plikami przy sortowaniu** albo w menu nagłówka kolumn). Dwuklik lub Return otwiera plik albo wchodzi do folderu. **Prawy przycisk na nagłówku kolumn**
   wybiera kolumny: Size, Size in Bytes (dokładna liczba, domyślnie wyłączona), Modified, Created, Kind, Extension, Permissions, Tags, Comment. Przeciągnięte szerokości kolumn są zapamiętywane
   (Name zajmuje pozostałe miejsce, chyba że przeciągniesz go do własnej szerokości; kolumny szersze niż okno przewijają się na boki. Lista Urządzenia daje nazwom dysków więcej miejsca i nie ma kolumny Modified).
+- **Grupy, jak w Finderze:** prawy przycisk na przycisku widoku (albo menu kontekstowe listera → *Ten lister* → *Widok* → *Grupuj według*) wybiera, według czego
+  pliki są grupowane: Nazwa, Rodzaj, Aplikacja, Data ostatniego otwarcia, Data dołączenia, Data zmiany, Data utworzenia, Rozmiar albo Tagi. Każda grupa ma nagłówek
+  z tytułem i liczbą plików, na liście i w widoku ikon (lista trzyma nagłówek bieżącej grupy u góry podczas przewijania).
+  Daty trafiają do grup: Dzisiaj, Wczoraj, Ostatnie 7 dni, Ostatnie 30 dni, potem miesiąc dla reszty roku i rok dla starszych; rozmiary do grup Foldery i przedziałów
+  od 1 GB w dół do pustych; nazwy pod pierwszą literą; plik z kilkoma tagami jest pod pierwszym. Grupy idą w swojej naturalnej kolejności, a pliki w grupie według
+  wybranego sortowania. Grupowanie jest pamiętane osobno dla każdego folderu (*Zapomnij widok tego folderu* je usuwa); Ostatnie, Udostępniane, Urządzenia,
+  serwery i archiwa nie są grupowane. Nagłówków nie da się zaznaczyć, więc Zaznacz wszystko, zaznaczanie przeciąganiem i klawiatura dotykają tylko plików.
+  Test: `MacLister --selftest-groups --quiet`.
 - **Lista odświeża się sama**, gdy pliki są dodawane, usuwane lub zmieniane na dysku (FSEvents), a podtytuł okna
   pokazuje wolne miejsce na woluminie.
 - **Pasek przycisków** nad paskiem ścieżki, jak w Ambiencie na MorphOS (zob. *Konfiguracja*): same ikony, nazwa

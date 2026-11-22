@@ -1,13 +1,17 @@
 import Foundation
 
-/// Which way a folder is shown, icons or list, remembered for each folder the user chose it in (as Finder does).
-/// Folders without an entry use the way the user last chose (Settings.showAsIcons). Only real, local folders take
-/// part: lists (Recents, Shared, Devices), servers and archives keep the view that is on.
+/// Which way a folder is shown, icons or list, and what its files are grouped by, remembered for each folder the user
+/// chose it in (as Finder does). Folders without an entry use the way the user last chose (Settings.showAsIcons) and
+/// are not grouped. Only real, local folders take part: lists (Recents, Shared, Devices), servers and archives keep
+/// the view that is on.
 final class ViewModeStore {
     static let shared = ViewModeStore()
 
     struct Entry: Codable, Equatable {
-        var icons: Bool
+        /// nil: the folder has a grouping only.
+        var icons: Bool?
+        /// A GroupKey's raw value; nil: not grouped.
+        var group: String?
         /// When it was chosen, so the oldest entries go first once there are too many.
         var chosen: Double
     }
@@ -32,11 +36,31 @@ final class ViewModeStore {
         return entries[Self.key(for: url)]?.icons
     }
 
-    func contains(_ url: URL) -> Bool { mode(for: url) != nil }
+    /// What the folder's files are grouped by, nil when the user did not group them.
+    func group(for url: URL) -> GroupKey? {
+        guard Self.isRemembered(url), let raw = entries[Self.key(for: url)]?.group else { return nil }
+        return GroupKey(rawValue: raw).flatMap { $0 == .none ? nil : $0 }
+    }
+
+    func contains(_ url: URL) -> Bool { Self.isRemembered(url) && entries[Self.key(for: url)] != nil }
 
     func set(_ icons: Bool, for url: URL) {
         guard Self.isRemembered(url) else { return }
-        entries[Self.key(for: url)] = Entry(icons: icons, chosen: Date().timeIntervalSince1970)
+        update(url) { $0.icons = icons }
+    }
+
+    /// Remembers how the folder is grouped (`.none` forgets the grouping).
+    func setGroup(_ key: GroupKey, for url: URL) {
+        guard Self.isRemembered(url) else { return }
+        update(url) { $0.group = key == .none ? nil : key.rawValue }
+    }
+
+    private func update(_ url: URL, _ change: (inout Entry) -> Void) {
+        let key = Self.key(for: url)
+        var entry = entries[key] ?? Entry(icons: nil, group: nil, chosen: 0)
+        change(&entry)
+        entry.chosen = Date().timeIntervalSince1970
+        entries[key] = entry.icons == nil && entry.group == nil ? nil : entry
         if entries.count > Self.limit {
             let oldest = entries.sorted { $0.value.chosen < $1.value.chosen }.prefix(entries.count - Self.limit)
             for (key, _) in oldest { entries[key] = nil }

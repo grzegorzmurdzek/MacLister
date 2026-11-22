@@ -72,6 +72,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestDual.run() }
             return
         }
+        if CommandLine.arguments.contains("--selftest-groups") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestGroups.run() }
+            return
+        }
         if CommandLine.arguments.contains("--selftest-workspaces") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestWorkspaces.run() }
             return

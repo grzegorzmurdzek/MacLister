@@ -10,14 +10,17 @@ extension ListerViewController {
     var listView: NSView { iconMode ? collectionView : tableView }
 
     var selectedRowIndexes: IndexSet {
-        iconMode ? IndexSet(collectionView.selectionIndexPaths.map(\.item)) : tableView.selectedRowIndexes
+        if iconMode { return IndexSet(collectionView.selectionIndexPaths.map { collectionView.row(for: $0) }) }
+        return isGrouped ? IndexSet(tableView.selectedRowIndexes.compactMap { row(forTableRow: $0) }) : tableView.selectedRowIndexes
     }
 
     /// Replaces the selection with these rows.
     func selectRows(_ indexes: IndexSet) {
         if iconMode {
-            collectionView.selectionIndexPaths = Set(indexes.filter { rows.indices.contains($0) }.map { IndexPath(item: $0, section: 0) })
+            collectionView.selectionIndexPaths = Set(indexes.filter { rows.indices.contains($0) }.map { collectionView.indexPath(forRow: $0) })
             syncSelectionToModel()
+        } else if isGrouped {
+            tableView.selectRowIndexes(IndexSet(indexes.filter { rows.indices.contains($0) }.map { tableRow(forRow: $0) }), byExtendingSelection: false)
         } else {
             tableView.selectRowIndexes(indexes, byExtendingSelection: false)
         }
@@ -26,33 +29,35 @@ extension ListerViewController {
     func scrollRowToVisible(_ row: Int) {
         if iconMode {
             guard rows.indices.contains(row) else { return }
-            collectionView.scrollToItems(at: [IndexPath(item: row, section: 0)], scrollPosition: .nearestVerticalEdge)
+            if row == 0, isGrouped { collectionView.scroll(.zero); return }       // all the way up: the first header shows too
+            collectionView.scrollToItems(at: [collectionView.indexPath(forRow: row)], scrollPosition: .nearestVerticalEdge)
         } else {
-            tableView.scrollRowToVisible(row)
+            tableView.scrollRowToVisible(row == 0 ? 0 : tableRow(forRow: row))
         }
     }
 
     /// The row under the right-click that is open now, -1 for empty space.
-    var clickedRowIndex: Int { iconMode ? collectionView.clickedItem : tableView.clickedRow }
+    var clickedRowIndex: Int { iconMode ? collectionView.clickedItem : (row(forTableRow: tableView.clickedRow) ?? -1) }
 
     /// Where a row is, in window coordinates; nil when it is scrolled out of view.
     func rowRectInWindow(_ row: Int) -> NSRect? {
         if iconMode {
-            guard rows.indices.contains(row), let item = collectionView.item(at: IndexPath(item: row, section: 0)) else { return nil }
+            guard rows.indices.contains(row), let item = collectionView.item(at: collectionView.indexPath(forRow: row)) else { return nil }
             let rect = item.view.convert(item.view.bounds, to: nil)
             return collectionView.visibleRect.intersects(item.view.frame) ? rect : nil
         }
-        guard tableView.visibleRect.intersects(tableView.rect(ofRow: row)) else { return nil }
-        return tableView.convert(tableView.rect(ofRow: row), to: nil)
+        let tableRow = self.tableRow(forRow: row)
+        guard tableView.visibleRect.intersects(tableView.rect(ofRow: tableRow)) else { return nil }
+        return tableView.convert(tableView.rect(ofRow: tableRow), to: nil)
     }
 
     /// The text field with the name of a row, for Rename in place.
     func nameField(ofRow row: Int) -> NSTextField? {
         if iconMode {
-            return (collectionView.item(at: IndexPath(item: row, section: 0)) as? IconGridItem)?.nameField
+            return (collectionView.item(at: collectionView.indexPath(forRow: row)) as? IconGridItem)?.nameField
         }
         guard let column = tableView.tableColumns.firstIndex(where: { $0.identifier.rawValue == "name" }) else { return nil }
-        return (tableView.view(atColumn: column, row: row, makeIfNecessary: true) as? NSTableCellView)?.textField
+        return (tableView.view(atColumn: column, row: tableRow(forRow: row), makeIfNecessary: true) as? NSTableCellView)?.textField
     }
 
     // MARK: Setting up
@@ -65,6 +70,8 @@ extension ListerViewController {
         collectionView.collectionViewLayout = flow
         updateIconLayout()
         collectionView.register(IconGridItem.self, forItemWithIdentifier: IconGridItem.identifier)
+        collectionView.register(GroupHeaderView.self, forSupplementaryViewOfKind: NSCollectionView.elementKindSectionHeader,
+                                withIdentifier: GroupHeaderView.identifier)
         collectionView.dataSource = self
         collectionView.delegate = self
         collectionView.isSelectable = true
@@ -101,7 +108,7 @@ extension ListerViewController {
     func setIconSize(_ size: CGFloat) {
         Settings.iconSize = size
         updateIconLayout()
-        collectionView.reloadData()
+        reloadGrid()
     }
 
     /// The list turned into icons or the other way round: the other view takes over the rows, the selection and the keyboard.
@@ -114,7 +121,7 @@ extension ListerViewController {
         iconScroll.isHidden = !iconMode
         updateIconLayout()
         tableView.reloadData()
-        collectionView.reloadData()
+        reloadGrid()
         select(urls: selected)
         syncSelectionToModel()
         if hadKeyboard { view.window?.makeFirstResponder(listView) }
@@ -167,6 +174,17 @@ extension ListerViewController {
         sort.addItem(up)
         sort.addItem(down)
         attach(sort)
+        if model.canGroup {
+            let group = NSMenu(title: tr("Group By"))
+            group.autoenablesItems = false
+            for key in GroupKey.allCases {
+                let item = make(key.title) { [weak self] in self?.model.setGroup(key) }
+                item.state = model.groupKey == key ? .on : .off
+                group.addItem(item)
+                if key == .none { group.addItem(.separator()) }
+            }
+            attach(group)
+        }
         if model.hasSavedView {
             view.addItem(.separator())
             view.addItem(make(tr("Forget the View of This Folder")) { [weak self] in self?.model.forgetSavedView() })
@@ -180,14 +198,27 @@ extension ListerViewController {
 // MARK: - Grid data and delegate
 
 extension ListerViewController: NSCollectionViewDataSource, NSCollectionViewDelegate {
-    func collectionView(_ collectionView: NSCollectionView, numberOfItemsInSection section: Int) -> Int { rows.count }
+    func numberOfSections(in collectionView: NSCollectionView) -> Int { max(groups.count, 1) }
+
+    func collectionView(_ collectionView: NSCollectionView, numberOfItemsInSection section: Int) -> Int {
+        guard isGrouped else { return rows.count }
+        return groups.indices.contains(section) ? groups[section].range.count : 0
+    }
 
     func collectionView(_ collectionView: NSCollectionView, itemForRepresentedObjectAt indexPath: IndexPath) -> NSCollectionViewItem {
         let item = collectionView.makeItem(withIdentifier: IconGridItem.identifier, for: indexPath)
-        if let item = item as? IconGridItem, rows.indices.contains(indexPath.item) {
-            item.configure(with: rows[indexPath.item], iconSize: Settings.iconSize)
+        let row = (collectionView as? ListerCollectionView)?.row(for: indexPath) ?? indexPath.item
+        if let item = item as? IconGridItem, rows.indices.contains(row) {
+            item.configure(with: rows[row], iconSize: Settings.iconSize)
         }
         return item
+    }
+
+    func collectionView(_ collectionView: NSCollectionView, viewForSupplementaryElementOfKind kind: NSCollectionView.SupplementaryElementKind,
+                        at indexPath: IndexPath) -> NSView {
+        let view = collectionView.makeSupplementaryView(ofKind: kind, withIdentifier: GroupHeaderView.identifier, for: indexPath)
+        if let header = view as? GroupHeaderView, groups.indices.contains(indexPath.section) { header.show(groups[indexPath.section]) }
+        return view
     }
 
     func collectionView(_ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>) { syncSelectionToModel() }
@@ -195,7 +226,7 @@ extension ListerViewController: NSCollectionViewDataSource, NSCollectionViewDele
     func collectionView(_ collectionView: NSCollectionView, didDeselectItemsAt indexPaths: Set<IndexPath>) { syncSelectionToModel() }
 
     func collectionView(_ collectionView: NSCollectionView, pasteboardWriterForItemAt indexPath: IndexPath) -> NSPasteboardWriting? {
-        dragWriter(forRow: indexPath.item)
+        dragWriter(forRow: self.collectionView.row(for: indexPath))
     }
 
     func collectionView(_ collectionView: NSCollectionView, validateDrop draggingInfo: NSDraggingInfo,
@@ -205,7 +236,7 @@ extension ListerViewController: NSCollectionViewDataSource, NSCollectionViewDele
             springLoader.cancel()
             return []
         }
-        let row = proposedDropIndexPath.pointee.item
+        let row = self.collectionView.row(for: proposedDropIndexPath.pointee as IndexPath)
         let onFolder = proposedDropOperation.pointee == .on && rows.indices.contains(row) && rows[row].isNavigable
         if onFolder {
             let folder = rows[row].url
@@ -213,7 +244,7 @@ extension ListerViewController: NSCollectionViewDataSource, NSCollectionViewDele
         } else {
             // anywhere else the files go into the folder shown: the end of the grid, nothing highlighted
             springLoader.cancel()
-            proposedDropIndexPath.pointee = IndexPath(item: rows.count, section: 0) as NSIndexPath
+            proposedDropIndexPath.pointee = self.collectionView.indexPath(forRow: rows.count) as NSIndexPath
             proposedDropOperation.pointee = .before
         }
         return dropOperation(for: draggingInfo, row: onFolder ? row : -1, operation: onFolder ? .on : .above)
@@ -222,7 +253,8 @@ extension ListerViewController: NSCollectionViewDataSource, NSCollectionViewDele
     func collectionView(_ collectionView: NSCollectionView, acceptDrop draggingInfo: NSDraggingInfo,
                         indexPath: IndexPath, dropOperation: NSCollectionView.DropOperation) -> Bool {
         springLoader.cancel()
-        let onFolder = dropOperation == .on && rows.indices.contains(indexPath.item) && rows[indexPath.item].isNavigable
-        return performDrop(draggingInfo, row: onFolder ? indexPath.item : -1, operation: onFolder ? .on : .above)
+        let row = self.collectionView.row(for: indexPath)
+        let onFolder = dropOperation == .on && rows.indices.contains(row) && rows[row].isNavigable
+        return performDrop(draggingInfo, row: onFolder ? row : -1, operation: onFolder ? .on : .above)
     }
 }

@@ -26,6 +26,20 @@ final class ListerCollectionView: NSCollectionView, NSServicesMenuRequestor {
     var servicesURLs: () -> [URL] = { [] }
     /// The item under the last right-click, -1 for empty space.
     private(set) var clickedItem = -1
+    /// While the files are grouped each group is a section: the index of the first file of every section. Empty: one
+    /// section with all of them.
+    var sectionStarts: [Int] = []
+
+    /// The index of the file an item stands for.
+    func row(for path: IndexPath) -> Int {
+        sectionStarts.indices.contains(path.section) ? sectionStarts[path.section] + path.item : path.item
+    }
+
+    /// The item of a file (a row one past the last file gives the place after the last item).
+    func indexPath(forRow row: Int) -> IndexPath {
+        guard let section = sectionStarts.lastIndex(where: { $0 <= row }) else { return IndexPath(item: row, section: 0) }
+        return IndexPath(item: row - sectionStarts[section], section: section)
+    }
 
     // Only through super when NSCollectionView has the method (see ListerTableView: macOS 27 crashed on a missing one).
     override func draggingExited(_ sender: NSDraggingInfo?) {
@@ -60,7 +74,7 @@ final class ListerCollectionView: NSCollectionView, NSServicesMenuRequestor {
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {
-        clickedItem = indexPathForItem(at: convert(event.locationInWindow, from: nil))?.item ?? -1
+        clickedItem = indexPathForItem(at: convert(event.locationInWindow, from: nil)).map(row(for:)) ?? -1
         return super.menu(for: event)
     }
 
@@ -75,7 +89,7 @@ final class ListerCollectionView: NSCollectionView, NSServicesMenuRequestor {
         let point = convert(event.locationInWindow, from: nil)
         if let path = indexPathForItem(at: point) {
             super.mouseDown(with: event)
-            if event.clickCount == 2 { onDoubleClick?(path.item) }
+            if event.clickCount == 2 { onDoubleClick?(row(for: path)) }
         } else {
             rubberBand(from: point, event: event)
         }

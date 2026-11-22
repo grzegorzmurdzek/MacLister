@@ -528,8 +528,8 @@
 "Show shared" = "Pokaż udostępniane";
 "Show devices" = "Pokaż urządzenia";
 "Show as icons or list" = "Pokaż jako ikony lub listę";
-"Show as a list (⌘2); right-click: sort order, icon size" = "Pokaż jako listę (⌘2); prawy przycisk: sortowanie, rozmiar ikon";
-"Show as icons (⌘1); right-click: sort order, icon size" = "Pokaż jako ikony (⌘1); prawy przycisk: sortowanie, rozmiar ikon";
+"Show as a list (⌘2); right-click: sort order, groups, icon size" = "Pokaż jako listę (⌘2); prawy przycisk: sortowanie, grupowanie, rozmiar ikon";
+"Show as icons (⌘1); right-click: sort order, groups, icon size" = "Pokaż jako ikony (⌘1); prawy przycisk: sortowanie, grupowanie, rozmiar ikon";
 "Icon Size" = "Rozmiar ikon";
 "Sort By" = "Sortuj według";
 "as Icons" = "Jako ikony";
@@ -1140,3 +1140,20 @@
 "More buttons" = "Więcej przycisków";
 "Next Buttons" = "Następne przyciski";
 "Previous Buttons" = "Poprzednie przyciski";
+
+/* Groups (Group By) */
+"Group By" = "Grupuj według";
+"Application" = "Aplikacja";
+"Date Last Opened" = "Data ostatniego otwarcia";
+"Date Added" = "Data dołączenia";
+"Date Modified" = "Data zmiany";
+"Date Created" = "Data utworzenia";
+"Today" = "Dzisiaj";
+"Yesterday" = "Wczoraj";
+"Previous 7 Days" = "Ostatnie 7 dni";
+"Previous 30 Days" = "Ostatnie 30 dni";
+"Unknown" = "Nieznane";
+"No Tag" = "Bez tagu";
+"Empty" = "Puste";
+"1 GB or more" = "1 GB lub więcej";
+"Under 1 KB" = "Poniżej 1 KB";
