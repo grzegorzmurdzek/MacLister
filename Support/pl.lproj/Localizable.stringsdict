@@ -182,6 +182,26 @@
 			<string>Otwórz %d elementów</string>
 		</dict>
 	</dict>
+	<key>%d listers</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>few</key>
+			<string>%d listery</string>
+			<key>many</key>
+			<string>%d listerów</string>
+			<key>one</key>
+			<string>%d lister</string>
+			<key>other</key>
+			<string>%d listerów</string>
+		</dict>
+	</dict>
 	<key>Rename %d Items</key>
 	<dict>
 		<key>NSStringLocalizedFormatKey</key>

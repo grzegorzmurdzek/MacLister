@@ -100,6 +100,7 @@ enum Settings {
             "showStatusItem": true,
             "debugHitTest": false,
             "restoreLayoutAtLaunch": true,
+            "autosaveLastSession": true,
             "showButtonLabels": false,
             "buttonBarPosition": ButtonBarPosition.abovePath.rawValue,
             "showButtonMenuArrows": false,
@@ -129,6 +130,15 @@ enum Settings {
 
     /// Reopen the layout saved with "Save Layout" when the app starts.
     static var restoreLayoutAtLaunch: Bool { defaults.bool(forKey: "restoreLayoutAtLaunch") }
+
+    /// Save the open listers as the last session when the app quits.
+    static var autosaveLastSession: Bool { defaults.bool(forKey: "autosaveLastSession") }
+
+    /// The workspace opened at launch (its id); empty: the last session, saved with Save Layout.
+    static var startupWorkspaceID: String {
+        get { defaults.string(forKey: "startupWorkspaceID") ?? "" }
+        set { defaults.set(newValue, forKey: "startupWorkspaceID") }
+    }
 
     static var showButtonLabels: Bool {
         get { defaults.bool(forKey: "showButtonLabels") }

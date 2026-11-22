@@ -146,6 +146,22 @@
 			<string>Open %d items</string>
 		</dict>
 	</dict>
+	<key>%d listers</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@n@</string>
+		<key>n</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>d</string>
+			<key>one</key>
+			<string>%d lister</string>
+			<key>other</key>
+			<string>%d listers</string>
+		</dict>
+	</dict>
 	<key>Rename %d Items</key>
 	<dict>
 		<key>NSStringLocalizedFormatKey</key>

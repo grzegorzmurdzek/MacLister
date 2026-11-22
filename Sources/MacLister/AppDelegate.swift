@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusLine: NSMenuItem!
     private var newListerItem: NSMenuItem!
     private var settingsItem: NSMenuItem!
+    private var workspacesItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         QuietMode.start()              // `--quiet`: self-tests that do not get in the way (before any window exists)
@@ -71,6 +72,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestDual.run() }
             return
         }
+        if CommandLine.arguments.contains("--selftest-workspaces") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestWorkspaces.run() }
+            return
+        }
         if CommandLine.arguments.contains("--selftest-features") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { SelfTestFeatures.run() }
             return
@@ -127,10 +132,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         // Only a normal launch brings the saved listers back; the scripting and test modes above start clean.
         if Settings.restoreLayoutAtLaunch {
-            LayoutStore.restore(into: ListerManager.shared)
+            // The workspace chosen in Settings → Workspaces, else (or when it is gone) the last session.
+            let startup = UUID(uuidString: Settings.startupWorkspaceID)
+            if let startup, WorkspaceStore.shared.workspace(id: startup) != nil {
+                WorkspaceStore.shared.open(startup, replace: false, applyView: true)
+            } else {
+                LayoutStore.restore(into: ListerManager.shared)
+            }
             // Nothing was ever saved (a fresh install): start with two listers side by side, not an empty screen.
             // Not for a launch that was given something to open (`--open`, a Dock app, a maclister:// link).
-            if !FileManager.default.fileExists(atPath: LayoutStore.url.path), !CommandLine.arguments.dropFirst().contains(where: { $0.hasPrefix("--") }) {
+            if !FileManager.default.fileExists(atPath: LayoutStore.url.path), WorkspaceStore.shared.workspaces.isEmpty, !CommandLine.arguments.dropFirst().contains(where: { $0.hasPrefix("--") }) {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                     if ListerManager.shared.openCount == 0 { self?.openStarterListers() }     // else a Dock app or a link opened something
                 }
@@ -294,6 +305,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add(tr("New Two-Panel Window"), #selector(newTwoPanelFromDock))
         add(tr("Duplicate Frontmost Lister"), #selector(duplicateFrontmost), enabled: !controllers.isEmpty)
         add(tr("Connect to Server…"), #selector(connectFromMenu))
+        let workspaces = NSMenu(title: tr("Workspaces"))
+        workspaces.autoenablesItems = false
+        WorkspaceActions.shared.populate(workspaces)
+        let workspacesItem = NSMenuItem(title: tr("Workspaces"), action: nil, keyEquivalent: "")
+        workspacesItem.submenu = workspaces
+        menu.addItem(workspacesItem)
         if controllers.count > 1 {
             menu.addItem(.separator())
             add(tr("Bring All to Front"), #selector(bringAllListers))
@@ -368,6 +385,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         save.target = self
         let restore = menu.addItem(withTitle: tr("Restore Layout"), action: #selector(restoreLayout), keyEquivalent: "")
         restore.target = self
+        let workspaces = menu.addItem(withTitle: tr("Workspaces"), action: nil, keyEquivalent: "")
+        workspaces.submenu = NSMenu(title: tr("Workspaces"))
+        workspaces.submenu?.autoenablesItems = false
+        workspacesItem = workspaces
         menu.addItem(.separator())
         undoItem = menu.addItem(withTitle: tr("Undo"), action: #selector(undoFromMenu), keyEquivalent: "")
         undoItem.target = self
@@ -529,6 +550,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         rebuildListerItems(in: menu)
+        if let sub = workspacesItem?.submenu { WorkspaceActions.shared.populate(sub) }
         switch monitor.mode {
         case .eventTap:      statusLine.title = tr("Desktop double-click: active")
         case .globalMonitor: statusLine.title = tr("Desktop double-click: active (fallback monitor)")
@@ -616,6 +638,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         if let iconModeBeforeTests { Settings.showAsIcons = iconModeBeforeTests }
+        // The last session: what is open when you quit (not in the test modes, and not when nothing is open: the
+        // session before stays). Turned off in Settings → Workspaces.
+        if Settings.autosaveLastSession, ListerManager.shared.openCount > 0,
+           !CommandLine.arguments.dropFirst().contains(where: { $0.hasPrefix("--") }) {
+            LayoutStore.save(from: ListerManager.shared)
+        }
         RemoteSessions.shared.closeAll()
     }
 

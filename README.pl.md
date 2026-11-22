@@ -441,6 +441,14 @@ sortowanie, pliki ukryte, filtr oraz to, które listery były kartami jednego ok
 defaults write com.example.MacLister restoreLayoutAtLaunch -bool false
 ```
 
+Układ to *ostatnia sesja*: zapisuje się też sam przy zamykaniu MacListera (jeśli są otwarte listery; wyłączysz to w Ustawienia → Przestrzenie robocze). Obok niego możesz mieć dowolnie wiele nazwanych **przestrzeni roboczych**.
+
+### Przestrzenie robocze
+
+Przestrzeń robocza to nazwany układ: foldery, okna, karty, okna dwupanelowe, położenie, rozmiar, sortowanie, filtry, role, widok ikon lub listy w każdym listerze oraz kolumny i rozmiar ikon. Otwarte listery zapiszesz przez ikonę w pasku menu → **Przestrzenie robocze → Zapisz otwarte listery jako przestrzeń roboczą…** (to samo podmenu jest w menu Docka i w menu na pasku tytułu w *Wszystkie listery*). Kliknięcie przestrzeni otwiera ją **w miejsce** otwartych listerów; z klawiszem **⌥** zostanie **dodana** do nich. Serwery nie są zapisywane, foldery, które już nie istnieją, są pomijane.
+
+Ustawienia → **Przestrzenie robocze** pokazują ich listę: *Zapisz otwarte listery…*, *Zaktualizuj* (zastępuje przestrzeń otwartymi listerami), *Otwórz*, *Dodaj do otwartych listerów*, *Zmień nazwę…*, *Powiel*, *Usuń*; kolejność zmieniasz przeciąganiem. *Po uruchomieniu MacListera* wybiera, co się otwiera przy starcie: ostatnia sesja (domyślnie) albo jedna z przestrzeni. Przestrzenie są w pliku `workspaces.json`.
+
 ### Migawka
 
 *Zrób migawkę tego folderu* (menu paska tytułu, *Ten lister* albo akcja `snapshot`) zapamiętuje **rozmiar i pozycję okna
@@ -732,7 +740,8 @@ Pliki w `~/Library/Application Support/MacLister/`:
 | `buttons.json` | dolny pasek przycisków |
 | `filetypes.json` | akcje dwukliku |
 | `bookmarks.json` | zakładki |
-| `layout.json` | zapisany układ |
+| `layout.json` | zapisany układ (ostatnia sesja) |
+| `workspaces.json` | przestrzenie robocze |
 | `shortcuts.json` | Twoje skróty klawiszowe |
 | `servers.json` | zapisane serwery (bez haseł; te są w Pęku kluczy) |
 | `known_hosts` | zaufane klucze serwerów SFTP |
@@ -778,7 +787,8 @@ Ustawiane przez `defaults write com.example.MacLister <klucz> <wartość>`:
 | `showStatusItem` | true | pokaż ikonę w pasku menu (po ukryciu zamykasz aplikację z Monitora aktywności) |
 | `startDirectory` | `~` | folder otwierany dwuklikiem na pulpicie (`maclister://devices`: lista Urządzenia i miejsca) |
 | `terminalBundleID` | `com.apple.Terminal` | terminal dla *Terminal Here* (także: Ustawienia → Przyciski) |
-| `restoreLayoutAtLaunch` | true | otwórz zapisany układ przy starcie (do pierwszego zapisu: dwa listery obok siebie) |
+| `restoreLayoutAtLaunch` | true | otwórz zapisany układ (albo przestrzeń wybraną w Ustawienia → Przestrzenie robocze) przy starcie (do pierwszego zapisu: dwa listery obok siebie) |
+| `autosaveLastSession` | true | zapisz otwarte listery jako ostatnią sesję przy zamykaniu MacListera (także: Ustawienia → Przestrzenie robocze) |
 | `autoAssignRoles` | true | pierwszy lister jest źródłem, następny celem (także: Ustawienia → Ogólne) |
 | `desktopTrigger` | `doubleClick` | `doubleClick`, `middleClick` albo `both` (także: Ustawienia → Ogólne) |
 | `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` albo `bottom` |

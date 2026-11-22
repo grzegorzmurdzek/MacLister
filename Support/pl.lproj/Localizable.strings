@@ -1103,3 +1103,34 @@
 "Cannot change ~/Library/Services: %@" = "Nie można zmienić ~/Library/Services: %@";
 "Installed" = "Zainstalowana";
 "Finder" = "Finder";
+
+/* Workspaces */
+"Workspace" = "Przestrzeń robocza";
+"Workspace %d" = "Przestrzeń robocza %d";
+"%@ copy" = "%@ – kopia";
+"Add “%@” to Open Listers" = "Dodaj „%@” do otwartych listerów";
+"No workspaces" = "Brak przestrzeni roboczych";
+"Save Open Listers as Workspace…" = "Zapisz otwarte listery jako przestrzeń roboczą…";
+"Save Open Listers as Workspace" = "Zapisz otwarte listery jako przestrzeń roboczą";
+"Manage Workspaces…" = "Zarządzaj przestrzeniami roboczymi…";
+"The folders, windows, tabs and roles of the open listers are saved under this name." = "Foldery, okna, karty i role otwartych listerów zostaną zapisane pod tą nazwą.";
+"Workspaces" = "Przestrzenie robocze";
+"Rename Workspace" = "Zmień nazwę przestrzeni roboczej";
+"Name of the workspace:" = "Nazwa przestrzeni roboczej:";
+"Replace the workspace “%@” with the open listers?" = "Zastąpić przestrzeń roboczą „%@” otwartymi listerami?";
+"Its saved listers are replaced by the ones that are open now." = "Zapisane w niej listery zostaną zastąpione tymi, które są teraz otwarte.";
+"Delete the workspace “%@”?" = "Usunąć przestrzeń roboczą „%@”?";
+"The listers that are open are not affected." = "Otwarte listery pozostaną bez zmian.";
+"Opens when MacLister starts" = "Otwiera się przy uruchomieniu MacListera";
+"No workspaces yet" = "Brak przestrzeni roboczych";
+"Save Open Listers…" = "Zapisz otwarte listery…";
+"Update" = "Zaktualizuj";
+"Add to Open Listers" = "Dodaj do otwartych listerów";
+"Folders in “%@”" = "Foldery w „%@”";
+"missing" = "brak";
+"Open the last session" = "Otwórz ostatnią sesję";
+"When MacLister starts" = "Po uruchomieniu MacListera";
+"Save the open listers as the last session when MacLister quits" = "Zapisz otwarte listery jako ostatnią sesję przy zamykaniu MacListera";
+"A workspace is a set of listers: their folders, windows, tabs, two-panel windows, positions, sizes, sorting and roles. Open one from the menu-bar icon, the Dock menu or the All Listers menu (hold ⌥ to add it to the open listers instead of replacing them). A workspace also keeps icons or list for each lister, the columns and the icon size. Servers are not saved. Drag to change the order." = "Przestrzeń robocza to zestaw listerów: ich foldery, okna, karty, okna dwupanelowe, położenie, rozmiar, sortowanie i role. Otworzysz ją z ikony w pasku menu, z menu Docka lub z menu Wszystkie listery (z klawiszem ⌥ zostanie dodana do otwartych listerów zamiast je zastąpić). Przestrzeń pamięta też widok ikon lub listy w każdym listerze, kolumny i rozmiar ikon. Serwery nie są zapisywane. Przeciągnij, aby zmienić kolejność.";
+"The last session is also what Save Layout and Restore Layout keep. Turn off Restore layout at launch in General to start without listers." = "Ostatnia sesja to także to, co zachowują Zapisz układ i Przywróć układ. Aby uruchamiać program bez listerów, wyłącz w Ogólnych przywracanie układu przy uruchomieniu.";
+"Restore layout at launch is off in General: MacLister starts without listers." = "Przywracanie układu przy uruchomieniu jest wyłączone w Ogólnych: MacLister startuje bez listerów.";

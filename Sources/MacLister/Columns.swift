@@ -123,6 +123,12 @@ enum ColumnSettings {
         UserDefaults.standard.dictionary(forKey: widthsKey) as? [String: Double] ?? [:]
     }
 
+    /// The dragged widths as they are stored (a workspace keeps them) and put back.
+    static var widths: [String: Double] {
+        get { storedWidths }
+        set { UserDefaults.standard.set(newValue, forKey: widthsKey); NotificationCenter.default.post(name: .columnsChanged, object: nil) }
+    }
+
     /// The remembered width of a column, or its default; never below the column's minimum.
     static func width(of column: ListerColumn) -> CGFloat {
         // A width at the very minimum is not a choice: earlier versions squeezed columns to it in a narrow window and

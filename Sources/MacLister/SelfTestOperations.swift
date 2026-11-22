@@ -144,7 +144,7 @@ enum SelfTestOperations {
 
         // --- settings window
         let tabs = SettingsWindow.tabViews()
-        check(tabs.map(\.title) == ["General", "Listers", "Tabs", "Buttons", "Filetypes", "Operations", "Updates"] || tabs.count == 7, "the settings window has seven tabs: \(tabs.map(\.title))")
+        check(tabs.map(\.title) == ["General", "Listers", "Tabs", "Workspaces", "Buttons", "Filetypes", "Operations", "Updates"] || tabs.count == 8, "the settings window has eight tabs: \(tabs.map(\.title))")
         let screenHeight = NSScreen.screens.map { $0.visibleFrame.height }.min() ?? 800
         for tab in tabs {
             let host = NSHostingView(rootView: tab.view)

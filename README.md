@@ -438,6 +438,21 @@ side by side (your start folder and Downloads) instead of an empty screen. To tu
 defaults write com.example.MacLister restoreLayoutAtLaunch -bool false
 ```
 
+The layout is the *last session*: it is also saved by itself when MacLister quits (if listers are open; turn it off
+in Settings → Workspaces). Besides it you can keep any number of named **workspaces**.
+
+### Workspaces
+
+A workspace is a named layout: the folders, windows, tabs, two-panel windows, positions, sizes, sorting, filters,
+roles, icons or list for each lister, and the columns and icon size. Save the open listers with menu-bar icon →
+**Workspaces → Save Open Listers as Workspace…** (the same submenu is in the Dock menu and in the title-bar menu under
+*All Listers*). A click on a workspace opens it **in place of** the open listers; hold **⌥** to **add** it to them.
+Servers are not saved. Folders that no longer exist are skipped.
+
+Settings → **Workspaces** lists them: *Save Open Listers…*, *Update* (replace a workspace with the open listers),
+*Open*, *Add to Open Listers*, *Rename…*, *Duplicate*, *Delete*; drag to change the order. *When MacLister starts* picks
+what opens at launch: the last session (default) or one of the workspaces. Workspaces are in `workspaces.json`.
+
 ### Snapshot
 
 *Snapshot This Folder* (title-bar menu, *This Lister*, or the `snapshot` action) remembers the lister's **window size
@@ -721,7 +736,8 @@ Files in `~/Library/Application Support/MacLister/`:
 | `buttons.json` | bottom button bar |
 | `filetypes.json` | double-click actions |
 | `bookmarks.json` | bookmarked folders |
-| `layout.json` | saved layout |
+| `layout.json` | saved layout (the last session) |
+| `workspaces.json` | workspaces |
 | `shortcuts.json` | your keyboard shortcuts |
 | `servers.json` | saved servers (without passwords; those are in the Keychain) |
 | `known_hosts` | SFTP host keys you trusted |
@@ -769,7 +785,8 @@ Set with `defaults write com.example.MacLister <key> <value>`:
 | `listersOnAllDesktops` | false | show listers on every desktop (also: Settings → General) |
 | `startDirectory` | `~` | folder a desktop double-click opens (`maclister://devices`: the Devices and Places list) |
 | `terminalBundleID` | `com.apple.Terminal` | terminal used by *Terminal Here* (also: Settings → Buttons) |
-| `restoreLayoutAtLaunch` | true | reopen the saved layout at start (two listers side by side until one is saved) |
+| `restoreLayoutAtLaunch` | true | reopen the saved layout (or the workspace chosen in Settings → Workspaces) at start (two listers side by side until one is saved) |
+| `autosaveLastSession` | true | save the open listers as the last session when MacLister quits (also: Settings → Workspaces) |
 | `autoAssignRoles` | true | the first lister is the source, the next the destination (also: Settings → General) |
 | `desktopTrigger` | `doubleClick` | `doubleClick`, `middleClick` or `both` (also: Settings → General) |
 | `buttonBarPosition` | `abovePath` | `abovePath`, `belowPath` or `bottom` (also: Settings → Listers) |

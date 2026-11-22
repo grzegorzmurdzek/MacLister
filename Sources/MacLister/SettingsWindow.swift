@@ -386,15 +386,21 @@ private struct UpdatesSettingsView: View {
 enum SettingsWindow {
     private static var window: NSWindow?
 
+    /// Index of the Workspaces tab.
+    static let workspacesTab = 3
+
     /// The views of the tabs, for the self-test.
     static func tabViews() -> [(title: String, view: AnyView)] {
         [(tr("General"), AnyView(GeneralSettingsView())), (tr("Listers"), AnyView(ListersSettingsView())),
-         (tr("Tabs"), AnyView(TabsSettingsView())), (tr("Buttons"), AnyView(ButtonsSettingsView())),
+         (tr("Tabs"), AnyView(TabsSettingsView())), (tr("Workspaces"), AnyView(WorkspacesSettingsView())),
+         (tr("Buttons"), AnyView(ButtonsSettingsView())),
          (tr("Filetypes"), AnyView(FiletypeEditorView())), (tr("Operations"), AnyView(OperationsSettingsView())), (tr("Updates"), AnyView(UpdatesSettingsView()))]
     }
 
     static func show(tab: Int = 0) {
         if let window {
+            if let controller = window.contentViewController as? NSTabViewController, tab > 0,
+               controller.tabViewItems.indices.contains(tab) { controller.selectedTabViewItemIndex = tab }
             NSApp.bringToFront()
             window.makeKeyAndOrderFront(nil)
             return
@@ -405,6 +411,7 @@ enum SettingsWindow {
             (tr("General"), "gearshape", AnyView(GeneralSettingsView())),
             (tr("Listers"), "macwindow", AnyView(ListersSettingsView())),
             (tr("Tabs"), "rectangle.stack", AnyView(TabsSettingsView())),
+            (tr("Workspaces"), "rectangle.3.group", AnyView(WorkspacesSettingsView())),
             (tr("Buttons"), "square.grid.2x2", AnyView(ButtonsSettingsView())),
             (tr("Filetypes"), "doc.badge.gearshape", AnyView(FiletypeEditorView())),
             (tr("Operations"), "clock.arrow.circlepath", AnyView(OperationsSettingsView())),

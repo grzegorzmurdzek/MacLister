@@ -2006,6 +2006,12 @@ extension ListerViewController {
         all.addItem(.separator())
         add(tr("Save Layout"), to: all) { LayoutStore.save(from: manager) }
         add(tr("Restore Layout"), to: all) { LayoutStore.restore(into: manager) }
+        all.addItem(.separator())
+        let workspaces = submenu(tr("Workspaces"))
+        WorkspaceActions.shared.populate(workspaces)
+        let workspacesItem = NSMenuItem(title: workspaces.title, action: nil, keyEquivalent: "")
+        workspacesItem.submenu = workspaces
+        all.addItem(workspacesItem)
         attach(all)
         let closeTitle = isPane ? tr("Close Two-Panel Window") : tabCount > 1 ? tr("Close Tab") : tr("Close Lister")
         add(closeTitle, key: "w") { [weak self] in self?.view.window?.performClose(nil) }

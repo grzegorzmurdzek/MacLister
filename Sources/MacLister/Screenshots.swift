@@ -50,7 +50,7 @@ enum Screenshots {
             queue("operation-log") { operationLog(named: "operation-log") }
             queue("button-editor") { buttonEditor(named: "button-editor") }
             queue("lister-title") { listerTitle(named: "lister-title") }
-            for (index, name) in ["general", "listers", "tabs", "buttons", "filetypes", "operations", "updates"].enumerated() {
+            for (index, name) in ["general", "listers", "tabs", "workspaces", "buttons", "filetypes", "operations", "updates"].enumerated() {
                 queue("settings-\(name)") { settings(tab: index, named: "settings-\(name)") }
             }
         }

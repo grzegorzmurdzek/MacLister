@@ -323,6 +323,8 @@ struct ListerSnapshot: Codable {
     /// The two panes of one two-panel window share a number; `rightPane`: the right one.
     var twoPanel: Int?
     var rightPane: Bool?
+    /// Shown as icons (true) or as a list (false); nil in layouts saved before this was kept.
+    var icons: Bool?
 }
 
 enum LayoutStore {
@@ -331,9 +333,18 @@ enum LayoutStore {
     /// Remembers every open lister: folder, position, size, role, sort, filter.
     @discardableResult
     static func save(from manager: ListerManager) -> Int {
+        let snapshots = capture(from: manager)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try? encoder.encode(snapshots).write(to: url, options: .atomic)
+        return snapshots.count
+    }
+
+    /// What every open lister looks like now (a layout, or a workspace, is a list of these).
+    static func capture(from manager: ListerManager) -> [ListerSnapshot] {
         var groups: [ObjectIdentifier: Int] = [:]
         var duals: [ObjectIdentifier: Int] = [:]
-        let snapshots: [ListerSnapshot] = manager.menuOrder.compactMap { controller, _ in
+        return manager.menuOrder.compactMap { controller, _ in
             guard let frame = controller.window?.frame, controller.model.url.isFileURL else { return nil }   // servers are not restored
             let model = controller.model
             var tabGroup: Int?
@@ -354,12 +365,9 @@ enum LayoutStore {
                                   locked: model.roleLocked ? true : nil,
                                   label: model.label.isEmpty ? nil : model.label, labelColor: model.labelColor,
                                   tabGroup: tabGroup, selectedTab: tabGroup == nil ? nil : manager.isSelectedTab(controller),
-                                  twoPanel: twoPanel, rightPane: controller.dualHost?.rightPane === controller ? true : nil)
+                                  twoPanel: twoPanel, rightPane: controller.dualHost?.rightPane === controller ? true : nil,
+                                  icons: model.showAsIcons)
         }
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try? encoder.encode(snapshots).write(to: url, options: .atomic)
-        return snapshots.count
     }
 
     /// Opens the saved listers (existing ones stay). Returns how many were opened.
@@ -367,6 +375,12 @@ enum LayoutStore {
     static func restore(into manager: ListerManager) -> Int {
         guard let data = try? Data(contentsOf: url),
               let snapshots = try? JSONDecoder().decode([ListerSnapshot].self, from: data) else { return 0 }
+        return open(snapshots, into: manager)
+    }
+
+    /// Opens these listers (existing ones stay). Folders that are gone are skipped. Returns how many were opened.
+    @discardableResult
+    static func open(_ snapshots: [ListerSnapshot], into manager: ListerManager) -> Int {
         var opened: [(controller: ListerWindowController, snapshot: ListerSnapshot)] = []
         manager.restoringLayout = true      // the layout brings its own roles
         defer { manager.restoringLayout = false }
@@ -378,6 +392,7 @@ enum LayoutStore {
             let configure: (ListerWindowController) -> Void = { controller in
                 controller.model.apply(sort: ListerModel.SortKey(rawValue: snapshot.sort) ?? .name,
                                        ascending: snapshot.ascending, showHidden: snapshot.showHidden, filter: snapshot.filter)
+                if let icons = snapshot.icons { controller.model.setShowAsIcons(icons, remember: false) }   // this window only
                 controller.model.reload()
             }
             let controller: ListerWindowController
