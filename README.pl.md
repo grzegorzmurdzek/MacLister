@@ -18,7 +18,7 @@ działa w pasku menu, z opcjonalną ikoną w Docku.
 
 - **Dwuklik na pulpicie otwiera lister** pod kursorem. Dowolna liczba listerów naraz.
 - **Listery źródłowy i docelowy**: Copy (F5), Move (F6), Extract, Compare, Swap.
-- **Widok ikon** (⌘1, ⌘2 wraca do listy; przycisk w pasku ścieżki, prawy przycisk: rozmiar ikon i sortowanie) i przycisk **Home** na pasku.
+- **Widok ikon** (⌘1, ⌘2 wraca do listy; przycisk w pasku ścieżki, prawy przycisk: rozmiar ikon i sortowanie; widok jest pamiętany osobno dla każdego folderu) i przycisk **Home** na pasku.
 - **Udziały sieciowe** (`smb://`, `afp://`, także z listy *Shared*) są montowane i otwierane w listerze, bez okna Findera.
 - **Okno dwupanelowe** (⌥⌘N) dla tych, którzy wolą klasyczny dwupanelowy menedżer plików: panel, w którym pracujesz, jest źródłem, Tab przełącza panele.
 - **Przeciąganie i upuszczanie** między listerami oraz z/do Findera (reguły Findera: ten sam wolumin przenosi,
