@@ -535,6 +535,9 @@
 "as Icons" = "Jako ikony";
 "as List" = "Jako lista";
 "Icons" = "Ikony";
+"System default application" = "Aplikacja systemowa";
+"Change…" = "Zmień…";
+"What macOS opens “%@” files with, also in Finder: this is not a setting of MacLister's own." = "W czym macOS otwiera pliki „%@”, także w Finderze: to nie jest ustawienie samego MacListera.";
 "Open with:" = "Otwórz w programie:";
 "Choosing another application asks whether it should open all “%@” files." = "Wybór innej aplikacji zapyta, czy ma otwierać wszystkie pliki „%@”.";
 "Forget the View of This Folder" = "Zapomnij widok tego folderu";

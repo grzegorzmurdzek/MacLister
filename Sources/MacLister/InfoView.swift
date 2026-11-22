@@ -109,3 +109,71 @@ struct InfoView: View {
         }
     }
 }
+
+/// The application macOS opens a kind of file with, as Settings → Filetypes shows and changes it for a filetype.
+enum SystemDefaultApplication {
+    /// The type of the first plain extension of a filetype ("md", "tar.gz" → gz); nil for * and @folder, or when the
+    /// system does not know any of them.
+    static func type(forExtensions extensions: [String]) -> UTType? {
+        for entry in extensions where !entry.isEmpty && !entry.hasPrefix("@") && entry != "*" {
+            let last = entry.split(separator: ".").last.map(String.init) ?? entry
+            if let type = UTType(filenameExtension: last), type != .data, type != .item { return type }
+        }
+        return nil
+    }
+
+    static func application(for type: UTType) -> URL? { NSWorkspace.shared.urlForApplication(toOpen: type) }
+
+    /// Asks, as Finder's Change All… does, then makes `app` the default for `type`. `completion`: whether it was changed.
+    static func change(to app: URL, for type: UTType, completion: @escaping (Bool) -> Void) {
+        let kind = type.localizedDescription ?? type.identifier
+        let name = InfoOpenWith.name(of: app)
+        let alert = NSAlert()
+        alert.messageText = tr("Always open “%@” files with %@?", kind, name)
+        alert.informativeText = tr("This changes the application for all files of this kind, in Finder and in every other application, not only in MacLister.")
+        alert.addButton(withTitle: tr("Change All"))
+        alert.addButton(withTitle: tr("Cancel"))
+        guard alert.runModal() == .alertFirstButtonReturn else { completion(false); return }
+        NSWorkspace.shared.setDefaultApplication(at: app, toOpen: type) { error in
+            DispatchQueue.main.async {
+                if let error {
+                    let failed = NSAlert()
+                    failed.messageText = tr("Cannot change the application: %@", error.localizedDescription)
+                    failed.runModal()
+                }
+                completion(error == nil)
+            }
+        }
+    }
+}
+
+/// In Settings → Filetypes: the application the system opens these files with, and a way to change it.
+struct SystemDefaultRow: View {
+    let extensions: [String]
+    @State private var refreshed = 0
+
+    var body: some View {
+        if let type = SystemDefaultApplication.type(forExtensions: extensions) {
+            let app = SystemDefaultApplication.application(for: type)
+            LabeledContent(tr("System default application")) {
+                HStack(spacing: 8) {
+                    if let app { Image(nsImage: NSWorkspace.shared.icon(forFile: app.path)).resizable().frame(width: 16, height: 16) }
+                    Text(app.map(InfoOpenWith.name(of:)) ?? tr("None")).id(refreshed)
+                    Button(tr("Change…")) { choose(for: type) }
+                }
+            }
+            Text(tr("What macOS opens “%@” files with, also in Finder: this is not a setting of MacLister's own.", type.localizedDescription ?? type.identifier))
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private func choose(for type: UTType) {
+        let panel = NSOpenPanel()
+        panel.title = tr("Choose an Application")
+        panel.allowedContentTypes = [.application]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.canChooseDirectories = false
+        guard panel.runModal() == .OK, let app = panel.url else { return }
+        SystemDefaultApplication.change(to: app, for: type) { changed in if changed { refreshed += 1 } }
+    }
+}

@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Carbon
+import UniformTypeIdentifiers
 
 /// `MacLister --selftest-features`: exercises the Directory-Opus-style features through the same
 /// code the buttons and menus call. Results go to ~/Library/Logs/MacLister.log. Uses a temp
@@ -67,6 +68,13 @@ enum SelfTestFeatures {
         check(InfoOpenWith.make(for: [dirA.appendingPathComponent("big")]) == nil, "Info offers no application for a folder")
         check(InfoOpenWith.make(for: [URL(string: "sftp://host/a.txt")!]) == nil, "Info offers no application for a file on a server")
         check(InfoOpenWith.make(for: []) == nil, "Info offers no application for nothing")
+        // Settings → Filetypes shows the system's application for the extensions of a filetype
+        let mdType = SystemDefaultApplication.type(forExtensions: ["md", "txt"])
+        check(mdType != nil && SystemDefaultApplication.type(forExtensions: ["tar.gz"]) == UTType(filenameExtension: "gz"), "a filetype's extension gives the system type (md → \(mdType?.identifier ?? "nil"))")
+        check(SystemDefaultApplication.type(forExtensions: ["*"]) == nil && SystemDefaultApplication.type(forExtensions: ["@folder", "@disk"]) == nil
+              && SystemDefaultApplication.type(forExtensions: []) == nil, "* and @folder have no system application")
+        check(SystemDefaultApplication.type(forExtensions: ["@folder", "txt"]) == UTType(filenameExtension: "txt"), "the first plain extension decides")
+        check(SystemDefaultApplication.type(forExtensions: ["txt"]).flatMap(SystemDefaultApplication.application(for:)) != nil, "the system has an application for text files")
         let folderInfo = InfoText.make(for: [dirA.appendingPathComponent("big")]).body
         let sizeLine = folderInfo.split(separator: "\n").first { $0.hasPrefix("Size:") }.map(String.init) ?? ""
         check(sizeLine.filter(\.isNumber).hasSuffix("1500"), "info text sums a folder (\(sizeLine))")   // digits only: the thousands separator is locale-dependent

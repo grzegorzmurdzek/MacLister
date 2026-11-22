@@ -254,6 +254,7 @@ struct FiletypeEditorView: View {
             Section("Opening") {
                 FiletypeStepEditor(title: "Double-click", step: doubleClick, noneLabel: "None (another filetype or the system decides)")
                 FiletypeStepEditor(title: "⌥ + double-click", step: optionDoubleClick, noneLabel: "Same as double-click")
+                SystemDefaultRow(extensions: rule.wrappedValue.extensions)
                 Text("Filetypes higher in the list come first: the first one that fits the file and has a double-click decides. The context-menu entries of all that fit are shown, from top to bottom.")
                     .font(.caption).foregroundStyle(.secondary)
             }

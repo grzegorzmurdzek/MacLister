@@ -23,7 +23,7 @@ menu-bar app with an optional Dock icon.
 - **Two-panel window** (⌥⌘N) for those who prefer a classic two-panel file manager: the pane you work in is the source, Tab switches panes.
 - **Drag and drop** between listers and to/from Finder (Finder rules: same volume moves, ⌥ copies, ⌘ moves).
 - **Configurable button bar**, **filetype actions** (what a double-click does), **bookmarks**, **saved layouts**.
-- Select by pattern, filter, **find** (Spotlight or a folder scan), **find duplicates**, **checksums**, folder sizes, info sheet (with the application a kind of file opens with), rename, duplicate, Quick Look on Space, archive extraction
+- Select by pattern, filter, **find** (Spotlight or a folder scan), **find duplicates**, **checksums**, folder sizes, info sheet and Settings → Filetypes (with the application a kind of file opens with), rename, duplicate, Quick Look on Space, archive extraction
   (zip, tar.\*, 7z, rar, gz, bz2 …) and **browsing archives like folders**.
 - **Right-click the title bar** for lister commands (duplicate, source/destination, close all …).
 - **Undo** for the last copy, move, duplicate or Trash (⌘Z) and an **operation log** with a retention limit.
