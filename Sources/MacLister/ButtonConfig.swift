@@ -300,7 +300,7 @@ extension ListerAction {
         case .showDevices: return "externaldrive.fill"
         case .goToFolder: return "house.fill"
         case .toggleIconView: return "square.grid.2x2"
-        case .groupBy: return "rectangle.3.group"
+        case .groupBy: return "square.grid.3x1.below.line.grid.1x2"
         case .eject: return "eject.fill"
         case .rename: return "pencil"
         case .undo: return "arrow.uturn.backward.circle.fill"

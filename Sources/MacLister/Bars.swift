@@ -59,6 +59,8 @@ struct PathBarView: View {
     @ObservedObject private var servers = ServerStore.shared
     @ObservedObject private var bookmarks = BookmarkStore.shared
     @ObservedObject private var history = PathHistory.shared
+    /// Settings → Listers → "Show the Group By button in the path bar".
+    @AppStorage("showGroupButton") private var showGroupButton = false
     @State private var text = ""
     @FocusState private var fieldFocused: Bool
 
@@ -92,6 +94,8 @@ struct PathBarView: View {
                 .buttonStyle(ToolbarIconButtonStyle(iconSize: 14))
                 .help(model.showAsIcons ? "Show as a list (⌘2); right-click: sort order, groups, icon size" : "Show as icons (⌘1); right-click: sort order, groups, icon size")
                 .contextMenu { viewMenuItems }
+
+                if showGroupButton { groupButton }
 
                 roleButton(.source, title: "SRC", tint: .blue, help: "Make this lister the source of Copy / Move")
                 roleButton(.destination, title: "DST", tint: .orange, help: "Make this lister the destination of Copy / Move")
@@ -191,6 +195,28 @@ extension PathBarView {
             Divider()
             Button(tr("Forget the View of This Folder")) { model.forgetSavedView() }
         }
+    }
+
+    /// The optional button next to the view button: what the files are grouped by. Lit while the folder is grouped.
+    fileprivate var groupButton: some View {
+        Menu {
+            ForEach(GroupKey.allCases, id: \.self) { key in
+                Toggle(key.title, isOn: Binding(get: { model.groupKey == key }, set: { _ in model.setGroup(key) }))
+                if key == .none { Divider() }
+            }
+        } label: {
+            Image(systemName: "square.grid.3x1.below.line.grid.1x2")
+                .font(.system(size: 14, weight: .medium))
+                .symbolRenderingMode(.hierarchical)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .padding(3)
+        // a menu button ignores the tint of its icon: the plate behind it says that the folder is grouped
+        .background(RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(model.effectiveGroup == .none ? 0 : 0.35)))
+        .disabled(!model.canGroup)
+        .help(model.canGroup ? "Group the files: by name, kind, date, size …" : "This folder cannot be grouped")
     }
 
     fileprivate static let iconSortKeys: [ListerModel.SortKey] = [.name, .size, .date, .created, .kind, .ext]
@@ -606,6 +632,14 @@ struct BreadcrumbView: View {
     let url: URL
     var onSelect: (URL) -> Void
     var onEdit: () -> Void
+    /// How far a long path has been scrolled back from its tail with the wheel (0: the tail, the current folder, shows).
+    @State private var scrolled: CGFloat = 0
+    @State private var pathWidth: CGFloat = 0
+
+    /// Where a long path stops when it is scrolled: not past its start, not past its tail.
+    static func clamped(_ offset: CGFloat, pathWidth: CGFloat, viewport: CGFloat) -> CGFloat {
+        min(max(offset, 0), max(0, pathWidth - viewport))
+    }
 
     var body: some View {
         let segments = PathSegments.make(for: url)
@@ -622,6 +656,11 @@ struct BreadcrumbView: View {
         }
         .fixedSize()
         .padding(.horizontal, 4)
+        .background(GeometryReader { proxy in
+            Color.clear
+                .onAppear { pathWidth = proxy.size.width }
+                .onChange(of: proxy.size.width) { pathWidth = $0 }
+        })
         // A path that fits starts at the left, like a path field. A long one shows its tail (the folder you are in)
         // and fades out at the left; the Go menu and the Parent button lead to the earlier folders.
         GeometryReader { geometry in
@@ -629,17 +668,27 @@ struct BreadcrumbView: View {
                 path.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)      // its own width decides whether it fits
                 path
                     .frame(width: geometry.size.width, height: geometry.size.height, alignment: .trailing)   // centred vertically, tail of the path at the right
+                    .offset(x: scrolled)                // the wheel (or two fingers) scrolls it back towards the start
                     .clipShape(Rectangle())
                     .contentShape(Rectangle())          // the part of a long path that is cut off must not take clicks meant for Back and Up
                     .mask(
                         HStack(spacing: 0) {
                             LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing).frame(width: 18)
                             Color.black
+                            LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
+                                .frame(width: scrolled > 0.5 ? 18 : 0)         // scrolled back: the tail fades out at the right
                         }
                     )
             }
         }
         .frame(height: 28)
+        .background(WheelScroll { delta, viewport in
+            let limit = Self.clamped(.infinity, pathWidth: pathWidth, viewport: viewport)
+            guard limit > 0 else { return false }              // the path fits: nothing to scroll
+            scrolled = Self.clamped(scrolled + delta, pathWidth: pathWidth, viewport: viewport)
+            return true
+        })
+        .onChange(of: url) { _ in scrolled = 0 }
         .background(
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(Color(nsColor: .textBackgroundColor))
@@ -648,6 +697,45 @@ struct BreadcrumbView: View {
                 .onTapGesture(perform: onEdit)
         )
         .help("Click a folder to go there; click the empty part (or press ⌘L) to type a path")
+    }
+
+    /// Hears the scroll wheel (and the sideways swipe of a trackpad) over the path field and passes the distance on:
+    /// up or left shows more of the start of the path, down or right brings back its tail. The view takes no clicks.
+    private struct WheelScroll: NSViewRepresentable {
+        /// (distance, width of the field) → was it used? A path that fits leaves the event to others.
+        var onScroll: (CGFloat, CGFloat) -> Bool
+
+        func makeNSView(context: Context) -> Catcher {
+            let view = Catcher()
+            view.onScroll = onScroll
+            return view
+        }
+
+        func updateNSView(_ view: Catcher, context: Context) { view.onScroll = onScroll }
+
+        final class Catcher: NSView {
+            var onScroll: ((CGFloat, CGFloat) -> Bool)?
+            private var monitor: Any?
+
+            override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+            override func viewDidMoveToWindow() {
+                super.viewDidMoveToWindow()
+                if let monitor { NSEvent.removeMonitor(monitor) }
+                monitor = nil
+                guard window != nil else { return }
+                monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+                    guard let self, event.window === self.window, !self.isHiddenOrHasHiddenAncestor,
+                          self.bounds.contains(self.convert(event.locationInWindow, from: nil)) else { return event }
+                    let (dx, dy) = (event.scrollingDeltaX, event.scrollingDeltaY)
+                    let distance = abs(dx) > abs(dy) ? dx : dy
+                    let scaled = event.hasPreciseScrollingDeltas ? distance : distance * 10      // a wheel notch is a few lines
+                    return scaled != 0 && self.onScroll?(scaled, self.bounds.width) == true ? nil : event
+                }
+            }
+
+            deinit { if let monitor { NSEvent.removeMonitor(monitor) } }
+        }
     }
 
     private struct SegmentButton: View {

@@ -141,6 +141,7 @@ private struct ButtonsSettingsView: View {
     @AppStorage("buttonBarPosition") private var position = ButtonBarPosition.abovePath.rawValue
     @AppStorage("showButtonLabels") private var labels = false
     @AppStorage("showButtonMenuArrows") private var menuArrows = false
+    @AppStorage("showGroupButton") private var showGroupButton = false
     @AppStorage("buttonMenuDirection") private var menuDirection = ButtonMenuDirection.automatic.rawValue
     @State private var confirmReset = false
     @AppStorage("terminalBundleID") private var terminal = "com.apple.Terminal"
@@ -173,6 +174,9 @@ private struct ButtonsSettingsView: View {
 
     var body: some View {
         Form {
+            Section("Path bar") {
+                Toggle("Show a Group By button next to the icons / list switch", isOn: $showGroupButton)
+            }
             Section("Button bar") {
                 Picker("Position", selection: $position) {
                     ForEach(ButtonBarPosition.allCases, id: \.rawValue) { Text($0.menuTitle).tag($0.rawValue) }

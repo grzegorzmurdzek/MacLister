@@ -119,6 +119,7 @@ enum Settings {
             "listerTabs": true,
             "tabDoubleClick": TabDoubleClickAction.nameTab.rawValue,
             "foldersFirst": true,
+            "showGroupButton": false,
         ])
     }
 
@@ -264,6 +265,12 @@ enum Settings {
     }
 
     /// Folders stay above the files whatever the sort column is. Off: folders and files are sorted together.
+    /// true: the path bar has a Group By button next to the button that switches between icons and the list.
+    static var showGroupButton: Bool {
+        get { defaults.bool(forKey: "showGroupButton") }
+        set { defaults.set(newValue, forKey: "showGroupButton") }
+    }
+
     static var foldersFirst: Bool {
         get { defaults.bool(forKey: "foldersFirst") }
         set { defaults.set(newValue, forKey: "foldersFirst") }

@@ -81,7 +81,7 @@ run `defaults delete com.example.MacLister`, and remove MacLister from the two P
 
 - **Path bar:** *Back*, *Parent*, the **Go** menu (places, volumes, bookmarks, recent folders), the path as a
   clickable **breadcrumb** (click a folder to jump there; click the empty part of the bar or press **⌘L** to
-  type a path instead, `~` works) and the **SRC** / **DST** badges.
+  type a path instead, `~` works) and the **SRC** / **DST** badges. A path too long for the bar shows its tail; the **mouse wheel** (or a sideways swipe) over it scrolls back towards the start.
 - **File list:** icon, name, size, modified date. Click a header to sort; folders come first by default, or switch *Keep folders above files when sorting* off (Settings → Listers, or the column header menu) to sort folders and files together.
   Double-click or Return opens a file or enters a folder. **Right-click the column header** to choose the
   columns: Size, Size in Bytes (the exact number, off by default), Modified, Created, Kind, Extension, Permissions, Tags, Comment. The widths you drag are remembered
@@ -93,7 +93,7 @@ run `defaults delete com.example.MacLister`, and remove MacLister from the two P
   sizes into Folders and ranges from 1 GB down to empty; names under their first letter; a file with several tags is under the first.
   The groups follow their natural order, the files inside a group the sort order you chose. The grouping is remembered for each folder
   (*Forget the View of This Folder* removes it); Recents, Shared, Devices, servers and archives are not grouped. Header rows are never selected,
-  so Select All, drag-select and the keyboard only ever touch files. The button bar has an optional **Group files by** button (add it in *Edit Buttons…*): a click opens the list of groupings under the pointer. `MacLister --selftest-groups --quiet` tests it.
+  so Select All, drag-select and the keyboard only ever touch files. The button bar has an optional **Group files by** button (add it in *Edit Buttons…*): a click opens the list of groupings under the pointer. **Settings → Buttons → Path bar → Show a Group By button next to the icons / list switch** adds a button next to the icons/list switch (it lights up while the folder is grouped). `MacLister --selftest-groups --quiet` tests it.
 - **The list refreshes itself** when files are added, removed or changed on disk (FSEvents), and the window
   subtitle shows the free space of the volume.
 - **Button bar** above the path bar, as in Ambient on MorphOS (see *Configuration*): icons only, the name is in

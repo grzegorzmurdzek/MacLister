@@ -206,7 +206,7 @@ enum SelfTestGroups {
         // 3b. The button for the button bar.
         check(ListerAction(rawValue: "groupBy") == .groupBy && ListerAction.allCases.contains(.groupBy) && ListerAction.groupBy.title == tr("Group files by"),
               "there is a Group By action for the button bar: \(ListerAction.groupBy.title)")
-        check(ListerAction.groupBy.category == .navigation && ListerAction.groupBy.suggestedSymbol == "rectangle.3.group" && ListerAction.groupBy.defaultHelp != nil,
+        check(ListerAction.groupBy.category == .navigation && ListerAction.groupBy.suggestedSymbol == "square.grid.3x1.below.line.grid.1x2" && ListerAction.groupBy.defaultHelp != nil,
               "…with a category, an icon and a tooltip")
         check(NSImage(systemSymbolName: ListerAction.groupBy.suggestedSymbol, accessibilityDescription: nil) != nil, "…and the icon exists on this macOS")
         later {
@@ -216,6 +216,13 @@ enum SelfTestGroups {
             check(vc.model.statusMessage == tr("This folder cannot be grouped"), "the button says so where grouping is not possible: \(vc.model.statusMessage ?? "nothing")")
             vc.model.navigate(to: dir)
         }
+
+        check(!Settings.showGroupButton, "the Group By button of the path bar is off by default")
+
+        // 3c. A long path scrolls with the wheel, but not past its start or its tail.
+        check(BreadcrumbView.clamped(-30, pathWidth: 500, viewport: 300) == 0 && BreadcrumbView.clamped(120, pathWidth: 500, viewport: 300) == 120
+              && BreadcrumbView.clamped(900, pathWidth: 500, viewport: 300) == 200 && BreadcrumbView.clamped(50, pathWidth: 200, viewport: 300) == 0,
+              "the path stops at its start and at its tail, and a path that fits does not scroll")
 
         // 4. The menu offers the groups.
         later {

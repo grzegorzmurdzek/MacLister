@@ -1160,3 +1160,6 @@
 "Group files by" = "Grupuj pliki według";
 "Choose what the files of this folder are grouped by" = "Wybierz, według czego grupowane są pliki tego folderu";
 "This folder cannot be grouped" = "Ten folder nie jest grupowany";
+"Group the files: by name, kind, date, size …" = "Grupuj pliki: według nazwy, rodzaju, daty, rozmiaru …";
+"Show a Group By button next to the icons / list switch" = "Pokaż przycisk grupowania obok przełącznika ikony / lista";
+"Path bar" = "Pasek ścieżki";

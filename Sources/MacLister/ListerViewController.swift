@@ -783,6 +783,10 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
 
     func tableView(_ tableView: NSTableView, isGroupRow row: Int) -> Bool { isHeaderTableRow(row) }
 
+    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+        isHeaderTableRow(row) ? GroupRowView() : nil
+    }
+
     /// Group headers cannot be selected (a click on one, or a drag over it, selects nothing).
     func tableView(_ tableView: NSTableView, selectionIndexesForProposedSelection proposed: IndexSet) -> IndexSet {
         groups.isEmpty ? proposed : proposed.filteredIndexSet { !isHeaderTableRow($0) }
@@ -790,7 +794,7 @@ extension ListerViewController: NSTableViewDataSource, NSTableViewDelegate {
 
     func tableView(_ tableView: NSTableView, viewFor column: NSTableColumn?, row tableRow: Int) -> NSView? {
         if let group = groupIndex(forTableRow: tableRow) {
-            let header = tableView.makeView(withIdentifier: GroupHeaderView.identifier, owner: self) as? GroupHeaderView ?? GroupHeaderView()
+            let header = tableView.makeView(withIdentifier: GroupHeaderView.identifier, owner: self) as? GroupHeaderView ?? GroupHeaderView(showsLine: false)
             header.identifier = GroupHeaderView.identifier
             header.show(groups[group])
             return header

@@ -84,7 +84,7 @@ wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list 
 
 - **Pasek ścieżki:** *Back*, *Parent*, menu **Go** (miejsca, woluminy, zakładki, ostatnie foldery), ścieżka jako
   klikalny **breadcrumb** (kliknij folder, żeby tam przejść; kliknij puste miejsce paska albo naciśnij **⌘L**, żeby
-  wpisać ścieżkę, `~` działa) oraz znaczki **SRC** / **DST**.
+  wpisać ścieżkę, `~` działa) oraz znaczki **SRC** / **DST**. Zbyt długa ścieżka pokazuje swój koniec; **kółko myszy** (albo przesunięcie palcami w bok) nad nią przewija ją z powrotem w stronę początku.
 - **Lista plików:** ikona, nazwa, rozmiar, data modyfikacji. Kliknięcie nagłówka sortuje; foldery domyślnie są
   na początku (wyłączysz to w **Ustawienia → Listery → Foldery nad plikami przy sortowaniu** albo w menu nagłówka kolumn). Dwuklik lub Return otwiera plik albo wchodzi do folderu. **Prawy przycisk na nagłówku kolumn**
   wybiera kolumny: Size, Size in Bytes (dokładna liczba, domyślnie wyłączona), Modified, Created, Kind, Extension, Permissions, Tags, Comment. Przeciągnięte szerokości kolumn są zapamiętywane
@@ -95,7 +95,7 @@ wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list 
   Daty trafiają do grup: Dzisiaj, Wczoraj, Ostatnie 7 dni, Ostatnie 30 dni, potem miesiąc dla reszty roku i rok dla starszych; rozmiary do grup Foldery i przedziałów
   od 1 GB w dół do pustych; nazwy pod pierwszą literą; plik z kilkoma tagami jest pod pierwszym. Grupy idą w swojej naturalnej kolejności, a pliki w grupie według
   wybranego sortowania. Grupowanie jest pamiętane osobno dla każdego folderu (*Zapomnij widok tego folderu* je usuwa); Ostatnie, Udostępniane, Urządzenia,
-  serwery i archiwa nie są grupowane. Nagłówków nie da się zaznaczyć, więc Zaznacz wszystko, zaznaczanie przeciąganiem i klawiatura dotykają tylko plików. Pasek przycisków ma opcjonalny przycisk **Grupuj pliki według** (dodasz go w *Edit Buttons…*): kliknięcie otwiera listę grupowań pod wskaźnikiem myszy.
+  serwery i archiwa nie są grupowane. Nagłówków nie da się zaznaczyć, więc Zaznacz wszystko, zaznaczanie przeciąganiem i klawiatura dotykają tylko plików. Pasek przycisków ma opcjonalny przycisk **Grupuj pliki według** (dodasz go w *Edit Buttons…*): kliknięcie otwiera listę grupowań pod wskaźnikiem myszy. **Ustawienia → Buttons → Pasek ścieżki → Pokaż przycisk grupowania obok przełącznika ikony / lista** dodaje przycisk obok przełącznika ikony/lista (świeci, gdy folder jest zgrupowany).
   Test: `MacLister --selftest-groups --quiet`.
 - **Lista odświeża się sama**, gdy pliki są dodawane, usuwane lub zmieniane na dysku (FSEvents), a podtytuł okna
   pokazuje wolne miejsce na woluminie.

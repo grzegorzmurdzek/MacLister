@@ -83,6 +83,16 @@ extension ListerViewController {
     }
 }
 
+/// The row of a group header in the list: a plain background (no stripes) and a line along the whole width of the row.
+final class GroupRowView: NSTableRowView {
+    override func drawBackground(in dirtyRect: NSRect) {
+        NSColor.textBackgroundColor.setFill()
+        bounds.fill()
+        NSColor.separatorColor.setFill()
+        NSRect(x: 0, y: isFlipped ? bounds.maxY - 1 : 0, width: bounds.width, height: 1).fill()
+    }
+}
+
 /// The header of a group: its title and how many files it holds. The list shows it as a group row (it floats at the
 /// top while the group scrolls), the icon view as a header of a section, with a line under it.
 final class GroupHeaderView: NSView, NSCollectionViewElement {
@@ -93,8 +103,10 @@ final class GroupHeaderView: NSView, NSCollectionViewElement {
     private let count = NSTextField(labelWithString: "")
     private let line = NSBox()
 
-    override init(frame: NSRect) {
-        super.init(frame: frame)
+    /// `showsLine`: the icon view draws a line under the header; the list draws it in the row (see GroupRowView).
+    init(showsLine: Bool = true) {
+        super.init(frame: .zero)
+        line.isHidden = !showsLine
         title.font = .systemFont(ofSize: 13, weight: .semibold)
         title.lineBreakMode = .byTruncatingTail
         count.font = .systemFont(ofSize: 11)
@@ -106,7 +118,7 @@ final class GroupHeaderView: NSView, NSCollectionViewElement {
         }
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         NSLayoutConstraint.activate([
-            title.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            title.leadingAnchor.constraint(equalTo: leadingAnchor, constant: showsLine ? 12 : 2),     // the list: level with the icons of the files
             title.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -1),
             count.leadingAnchor.constraint(equalTo: title.trailingAnchor, constant: 8),
             count.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8),
@@ -115,6 +127,12 @@ final class GroupHeaderView: NSView, NSCollectionViewElement {
             line.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
             line.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
+    }
+
+    /// The icon view makes its headers this way.
+    override convenience init(frame: NSRect) {
+        self.init(showsLine: true)
+        self.frame = frame
     }
 
     @available(*, unavailable)
