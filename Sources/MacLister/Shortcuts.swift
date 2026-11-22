@@ -383,7 +383,7 @@ extension ListerAction {
     static let friendlyTitles: [ListerAction: String] = [.toggleTree: "Folder tree", .mergeListers: "Merge all listers into tabs",
                                                          .newTwoPanel: "New two-panel window", .joinTwoPanel: "Join into a two-panel window",
                                                          .splitTwoPanel: "Split into two listers", .expandToTwoPanel: "Expand into a two-panel window",
-                                                         .toggleIconView: "Show as icons or list"]
+                                                         .toggleIconView: "Show as icons or list", .groupBy: "Group files by"]
 
     /// What a button with this action shows as its tooltip when it has none of its own. English: like the texts in
     /// buttons.json it is translated when it is shown.
@@ -399,6 +399,7 @@ extension ListerAction {
         case .forgetSnapshot: return "Forget the snapshot of this folder"
         case .synchronize: return "Compare the source and destination folders and copy what differs"
         case .flatView: return "Show every file below this folder as one list"
+        case .groupBy: return "Choose what the files of this folder are grouped by"
         case .newTextFile: return "Create a text file here and open it in your text editor"
         case .copyAs: return "Copy to the destination under new names (⇧F5)"
         case .moveAs: return "Move to the destination under new names (⇧F6)"

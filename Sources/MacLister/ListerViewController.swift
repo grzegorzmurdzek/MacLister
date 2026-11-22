@@ -1039,6 +1039,7 @@ extension ListerViewController {
         case .showDevices:    model.navigate(to: VirtualPlace.devices.url)
         case .goToFolder:     goToFolder(button.command)
         case .toggleIconView: model.setShowAsIcons(!model.showAsIcons)
+        case .groupBy:        showGroupMenu()
         case .eject:          ejectSelection()
         case .rename:         renameSelection()
         case .undo:           undoLastOperation()

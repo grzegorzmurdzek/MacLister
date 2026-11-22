@@ -37,6 +37,23 @@ extension ListerViewController {
         collectionView.reloadData()
     }
 
+    /// The menu of the Group By button: what the files are grouped by, opened where the pointer is.
+    func showGroupMenu() {
+        guard model.canGroup else { flash(tr("This folder cannot be grouped")); return }
+        let menu = NSMenu(title: tr("Group By"))
+        menu.autoenablesItems = false
+        for key in GroupKey.allCases {
+            let item = ButtonMenuTrigger.EntryItem(title: key.title, action: #selector(ButtonMenuTrigger.EntryItem.fire), keyEquivalent: "")
+            item.target = item
+            item.handler = { [weak self] in self?.model.setGroup(key) }
+            item.state = model.groupKey == key ? .on : .off
+            menu.addItem(item)
+            if key == .none { menu.addItem(.separator()) }
+        }
+        guard let window = view.window else { return }
+        menu.popUp(positioning: nil, at: view.convert(window.mouseLocationOutsideOfEventStream, from: nil), in: view)
+    }
+
     func isHeaderTableRow(_ tableRow: Int) -> Bool { groupIndex(forTableRow: tableRow) != nil }
 
     /// The group a table row is the header of.

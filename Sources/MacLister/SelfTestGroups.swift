@@ -203,6 +203,20 @@ enum SelfTestGroups {
             model.setGroup(.none)
         }
 
+        // 3b. The button for the button bar.
+        check(ListerAction(rawValue: "groupBy") == .groupBy && ListerAction.allCases.contains(.groupBy) && ListerAction.groupBy.title == tr("Group files by"),
+              "there is a Group By action for the button bar: \(ListerAction.groupBy.title)")
+        check(ListerAction.groupBy.category == .navigation && ListerAction.groupBy.suggestedSymbol == "rectangle.3.group" && ListerAction.groupBy.defaultHelp != nil,
+              "…with a category, an icon and a tooltip")
+        check(NSImage(systemSymbolName: ListerAction.groupBy.suggestedSymbol, accessibilityDescription: nil) != nil, "…and the icon exists on this macOS")
+        later {
+            guard let vc else { return }
+            vc.model.navigate(to: VirtualPlace.recents.url)
+            vc.perform(ListerButton(title: "Group", symbol: nil, action: .groupBy))      // no menu where nothing can be grouped
+            check(vc.model.statusMessage == tr("This folder cannot be grouped"), "the button says so where grouping is not possible: \(vc.model.statusMessage ?? "nothing")")
+            vc.model.navigate(to: dir)
+        }
+
         // 4. The menu offers the groups.
         later {
             guard let vc else { return }

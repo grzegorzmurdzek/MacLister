@@ -95,7 +95,7 @@ wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list 
   Daty trafiają do grup: Dzisiaj, Wczoraj, Ostatnie 7 dni, Ostatnie 30 dni, potem miesiąc dla reszty roku i rok dla starszych; rozmiary do grup Foldery i przedziałów
   od 1 GB w dół do pustych; nazwy pod pierwszą literą; plik z kilkoma tagami jest pod pierwszym. Grupy idą w swojej naturalnej kolejności, a pliki w grupie według
   wybranego sortowania. Grupowanie jest pamiętane osobno dla każdego folderu (*Zapomnij widok tego folderu* je usuwa); Ostatnie, Udostępniane, Urządzenia,
-  serwery i archiwa nie są grupowane. Nagłówków nie da się zaznaczyć, więc Zaznacz wszystko, zaznaczanie przeciąganiem i klawiatura dotykają tylko plików.
+  serwery i archiwa nie są grupowane. Nagłówków nie da się zaznaczyć, więc Zaznacz wszystko, zaznaczanie przeciąganiem i klawiatura dotykają tylko plików. Pasek przycisków ma opcjonalny przycisk **Grupuj pliki według** (dodasz go w *Edit Buttons…*): kliknięcie otwiera listę grupowań pod wskaźnikiem myszy.
   Test: `MacLister --selftest-groups --quiet`.
 - **Lista odświeża się sama**, gdy pliki są dodawane, usuwane lub zmieniane na dysku (FSEvents), a podtytuł okna
   pokazuje wolne miejsce na woluminie.

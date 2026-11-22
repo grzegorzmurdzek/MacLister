@@ -1157,3 +1157,6 @@
 "Empty" = "Puste";
 "1 GB or more" = "1 GB lub więcej";
 "Under 1 KB" = "Poniżej 1 KB";
+"Group files by" = "Grupuj pliki według";
+"Choose what the files of this folder are grouped by" = "Wybierz, według czego grupowane są pliki tego folderu";
+"This folder cannot be grouped" = "Ten folder nie jest grupowany";

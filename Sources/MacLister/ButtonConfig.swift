@@ -52,6 +52,8 @@ enum ListerAction: String, Codable, CaseIterable, Identifiable {
     case expandToTwoPanel
     /// Shows the files as icons, or as a list again.
     case toggleIconView
+    /// A menu under the button to choose what the files are grouped by (Finder's Group By).
+    case groupBy
     /// Brings every lister to the macOS desktop (Space) you are on.
     case gatherListers
     /// A thin divider between groups of buttons (no action).
@@ -298,6 +300,7 @@ extension ListerAction {
         case .showDevices: return "externaldrive.fill"
         case .goToFolder: return "house.fill"
         case .toggleIconView: return "square.grid.2x2"
+        case .groupBy: return "rectangle.3.group"
         case .eject: return "eject.fill"
         case .rename: return "pencil"
         case .undo: return "arrow.uturn.backward.circle.fill"
@@ -344,7 +347,7 @@ extension ListerAction {
         case .selectPattern, .deselectPattern, .selectAll, .selectNone, .invertSelection, .selectByAttributes,
              .filter, .clearFilter, .find, .findDuplicates, .flatView, .toggleHidden, .refresh:
             return .selecting
-        case .parent, .back, .toggleTree, .addBookmark, .snapshot, .forgetSnapshot, .showRecents, .showShared, .showDevices, .goToFolder, .toggleIconView, .connectToServer:
+        case .parent, .back, .toggleTree, .addBookmark, .snapshot, .forgetSnapshot, .showRecents, .showShared, .showDevices, .goToFolder, .toggleIconView, .groupBy, .connectToServer:
             return .navigation
         case .newLister, .duplicateLister, .setSource, .setDestination, .swapSourceDestination, .toggleRoleLock, .nameLister,
              .nextLister, .previousLister, .bringAllToFront, .gatherListers,
