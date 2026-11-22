@@ -705,6 +705,8 @@ final class ListerViewController: NSViewController {
             perform(ListerButton(title: tr("Delete"), symbol: nil, action: .delete))
         case 37 where mods == [.command, .shift]: // ⌘⇧L → all listers to the front
             ListerManager.shared.bringAllToFront()
+        case 5 where mods == [.command, .shift]:  // ⌘⇧G → Go to Folder / type a path (Finder)
+            model.editingPath = true
         case 40 where command:                    // ⌘K → connect to a server
             connectToServer()
         case 37 where command:                    // ⌘L → type a path
@@ -1383,9 +1385,14 @@ extension ListerViewController {
     }
 
     /// A Home / Desktop / Downloads button: the lister goes to the folder named in `path` (~ for the home folder).
+    /// When `path` is nil or empty, path editing is activated.
     func goToFolder(_ path: String?) {
-        let typed = (path ?? "~").trimmingCharacters(in: .whitespaces)
-        let expanded = (typed.isEmpty ? "~" : typed as NSString).expandingTildeInPath
+        guard let path, !path.trimmingCharacters(in: .whitespaces).isEmpty else {
+            model.editingPath = true
+            return
+        }
+        let typed = path.trimmingCharacters(in: .whitespaces)
+        let expanded = (typed as NSString).expandingTildeInPath
         var isFolder: ObjCBool = false
         guard FileManager.default.fileExists(atPath: expanded, isDirectory: &isFolder), isFolder.boolValue else {
             model.errorMessage = tr("Cannot find the folder “%@”", typed)
@@ -1985,6 +1992,7 @@ extension ListerViewController {
         let lister = submenu(tr("Lister"))
         add(tr("Duplicate Lister"), to: lister, key: "d", mask: [.command, .option]) { [weak self] in self?.duplicateLister() }
         add(nameMenuTitle, to: lister) { [weak self] in self?.promptLabel() }
+        add(tr("Go to Folder…"), to: lister, key: "g", mask: [.command, .shift]) { [weak self] in self?.model.editingPath = true }
         add(tr("New Lister"), to: lister) {
             manager.openLister(directory: Settings.startDirectory, anchor: .cascade(from: controller?.window))
         }

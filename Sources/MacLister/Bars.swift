@@ -140,7 +140,7 @@ extension PathBarView {
         .help("Name of this lister (click to change)")
     }
 
-    /// Clickable breadcrumb; clicking the empty part (or ⌘L) switches to an editable text field.
+    /// Clickable breadcrumb; clicking the empty part (or ⇧⌘G / ⌘L) switches to an editable text field.
     @ViewBuilder
     fileprivate var pathField: some View {
         if model.editingPath {
@@ -149,12 +149,23 @@ extension PathBarView {
                 .font(.system(size: 13, design: .monospaced))
                 .focused($fieldFocused)
                 .onSubmit {
-                    if model.navigate(toPath: text) { model.editingPath = false } else { text = ListerModel.displayPath(model.url) }
+                    if model.navigate(toPath: text) {
+                        model.editingPath = false
+                    } else {
+                        DispatchQueue.main.async {
+                            NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
+                        }
+                    }
                 }
                 .onExitCommand { model.editingPath = false }
                 .onAppear {
                     text = ListerModel.displayPath(model.url)
-                    DispatchQueue.main.async { fieldFocused = true }
+                    DispatchQueue.main.async {
+                        fieldFocused = true
+                        DispatchQueue.main.async {
+                            NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
+                        }
+                    }
                 }
                 .onChange(of: fieldFocused) { focused in if !focused { model.editingPath = false } }
         } else {
@@ -235,6 +246,8 @@ extension PathBarView {
                     Button { model.navigate(to: volume) } label: { Label(volume.lastPathComponent, systemImage: "externaldrive") }
                 }
                 Button { model.navigate(to: VirtualPlace.shared.url) } label: { Label(VirtualPlace.shared.title, systemImage: VirtualPlace.shared.symbol) }
+                Divider()
+                Button { model.editingPath = true } label: { Label(tr("Go to Folder…"), systemImage: "arrow.right.circle") }
             }
             Section("Servers") {
                 ForEach(servers.servers) { server in
@@ -698,7 +711,7 @@ struct BreadcrumbView: View {
                 .contentShape(Rectangle())
                 .onTapGesture(perform: onEdit)
         )
-        .help("Click a folder to go there; click the empty part (or press ⌘L) to type a path")
+        .help(tr("Click a folder to go there; click the empty part (or press ⇧⌘G) to type a path"))
     }
 
     /// Hears the scroll wheel (and the sideways swipe of a trackpad) over the path field and passes the distance on:

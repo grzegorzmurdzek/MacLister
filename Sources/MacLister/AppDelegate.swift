@@ -318,6 +318,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add(tr("New Lister"), #selector(newListerFromDock))
         add(tr("New Two-Panel Window"), #selector(newTwoPanelFromDock))
         add(tr("Duplicate Frontmost Lister"), #selector(duplicateFrontmost), enabled: !controllers.isEmpty)
+        add(tr("Go to Folder…"), #selector(goToFolderFromMenu))
         add(tr("Connect to Server…"), #selector(connectFromMenu))
         let workspaces = NSMenu(title: tr("Workspaces"))
         workspaces.autoenablesItems = false
@@ -391,6 +392,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         settingsItem.target = self
         menu.addItem(.separator())
 
+        let goToFolder = menu.addItem(withTitle: tr("Go to Folder…"), action: #selector(goToFolderFromMenu), keyEquivalent: "g")
+        goToFolder.keyEquivalentModifierMask = [.command, .shift]
+        goToFolder.target = self
         let connect = menu.addItem(withTitle: tr("Connect to Server…"), action: #selector(connectFromMenu), keyEquivalent: "k")
         connect.target = self
         let duplicate = menu.addItem(withTitle: tr("Duplicate Frontmost Lister"), action: #selector(duplicateFrontmost), keyEquivalent: "")
@@ -647,6 +651,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    @objc func goToFolderFromMenu() {
+        let manager = ListerManager.shared
+        if let controller = manager.frontmost {
+            manager.bringToFront(controller)
+            controller.listerViewController?.model.editingPath = true
+        } else {
+            let controller = manager.openLister(directory: Settings.startDirectory, anchor: .cursor(NSEvent.mouseLocation, centered: true))
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { controller.listerViewController?.model.editingPath = true }
+        }
+    }
+
     /// The icon / list choice of the user while a test, screenshot or demo mode runs with the list.
     private var iconModeBeforeTests: Bool?
 
@@ -704,6 +719,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         edit.addItem(withTitle: tr("Paste"), action: #selector(NSText.paste(_:)), keyEquivalent: "v")
         edit.addItem(withTitle: tr("Select All"), action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         editMenuItem.submenu = edit
+
+        let goMenuItem = NSMenuItem()
+        main.addItem(goMenuItem)
+        let go = NSMenu(title: tr("Go"))
+        let goToFolderItem = go.addItem(withTitle: tr("Go to Folder…"), action: #selector(goToFolderFromMenu), keyEquivalent: "g")
+        goToFolderItem.keyEquivalentModifierMask = [.command, .shift]
+        goToFolderItem.target = self
+        let connectItem = go.addItem(withTitle: tr("Connect to Server…"), action: #selector(connectFromMenu), keyEquivalent: "k")
+        connectItem.target = self
+        goMenuItem.submenu = go
 
         let windowMenuItem = NSMenuItem()
         main.addItem(windowMenuItem)

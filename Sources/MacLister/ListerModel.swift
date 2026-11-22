@@ -440,7 +440,14 @@ final class ListerModel: ObservableObject {
 
     @discardableResult
     func navigate(toPath path: String) -> Bool {
-        let typed = path.trimmingCharacters(in: .whitespaces)
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        let typed: String
+        if (trimmed.hasPrefix("\"") && trimmed.hasSuffix("\"") && trimmed.count >= 2) ||
+           (trimmed.hasPrefix("'") && trimmed.hasSuffix("'") && trimmed.count >= 2) {
+            typed = String(trimmed.dropFirst().dropLast()).trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            typed = trimmed
+        }
         if let address = URL(string: typed), RemoteURL.isRemote(address) { return navigate(to: address) }
         if let address = URL(string: typed), NetworkMount.isMountable(address) {      // smb://server/share: mounted, then shown
             NetworkMount.mount(address, in: self)
@@ -451,9 +458,14 @@ final class ListerModel: ObservableObject {
             let absolute = typed.hasPrefix("/") ? typed : RemoteURL.join(RemoteURL.path(of: url), typed)
             return navigate(to: RemoteURL.with(path: absolute, on: url))
         }
-        let expanded = (path.trimmingCharacters(in: .whitespaces) as NSString).expandingTildeInPath
+        let expanded = (typed as NSString).expandingTildeInPath
         guard !expanded.isEmpty else { return false }
-        return navigate(to: URL(fileURLWithPath: expanded, relativeTo: url))
+        let target = URL(fileURLWithPath: expanded, relativeTo: url)
+        var isDir: ObjCBool = false
+        if FileManager.default.fileExists(atPath: target.path, isDirectory: &isDir), !isDir.boolValue {
+            return navigate(to: target.deletingLastPathComponent(), selecting: target)
+        }
+        return navigate(to: target)
     }
 
     func goParent() {

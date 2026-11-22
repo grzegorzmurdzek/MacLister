@@ -83,7 +83,7 @@
 "Choose…" = "Wybierz…";
 "Clear Filter (%@)" = "Wyczyść filtr (%@)";
 "Clear filter" = "Wyczyść filtr";
-"Click a folder to go there; click the empty part (or press ⌘L) to type a path" = "Kliknij folder, aby do niego przejść; kliknij puste miejsce (lub ⌘L), aby wpisać ścieżkę";
+"Click a folder to go there; click the empty part (or press ⇧⌘G) to type a path" = "Kliknij folder, aby do niego przejść; kliknij puste miejsce (lub ⇧⌘G), aby wpisać ścieżkę";
 "Click a shortcut, then press the new keys. Esc cancels, Delete removes it. Keys that macOS, another application or MacLister already uses are refused." = "Kliknij skrót, a potem naciśnij nowe klawisze. Esc anuluje, Delete usuwa skrót. Klawisze używane już przez macOS, inną aplikację lub MacLister są odrzucane.";
 "Click the middle button" = "Kliknięcie środkowym przyciskiem";
 "Close" = "Zamknij";
@@ -183,7 +183,7 @@
 "Folders" = "Foldery";
 "Folders: %d" = "Foldery: %d";
 "Force Quit" = "Wymuś zakończenie";
-"Go" = "Go";
+"Go" = "Idź";
 "Go to" = "Go to";
 "Go to the enclosing folder" = "Przejdź do folderu nadrzędnego";
 "Group" = "Grupa";
@@ -550,6 +550,8 @@
 "Expand into Two-Panel Window" = "Rozszerz do okna dwupanelowego";
 "Home folder" = "Folder domowy";
 "Go to folder" = "Idź do folderu";
+"Go to Folder…" = "Idź do folderu…";
+"Go to a folder by typing its path (⇧⌘G)" = "Przejdź do folderu, wpisując jego ścieżkę (⇧⌘G)";
 "Go to your home folder" = "Przejdź do folderu domowego";
 "Folder (~ is your home folder)" = "Folder (~ to folder domowy)";
 "Cannot find the folder “%@”" = "Nie można znaleźć folderu „%@”";

@@ -1570,6 +1570,9 @@ enum SelfTestFeatures {
             check(ColumnSettings.width(of: .kind) == 133, "a dragged column width is stored: \(ColumnSettings.width(of: .kind))")
             ColumnSettings.setVisible(originalColumns + [.kind])
             // the Name column can be dragged too, separately in a folder and in the Devices list; a width at the minimum is no choice
+            var cleanWidths = (UserDefaults.standard.dictionary(forKey: "columnWidths") as? [String: Double]) ?? [:]
+            cleanWidths.removeValue(forKey: "name")
+            UserDefaults.standard.set(cleanWidths, forKey: "columnWidths")
             ColumnSettings.setNameWidth(333, devices: true)
             check(ColumnSettings.nameWidth(devices: true) == 333 && ColumnSettings.nameWidth(devices: false) == nil, "the width of Name is stored for the Devices list only")
             ColumnSettings.setNameWidth(10, devices: false)
@@ -1827,6 +1830,13 @@ enum SelfTestFeatures {
             one.model.editingPath = true
             check(one.model.editingPath, "path editing mode can be switched on")
             one.model.editingPath = false
+            _ = vc.handleKey(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.command, .shift], timestamp: 0, windowNumber: 0, context: nil, characters: "G", charactersIgnoringModifiers: "G", isARepeat: false, keyCode: 5)!)
+            check(one.model.editingPath, "⇧⌘G switches to path editing mode (Finder shortcut)")
+            one.model.editingPath = false
+            vc.goToFolder(nil)
+            check(one.model.editingPath, "goToFolder without path switches to path editing mode")
+            one.model.editingPath = false
+            check(BuiltInShortcuts.byAction[.goToFolder] == "⇧⌘G", "goToFolder shows ⇧⌘G as its built-in shortcut")
         }
         // auto-refresh through FSEvents, free space
         later {

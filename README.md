@@ -80,7 +80,7 @@ run `defaults delete com.example.MacLister`, and remove MacLister from the two P
 ### Anatomy of a lister
 
 - **Path bar:** *Back*, *Parent*, the **Go** menu (places, volumes, bookmarks, recent folders), the path as a
-  clickable **breadcrumb** (click a folder to jump there; click the empty part of the bar or press **⌘L** to
+  clickable **breadcrumb** (click a folder to jump there; click the empty part of the bar or press **⇧⌘G** / **⌘L** to
   type a path instead, `~` works) and the **SRC** / **DST** badges. A path too long for the bar shows its tail; the **mouse wheel** (or a sideways swipe) over it scrolls back towards the start.
 - **File list:** icon, name, size, modified date. Click a header to sort; folders come first by default, or switch *Keep folders above files when sorting* off (Settings → Listers, or the column header menu) to sort folders and files together.
   Double-click or Return opens a file or enters a folder. **Right-click the column header** to choose the
@@ -197,7 +197,7 @@ Dock icon then open a two-panel window instead of a lister (the *New Lister* com
 | ⌘E | extract archives |
 | ⌘I | info (size, dates, permissions, owner) |
 | ⌥⌘I | edit attributes (permissions, dates, hidden, tags, comment) |
-| ⌘L | type a path instead of using the breadcrumb |
+| ⇧⌘G, ⌘L | type a path (Go to Folder…) instead of using the breadcrumb |
 | ⌘D | duplicate the selected files (`name copy.ext`) |
 | ⌥⌘D | **duplicate this lister** (same folder, size, sort, filter) |
 | ⌘F | filter by pattern |

@@ -183,6 +183,7 @@ enum BuiltInShortcuts {
         e(14, .command, "E", tr("Extract")), e(34, .command, "I", tr("Info")), e(34, [.command, .option], "I", tr("Attributes")),
         e(2, .command, "D", tr("Duplicate files")), e(2, [.command, .option], "D", tr("Duplicate lister")),
         e(3, .command, "F", tr("Filter")), e(3, [.command, .shift], "F", tr("Find")), e(17, [.command, .option], "T", tr("Folder tree")), e(11, .command, "B", tr("Bookmark")), e(37, [.command, .shift], "L", tr("Bring all listers to front")),
+        e(5, [.command, .shift], "G", tr("Go to folder")),
         e(37, .command, "L", tr("Type a path")), e(40, .command, "K", tr("Connect to Server")),
         e(18, .command, "1", tr("Show as icons")), e(19, .command, "2", tr("Show as list")),
         e(48, [], "Tab", tr("Next lister")), e(48, .shift, "Tab", tr("Previous lister")),
@@ -195,6 +196,7 @@ enum BuiltInShortcuts {
         .copy: "F5", .move: "F6", .copyAs: "⇧F5", .moveAs: "⇧F6", .extract: "⌘E", .info: "⌘I", .attributes: "⌥⌘I", .duplicateFile: "⌘D", .duplicateLister: "⌥⌘D",
         .filter: "⌘F", .find: "⇧⌘F", .toggleTree: "⌥⌘T", .addBookmark: "⌘B", .bringAllToFront: "⇧⌘L", .connectToServer: "⌘K", .parent: "Delete", .open: "Return",
         .nextLister: "Tab", .previousLister: "⇧Tab", .newTab: "⌘T", .nextTab: "⌃Tab", .previousTab: "⌃⇧Tab", .undo: "⌘Z", .toggleHidden: "⇧⌘.", .delete: "⌘Delete", .selectPattern: "+", .deselectPattern: "-", .invertSelection: "*",
+        .goToFolder: "⇧⌘G",
     ]
 
     /// Menu and window commands that are handled before a lister sees the key.
@@ -400,6 +402,7 @@ extension ListerAction {
         case .synchronize: return "Compare the source and destination folders and copy what differs"
         case .flatView: return "Show every file below this folder as one list"
         case .groupBy: return "Choose what the files of this folder are grouped by"
+        case .goToFolder: return "Go to a folder by typing its path (⇧⌘G)"
         case .newTextFile: return "Create a text file here and open it in your text editor"
         case .copyAs: return "Copy to the destination under new names (⇧F5)"
         case .moveAs: return "Move to the destination under new names (⇧F6)"

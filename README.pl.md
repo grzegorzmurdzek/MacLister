@@ -83,7 +83,7 @@ wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list 
 ### Budowa listera
 
 - **Pasek ścieżki:** *Back*, *Parent*, menu **Go** (miejsca, woluminy, zakładki, ostatnie foldery), ścieżka jako
-  klikalny **breadcrumb** (kliknij folder, żeby tam przejść; kliknij puste miejsce paska albo naciśnij **⌘L**, żeby
+  klikalny **breadcrumb** (kliknij folder, żeby tam przejść; kliknij puste miejsce paska albo naciśnij **⇧⌘G** / **⌘L**, żeby
   wpisać ścieżkę, `~` działa) oraz znaczki **SRC** / **DST**. Zbyt długa ścieżka pokazuje swój koniec; **kółko myszy** (albo przesunięcie palcami w bok) nad nią przewija ją z powrotem w stronę początku.
 - **Lista plików:** ikona, nazwa, rozmiar, data modyfikacji. Kliknięcie nagłówka sortuje; foldery domyślnie są
   na początku (wyłączysz to w **Ustawienia → Listery → Foldery nad plikami przy sortowaniu** albo w menu nagłówka kolumn). Dwuklik lub Return otwiera plik albo wchodzi do folderu. **Prawy przycisk na nagłówku kolumn**
@@ -199,7 +199,7 @@ Docku otwierają wtedy okno dwupanelowe zamiast listera (polecenia *Nowy lister*
 | ⌘E | rozpakuj archiwa |
 | ⌘I | informacje (rozmiar, daty, uprawnienia, właściciel) |
 | ⌥⌘I | edycja atrybutów (uprawnienia, daty, ukryty, tagi, komentarz) |
-| ⌘L | wpisz ścieżkę zamiast klikać breadcrumb |
+| ⇧⌘G, ⌘L | wpisz ścieżkę (Idź do folderu…) zamiast klikać breadcrumb |
 | ⌘D | duplikuj zaznaczone pliki (`nazwa copy.ext`) |
 | ⌥⌘D | **duplikuj ten lister** (ten sam folder, rozmiar, sortowanie, filtr) |
 | ⌘F | filtr wzorcem |
