@@ -145,6 +145,18 @@ enum SelfTestOperations {
         // --- settings window
         let tabs = SettingsWindow.tabViews()
         check(tabs.map(\.title) == ["General", "Listers", "Tabs", "Workspaces", "Buttons", "Filetypes", "Operations", "Updates"] || tabs.count == 8, "the settings window has eight tabs: \(tabs.map(\.title))")
+        // --- button bar pages: what does not fit goes to the next page (flip button)
+        let row: [CGRect] = (0..<10).map { CGRect(x: CGFloat($0) * 36, y: 0, width: 34, height: 30) }       // ten buttons, 36 apart
+        check(ButtonPaging.pages(frames: row, separators: [], barWidth: 600) == [0...9], "button bar: ten buttons that fit are one page")
+        check(ButtonPaging.pages(frames: row, separators: [], barWidth: 0).isEmpty, "button bar: no width known, no pages")
+        let narrow = ButtonPaging.pages(frames: row, separators: [], barWidth: 220)
+        check(narrow.count > 1 && narrow.first?.lowerBound == 0 && narrow.last?.upperBound == 9
+              && zip(narrow, narrow.dropFirst()).allSatisfy { $0.upperBound + 1 == $1.lowerBound }, "button bar: a narrow bar splits the buttons into consecutive pages: \(narrow)")
+        check(narrow.allSatisfy { page in row[page.upperBound].maxX - row[page.lowerBound].minX <= 220 - ButtonPaging.flipWidth - 2 * ButtonPaging.padding },
+              "button bar: every page leaves room for the flip button")
+        let divided = ButtonPaging.pages(frames: row, separators: [3, 4], barWidth: 160)
+        check(divided.allSatisfy { ![3, 4].contains($0.lowerBound) && ![3, 4].contains($0.upperBound) || $0.count == 1 }, "button bar: a page neither starts nor ends with a divider: \(divided)")
+        check(ButtonPaging.pages(frames: row, separators: [], barWidth: 60).count == 10, "button bar: a bar that holds one button at a time still shows every button")
         let screenHeight = NSScreen.screens.map { $0.visibleFrame.height }.min() ?? 800
         for tab in tabs {
             let host = NSHostingView(rootView: tab.view)

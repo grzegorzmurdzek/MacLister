@@ -89,6 +89,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             return
         }
+        if let flag = CommandLine.arguments.firstIndex(of: "--render-buttons"), CommandLine.arguments.indices.contains(flag + 2) {
+            let out = URL(fileURLWithPath: CommandLine.arguments[flag + 1])
+            let width = Double(CommandLine.arguments[flag + 2]) ?? 600
+            let page = CommandLine.arguments.indices.contains(flag + 3) ? Int(CommandLine.arguments[flag + 3]) ?? 0 : 0
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                PreviewRender.buttonBar(to: out, width: CGFloat(width), page: page)
+                NSApp.terminate(nil)
+            }
+            return
+        }
         if let flag = CommandLine.arguments.firstIndex(of: "--render-lister"), CommandLine.arguments.indices.contains(flag + 1) {
             let out = URL(fileURLWithPath: CommandLine.arguments[flag + 1])
             let dark = CommandLine.arguments.contains("dark")

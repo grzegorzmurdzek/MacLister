@@ -98,6 +98,9 @@ wykonaj `defaults delete com.example.MacLister` i usuń MacLister z dwóch list 
   nadal wykonuje własną akcję przycisku). Wpisy ustawisz w *Edytuj przyciski…*; opcja *Pokaż strzałkę na przyciskach
   z menu* w **Ustawienia → Przyciski** dodaje strzałkę otwierającą menu jednym kliknięciem, a *Menu otwiera się* wybiera, czy menu otwiera się pod
   przyciskiem, czy nad nim (automatycznie: nad, gdy pasek przycisków jest na dole).
+  Gdy lister jest za wąski na wszystkie przyciski, pasek pokazuje tyle, ile się zmieści, a na prawym końcu przycisk **»**
+  (jak w bankach przycisków Magellana): przełącza na następną stronę przycisków, na ostatniej **«** wraca do pierwszej;
+  prawy przycisk myszy daje *Następne* / *Poprzednie przyciski*.
 - Cienka **linia stanu** na dole: liczba elementów, rozmiar zaznaczenia, filtr, postęp i błędy.
 - Nowe listery mają 560 × 400 i pamiętają rozmiar, który ostatnio nadałeś listerowi przeciągając krawędź.
 - Opcjonalny **pasek boczny i drzewo folderów** po lewej (⌥⌘T albo *Pokaż drzewo folderów* w menu). Jest w nim to, co w pasku bocznym Findera, odczytane z samego Findera, więc oba zawsze się zgadzają: *Ostatnie*, *Udostępniane*, *Ulubione*, *Miejsca* (iCloud Drive, folder domowy, dyski, AirDrop, Kosz) i *Tagi* (kliknięcie pokazuje pliki z danym tagiem; *Wszystkie tagi…* wymienia pozostałe). Pod nimi jest drzewo: folder domowy i wszystkie woluminy, tylko foldery. Wybranie folderu pokazuje go w listerze, drzewo podąża za listerem, nowe foldery pojawiają się w nim, a pliki upuszczone na folder są kopiowane lub przenoszone tak jak przy każdym innym upuszczeniu. Szerokość, na którą przeciągniesz podział, jest zapamiętywana.

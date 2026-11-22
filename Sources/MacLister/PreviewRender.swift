@@ -43,6 +43,23 @@ enum PreviewRender {
         print("wrote \(url.path)")
     }
 
+    /// `MacLister --render-buttons out.png width [page]`: the button bar at that width (page of buttons) into a PNG.
+    @MainActor
+    static func buttonBar(to url: URL, width: CGFloat, page: Int) {
+        let model = ListerModel(url: FileManager.default.homeDirectoryForCurrentUser)
+        let host = NSHostingView(rootView: ButtonBarView(model: model, store: .shared, startPage: page, onAction: { _ in }))
+        host.sizingOptions = []
+        let window = NSWindow(contentRect: NSRect(x: -20000, y: 0, width: width, height: 40), styleMask: [.borderless], backing: .buffered, defer: false)
+        window.contentView = host
+        window.orderFrontRegardless()
+        for _ in 0..<3 { RunLoop.main.run(until: Date().addingTimeInterval(0.4)); host.layoutSubtreeIfNeeded() }
+        guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { print("render failed"); return }
+        host.cacheDisplay(in: host.bounds, to: rep)
+        try? rep.representation(using: .png, properties: [:])?.write(to: url)
+        print("wrote \(url.path)")
+        window.close()
+    }
+
     /// A lister with a name and colour, drawn from made-up files in a temporary folder.
     @MainActor
     static func lister(to url: URL, label: String, color: String, dark: Bool) {

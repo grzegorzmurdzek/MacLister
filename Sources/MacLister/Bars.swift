@@ -299,12 +299,55 @@ extension PathBarView {
     }
 }
 
+private struct ButtonFramesKey: PreferenceKey {
+    static var defaultValue: [Int: CGRect] = [:]
+    static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) { value.merge(nextValue()) { $1 } }
+}
+
+/// Which buttons are on which page when the bar is too narrow for all of them.
+enum ButtonPaging {
+    /// Space left of the first button and, with pages, the space the flip button takes at the right end.
+    static let padding: CGFloat = 14
+    static let flipWidth: CGFloat = 46
+
+    /// `frames`: every button in its row (sorted, the row starting at 0), `separators`: the indexes of the dividers.
+    /// One page when everything fits (or nothing is known yet). A page neither starts nor ends with a divider.
+    static func pages(frames: [CGRect], separators: Set<Int>, barWidth: CGFloat) -> [ClosedRange<Int>] {
+        guard let first = frames.first, let last = frames.last, barWidth > 0 else { return [] }
+        if last.maxX - first.minX + 2 * padding <= barWidth { return [0...(frames.count - 1)] }
+        let room = barWidth - flipWidth - 2 * padding
+        var result: [ClosedRange<Int>] = []
+        var index = 0
+        while index < frames.count {
+            while index < frames.count, separators.contains(index) { index += 1 }
+            guard index < frames.count else { break }
+            let start = index, left = frames[index].minX
+            var end = index
+            while end + 1 < frames.count, frames[end + 1].maxX - left <= room { end += 1 }
+            var shownEnd = end
+            while shownEnd > start, separators.contains(shownEnd) { shownEnd -= 1 }
+            result.append(start...shownEnd)
+            index = end + 1
+        }
+        return result
+    }
+}
+
 /// Configurable buttons (buttons.json). Sits under the path bar (like Magellan's button banks) or at the
 /// bottom of the window; the divider follows the position.
 struct ButtonBarView: View {
     @ObservedObject var model: ListerModel
     @ObservedObject var store: ButtonStore
     var onAction: (ListerButton) -> Void
+
+    /// `startPage`: the page of buttons shown first (only the render mode asks for another than the first).
+    init(model: ListerModel, store: ButtonStore, startPage: Int = 0, onAction: @escaping (ListerButton) -> Void) {
+        self.model = model
+        self.store = store
+        self.onAction = onAction
+        _page = State(initialValue: startPage)
+    }
+
     /// Off by default: icons only, the title is in the tooltip. Toggled from the menu-bar icon.
     @AppStorage("showButtonLabels") private var showLabels = false
     @AppStorage("buttonBarPosition") private var position = ButtonBarPosition.abovePath.rawValue
@@ -315,46 +358,110 @@ struct ButtonBarView: View {
 
     private func canRun(_ button: ListerButton) -> Bool { !(button.needsSelection && model.selectedURLs.isEmpty) }
 
+    /// The page of buttons that is shown when they do not all fit (Magellan's flip between button banks).
+    @State private var page = 0
+    /// Where each button sits in the row of all of them, measured; `barWidth`: how wide the bar is.
+    @State private var frames: [Int: CGRect] = [:]
+
+    /// The buttons that fit side by side make a page; one page (or nothing measured yet): all are shown.
+    private func pages(barWidth: CGFloat) -> [ClosedRange<Int>] {
+        let buttons = store.buttons
+        let measured = buttons.indices.compactMap { frames[$0] }
+        guard measured.count == buttons.count else { return [] }
+        return ButtonPaging.pages(frames: measured, separators: Set(buttons.indices.filter { buttons[$0].action == .separator }), barWidth: barWidth)
+    }
+
     var body: some View {
+        GeometryReader { geometry in bar(width: geometry.size.width) }
+            .onPreferenceChange(ButtonFramesKey.self) { frames = $0 }
+    }
+
+    @ViewBuilder
+    private func bar(width: CGFloat) -> some View {
+        let pages = self.pages(barWidth: width)
+        let paged = pages.count > 1
+        let current = paged ? min(page, pages.count - 1) : 0
+        let visible: ClosedRange<Int>? = paged ? pages[current] : nil
+        let shift = visible.flatMap { frames[$0.lowerBound]?.minX } ?? 0
         VStack(spacing: 0) {
             if atBottom { Divider() }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 2) {
-                    ForEach(Array(store.buttons.enumerated()), id: \.offset) { index, button in
-                        if button.action == .separator {
-                            Divider().frame(height: 18).padding(.horizontal, 4)
-                        } else {
-                            Button { onAction(button) } label: { face(for: button) }
-                                .buttonStyle(ToolbarIconButtonStyle(tint: button.tint, forcePressed: pressedIndex == index))
-                                .disabled(button.needsSelection && model.selectedURLs.isEmpty)
-                                .help(help(for: button))
-                                .overlay {
-                                    // A button with a menu answers the left mouse button itself: click, hold, arrow.
-                                    if button.hasMenu {
-                                        ButtonMenuTrigger(button: button, showsArrow: showArrows, canRun: canRun, run: onAction) { down in
-                                            if down { pressedIndex = index } else if pressedIndex == index { pressedIndex = nil }
-                                        }
-                                    }
-                                }
-                                .overlay {
-                                    if button.hasExtraClicks {
-                                        MouseButtonCatcher { click in
-                                            guard let variant = button.variant(for: click) else { return }
-                                            if variant.needsSelection && model.selectedURLs.isEmpty { NSSound.beep(); return }
-                                            onAction(variant)
-                                        }
-                                    }
-                                }
+            HStack(spacing: 0) {
+                // The row of all the buttons, as wide as it is, starts at the left edge of this area; the part that is
+                // not on the page is moved out of it and clipped.
+                Color.clear
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .overlay(alignment: .leading) {
+                        HStack(spacing: 2) {
+                            ForEach(Array(store.buttons.enumerated()), id: \.offset) { index, button in
+                                let shown = visible?.contains(index) ?? true
+                                item(index, button, shown: shown)
+                                    .background(GeometryReader { geometry in
+                                        Color.clear.preference(key: ButtonFramesKey.self, value: [index: geometry.frame(in: .named("buttons"))])
+                                    })
+                                    .opacity(shown ? 1 : 0)
+                                    .allowsHitTesting(shown)
+                            }
                         }
+                        .fixedSize()
+                        .coordinateSpace(name: "buttons")
+                        .padding(.leading, ButtonPaging.padding)
+                        .offset(x: -shift)
                     }
+                    .clipped()
+                if paged {
+                    Divider().frame(height: 18)
+                    flipButton(current: current, count: pages.count)
+                        .padding(.horizontal, 3)
                 }
-                .padding(.horizontal, 14)
-                .frame(maxHeight: .infinity)
             }
             .controlSize(.regular)
             if !atBottom { Divider() }
         }
         .background(.bar)
+    }
+
+    /// Shows the next page of buttons; on the last page it goes back to the first. Right-click: previous or next.
+    private func flipButton(current: Int, count: Int) -> some View {
+        let last = current == count - 1
+        return Button { page = last ? 0 : current + 1 } label: {
+            Image(systemName: last ? "chevron.left.2" : "chevron.right.2")
+        }
+        .buttonStyle(ToolbarIconButtonStyle(iconSize: 13))
+        .help(tr("More buttons (page %d of %d)", current + 1, count))
+        .accessibilityLabel(tr("More buttons"))
+        .contextMenu {
+            Button(tr("Next Buttons")) { page = current == count - 1 ? 0 : current + 1 }
+            Button(tr("Previous Buttons")) { page = current == 0 ? count - 1 : current - 1 }
+        }
+    }
+
+    @ViewBuilder
+    private func item(_ index: Int, _ button: ListerButton, shown: Bool) -> some View {
+        if button.action == .separator {
+            Divider().frame(height: 18).padding(.horizontal, 4)
+        } else {
+            Button { onAction(button) } label: { face(for: button) }
+                .buttonStyle(ToolbarIconButtonStyle(tint: button.tint, forcePressed: pressedIndex == index))
+                .disabled(button.needsSelection && model.selectedURLs.isEmpty)
+                .help(help(for: button))
+                .overlay {
+                    // A button with a menu answers the left mouse button itself: click, hold, arrow.
+                    if shown && button.hasMenu {
+                        ButtonMenuTrigger(button: button, showsArrow: showArrows, canRun: canRun, run: onAction) { down in
+                            if down { pressedIndex = index } else if pressedIndex == index { pressedIndex = nil }
+                        }
+                    }
+                }
+                .overlay {
+                    if shown && button.hasExtraClicks {
+                        MouseButtonCatcher { click in
+                            guard let variant = button.variant(for: click) else { return }
+                            if variant.needsSelection && model.selectedURLs.isEmpty { NSSound.beep(); return }
+                            onAction(variant)
+                        }
+                    }
+                }
+        }
     }
 
     private func help(for button: ListerButton) -> String {

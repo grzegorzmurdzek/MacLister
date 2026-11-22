@@ -1134,3 +1134,9 @@
 "A workspace is a set of listers: their folders, windows, tabs, two-panel windows, positions, sizes, sorting and roles. Open one from the menu-bar icon, the Dock menu or the All Listers menu (hold ⌥ to add it to the open listers instead of replacing them). A workspace also keeps icons or list for each lister, the columns and the icon size. Servers are not saved. Drag to change the order." = "Przestrzeń robocza to zestaw listerów: ich foldery, okna, karty, okna dwupanelowe, położenie, rozmiar, sortowanie i role. Otworzysz ją z ikony w pasku menu, z menu Docka lub z menu Wszystkie listery (z klawiszem ⌥ zostanie dodana do otwartych listerów zamiast je zastąpić). Przestrzeń pamięta też widok ikon lub listy w każdym listerze, kolumny i rozmiar ikon. Serwery nie są zapisywane. Przeciągnij, aby zmienić kolejność.";
 "The last session is also what Save Layout and Restore Layout keep. Turn off Restore layout at launch in General to start without listers." = "Ostatnia sesja to także to, co zachowują Zapisz układ i Przywróć układ. Aby uruchamiać program bez listerów, wyłącz w Ogólnych przywracanie układu przy uruchomieniu.";
 "Restore layout at launch is off in General: MacLister starts without listers." = "Przywracanie układu przy uruchomieniu jest wyłączone w Ogólnych: MacLister startuje bez listerów.";
+
+/* Button bar pages */
+"More buttons (page %d of %d)" = "Więcej przycisków (strona %d z %d)";
+"More buttons" = "Więcej przycisków";
+"Next Buttons" = "Następne przyciski";
+"Previous Buttons" = "Poprzednie przyciski";

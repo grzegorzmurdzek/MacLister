@@ -95,6 +95,9 @@ run `defaults delete com.example.MacLister`, and remove MacLister from the two P
   the button's own action). *Edit Buttons…* sets the entries; *Show an arrow on buttons that have a menu* in
   **Settings → Buttons** adds an arrow that opens the menu with one click, and *Menu opens* chooses whether it opens
   below or above the button (automatic: above when the button bar is at the bottom).
+  When the lister is too narrow for all the buttons, the bar shows as many as fit and a **»** button at its right end
+  (as the button banks of Magellan): it flips to the next page of buttons, on the last page **«** goes back to the
+  first; right-click it for *Next* / *Previous Buttons*.
 - A thin **status line** at the bottom: item count, selection size, filter, progress and errors.
 - An optional **sidebar and folder tree** on the left (⌥⌘T, or *Show Folder Tree* in the menus). It has what Finder's sidebar has, read from Finder itself so the two stay the same: *Recents*, *Shared*, your *Favorites*, the *Locations* (iCloud Drive, home, disks, AirDrop, Trash) and your *Tags* (a click shows the files with that tag; *All Tags…* lists the rest). Below them is the tree: your home folder and every volume, folders only. Choosing a folder shows it in the lister, the tree follows the lister, new folders appear in it, and files dropped on a folder are copied or moved there like any other drop. The width you drag the divider to is remembered.
 - New listers open at 560 × 400 and remember the size you last gave a lister by dragging its edge.
