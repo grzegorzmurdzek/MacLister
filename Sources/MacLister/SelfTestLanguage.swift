@@ -96,6 +96,7 @@ enum SelfTestLanguage {
             busy.finish(.failed)
             LocalizationAudit.touch(TransferDetailsView(monitor: busy, close: { }), size: NSSize(width: 500, height: 560))
             LocalizationAudit.touch(PathBarView(model: one.model, onToggleRole: { _ in }, onConnect: { _ in }), size: NSSize(width: 700, height: 80))
+            LocalizationAudit.touch(InfoView(title: "a.txt", text: "Kind: Plain Text", icon: nil, openWith: InfoOpenWith.make(for: [URL(fileURLWithPath: "/etc/hosts")]), canChecksum: true, close: { }), size: NSSize(width: 480, height: 340))
             LocalizationAudit.touch(ButtonBarView(model: one.model, store: .shared, onAction: { _ in }), size: NSSize(width: 700, height: 60))
             one.model.progress = TransferStatus(text: "x", fraction: 0.3, cancel: { }, details: busy)
             LocalizationAudit.touch(StatusBarView(model: one.model), size: NSSize(width: 700, height: 40))

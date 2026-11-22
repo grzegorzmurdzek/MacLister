@@ -171,14 +171,24 @@ extension ListerViewController {
 
     private func presentInfo(_ info: (title: String, body: String), urls: [URL]) {
         guard let window = view.window else { return }
-        let alert = NSAlert()
-        alert.messageText = info.title
-        alert.informativeText = info.body
-        alert.addButton(withTitle: tr("OK"))
         let files = urls.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) != true }
-        if !files.isEmpty { alert.addButton(withTitle: tr("Checksums…")) }
-        alert.beginSheetModal(for: window) { [weak self] response in
-            if response == .alertSecondButtonReturn { self?.showChecksums(for: files) }
+        let openWith = files.count == urls.count && !model.isInArchive && !model.isVirtual ? InfoOpenWith.make(for: urls) : nil
+        let icon = urls.count == 1 ? NSWorkspace.shared.icon(forFile: urls[0].path) : NSImage(named: NSImage.multipleDocumentsName)
+        SheetPresenter().present(on: window, size: NSSize(width: 480, height: openWith == nil ? 280 : 340)) { close in
+            InfoView(title: info.title, text: info.body, icon: icon, openWith: openWith, canChecksum: !files.isEmpty,
+                     onChecksums: { [weak self] in
+                         close()
+                         DispatchQueue.main.async { self?.showChecksums(for: files) }
+                     },
+                     onMakeDefault: { [weak self] app, done in
+                         guard let self, let file = urls.first else { done(false); return }
+                         self.makeDefault(app, for: file, completion: done)
+                     },
+                     onOther: { [weak self] done in
+                         guard let self, let file = urls.first else { done(nil); return }
+                         self.chooseApplication(for: [file], alwaysFor: file, completion: done)
+                     },
+                     close: close)
         }
     }
 

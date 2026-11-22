@@ -2127,13 +2127,16 @@ extension ListerViewController {
 
     /// Asks first, as Finder does, then makes `app` the application macOS opens files of this kind with (Open With,
     /// double-click in Finder and everywhere else, not only in MacLister).
-    fileprivate func makeDefault(_ app: URL, for file: URL) {
-        guard let window = view.window else { return }
+    /// `completion`: whether the application was changed (false when the user said no, or the system refused).
+    func makeDefault(_ app: URL, for file: URL, completion: ((Bool) -> Void)? = nil) {
+        guard let window = view.window else { completion?(false); return }
         guard let type = (try? file.resourceValues(forKeys: [.contentTypeKey]))?.contentType else {
             model.errorMessage = tr("Cannot tell the kind of “%@”", file.lastPathComponent)
+            completion?(false)
             return
         }
-        let kind = type.localizedDescription ?? type.identifier
+        let described = (try? file.resourceValues(forKeys: [.localizedTypeDescriptionKey]))?.localizedTypeDescription
+        let kind = described ?? type.localizedDescription ?? type.identifier
         let appName = FileManager.default.displayName(atPath: app.path).replacingOccurrences(of: ".app", with: "")
         let alert = NSAlert()
         alert.messageText = tr("Always open “%@” files with %@?", kind, appName)
@@ -2141,19 +2144,21 @@ extension ListerViewController {
         alert.addButton(withTitle: tr("Change All"))
         alert.addButton(withTitle: tr("Cancel"))
         alert.beginSheetModal(for: window) { [weak self] response in
-            guard response == .alertFirstButtonReturn else { return }
+            guard response == .alertFirstButtonReturn else { completion?(false); return }
             NSWorkspace.shared.setDefaultApplication(at: app, toOpen: type) { error in
                 DispatchQueue.main.async {
-                    guard let self else { return }
+                    guard let self else { completion?(false); return }
                     if let error { self.model.errorMessage = tr("Cannot change the application: %@", error.localizedDescription) }
                     else { self.flash(tr("%@ now opens “%@” files", appName, kind)) }
+                    completion?(error == nil)
                 }
             }
         }
     }
 
     /// `alwaysFor`: the application chosen also becomes the default for the kind of that file (after the question).
-    private func chooseApplication(for urls: [URL], alwaysFor file: URL? = nil) {
+    /// `completion` (with `alwaysFor`): the application that became the default, nil when none did.
+    func chooseApplication(for urls: [URL], alwaysFor file: URL? = nil, completion: ((URL?) -> Void)? = nil) {
         let panel = NSOpenPanel()
         panel.title = tr("Choose an Application")
         panel.allowedContentTypes = [.application]
@@ -2161,8 +2166,8 @@ extension ListerViewController {
         panel.canChooseDirectories = false
         guard let window = view.window else { return }
         panel.beginSheetModal(for: window) { [weak self] response in
-            guard response == .OK, let app = panel.url else { return }
-            if let file { self?.makeDefault(app, for: file) } else { self?.open(urls, with: app) }
+            guard response == .OK, let app = panel.url else { completion?(nil); return }
+            if let file { self?.makeDefault(app, for: file) { completion?($0 ? app : nil) } } else { self?.open(urls, with: app) }
         }
     }
 }

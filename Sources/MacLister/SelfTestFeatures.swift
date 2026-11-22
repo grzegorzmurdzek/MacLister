@@ -60,6 +60,13 @@ enum SelfTestFeatures {
         check(InfoText.permissionString(0o755) == "rwxr-xr-x" && InfoText.permissionString(0o644) == "rw-r--r--", "permission string")
         let info = InfoText.make(for: [dirA.appendingPathComponent("a.txt")])
         check(info.title == "a.txt" && info.body.contains("Permissions: rw") && info.body.contains("Kind:") && info.body.contains("1 bytes"), "info text for a file")
+        // the "Open with" line of the Info sheet: files of one kind, the default application first; nothing for folders and servers
+        let openWith = InfoOpenWith.make(for: [dirA.appendingPathComponent("a.txt")])
+        check(openWith != nil && openWith?.kind.isEmpty == false && openWith?.apps.first == openWith?.defaultApp && openWith?.defaultApp != nil,
+              "Info offers the applications of a text file, the default first: \(openWith?.apps.map(InfoOpenWith.name(of:)) ?? [])")
+        check(InfoOpenWith.make(for: [dirA.appendingPathComponent("big")]) == nil, "Info offers no application for a folder")
+        check(InfoOpenWith.make(for: [URL(string: "sftp://host/a.txt")!]) == nil, "Info offers no application for a file on a server")
+        check(InfoOpenWith.make(for: []) == nil, "Info offers no application for nothing")
         let folderInfo = InfoText.make(for: [dirA.appendingPathComponent("big")]).body
         let sizeLine = folderInfo.split(separator: "\n").first { $0.hasPrefix("Size:") }.map(String.init) ?? ""
         check(sizeLine.filter(\.isNumber).hasSuffix("1500"), "info text sums a folder (\(sizeLine))")   // digits only: the thousands separator is locale-dependent
