@@ -20,6 +20,8 @@ TRANSITIONS = {
     "tabs": ("slideup", 0.45),
     "twoPanel": ("slideleft", 0.45),
     "tree": ("smoothdown", 0.45),
+    "groups": ("wipeleft", 0.45),
+    "workspaces": ("slidedown", 0.45),
     "dark": ("fade", 0.6),          # light dissolving into dark
     "buttons": ("circleclose", 0.5),
     "card": ("zoomin", 0.6),

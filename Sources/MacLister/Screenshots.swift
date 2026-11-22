@@ -37,6 +37,7 @@ enum Screenshots {
             queue("title-bar-menu") { titleBarMenu(named: "title-bar-menu") }
             queue("folder-tree") { folderTree(named: "folder-tree") }
             queue("tabs") { tabsShot(named: "tabs") }
+            queue("groups") { groupsShot(named: "groups") }
             queue("find") { findWindow(named: "find") }
             queue("find-duplicates") { duplicatesWindow(named: "find-duplicates") }
             queue("checksums") { checksumsWindow(named: "checksums") }
@@ -226,6 +227,28 @@ enum Screenshots {
             NSApp.activate(ignoringOtherApps: true)
             controller.window?.makeKeyAndOrderFront(nil)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { capture(to: name); finishScene() }
+        }
+    }
+
+    /// The files of Projects grouped by date, with the Group By button in the path bar lit.
+    private static func groupsShot(named name: String) {
+        let area = screen()
+        let origin = NSPoint(x: area.minX + 100, y: area.maxY - 560)
+        UserDefaults.standard.register(defaults: ["showGroupButton": true])          // the optional button of the path bar
+        let controller = ListerManager.shared.openLister(directory: demo.projects, anchor: .origin(origin))
+        controller.window?.setContentSize(NSSize(width: 900, height: 500))      // wide enough for the columns: no scroll bar at the bottom
+        controller.window?.setFrameOrigin(origin)
+        controller.model.setLabel(tr("Work"), color: "blue")
+        controller.model.setGroup(.modified)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            controller.listerViewController?.selectNoRows()
+            NSApp.activate(ignoringOtherApps: true)
+            controller.window?.makeKeyAndOrderFront(nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+                capture(to: name)
+                UserDefaults.standard.register(defaults: ["showGroupButton": false])
+                finishScene()
+            }
         }
     }
 
@@ -426,7 +449,28 @@ enum Screenshots {
     }
 
     /// One tab of the Settings window.
+    /// Two workspaces for the Workspaces tab to list: the pair of listers of the day's work, and the photos as icons.
+    private static func saveWorkspaces() {
+        let store = WorkspaceStore.shared, manager = ListerManager.shared
+        store.reload()
+        let origin = NSPoint(x: screen().minX + 100, y: screen().maxY - 500)
+        let left = manager.openLister(directory: demo.projects, anchor: .origin(origin))
+        let right = manager.openLister(directory: demo.backup, anchor: .origin(NSPoint(x: origin.x + 40, y: origin.y - 40)))
+        left.model.setLabel(tr("Work"), color: "blue")
+        right.model.setLabel("NAS", color: "orange")
+        manager.toggleRole(.source, for: left)
+        manager.toggleRole(.destination, for: right)
+        store.addCurrent(name: tr("Work"), from: manager)
+        manager.closeAll()
+        let photos = manager.openLister(directory: demo.project("f_photos"), anchor: .origin(origin))
+        photos.model.setLabel(tr("Photos"), color: "green")
+        photos.model.setShowAsIcons(true, remember: false)
+        store.addCurrent(name: tr("Photos"), from: manager)
+        manager.closeAll()
+    }
+
     private static func settings(tab: Int, named name: String) {
+        if name == "settings-workspaces" { saveWorkspaces() }
         SettingsWindow.show(tab: tab)
         guard let window = NSApp.windows.first(where: { $0.contentViewController is NSTabViewController }) else { finishScene(); return }
         window.setFrameOrigin(NSPoint(x: screen().minX + 260, y: screen().maxY - window.frame.height - 160))
@@ -515,6 +559,13 @@ enum Screenshots {
     /// this app's windows can be in it, so nothing of the user's desktop is.
     private static func capture(to name: String) {
         guard let backdrop, let main = NSScreen.screens.first else { return }
+        // the thin scroll bars that only show while scrolling (a mouse makes the system draw wide ones for good)
+        func overlayScrollers(in view: NSView) {
+            if let scroll = view as? NSScrollView { scroll.scrollerStyle = .overlay }
+            for sub in view.subviews { overlayScrollers(in: sub) }
+        }
+        for window in NSApp.windows { if let content = window.contentView { overlayScrollers(in: content) } }
+        RunLoop.current.run(until: Date().addingTimeInterval(0.3))
         let region = backdrop.frame
         let mine = NSApp.windows.filter { $0.isVisible && $0 !== backdrop && !($0 is NSPanel && $0.title.isEmpty && $0.frame.height < 40) && !String(describing: type(of: $0)).contains("StatusBar") }
         guard !mine.isEmpty else { print("nothing to capture for \(name)"); return }

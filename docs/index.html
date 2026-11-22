@@ -6,7 +6,7 @@
 <title>MacLister - a lister file manager for macOS</title>
 <meta name="description" content="MacLister is a lister-based file manager for macOS in the spirit of Directory Opus Magellan: double-click the empty desktop and a lister opens where you clicked.">
 <meta property="og:title" content="MacLister - a lister file manager for macOS">
-<meta property="og:description" content="Source and destination listers, a classic two-panel window, tabs, filetype actions, find and duplicates, synchronize, folder tree with a Finder-style sidebar, FTP/FTPS/SFTP, undo, operation log and more. Free and open source.">
+<meta property="og:description" content="Source and destination listers, a classic two-panel window, tabs, groups, workspaces, filetype actions, find and duplicates, synchronize, folder tree with a Finder-style sidebar, FTP/FTPS/SFTP, undo, operation log and more. Free and open source.">
 <meta property="og:image" content="https://maclister.github.io/screenshots/lister-pair.jpg">
 <meta name="theme-color" content="#eef2fb" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#14161f" media="(prefers-color-scheme: dark)">
@@ -159,7 +159,7 @@ html[lang="en"] [data-l="en"], html[lang="pl"] [data-l="pl"] { display: revert; 
   <div class="shot video">
     <video id="demo" muted loop playsinline preload="metadata" width="1920" height="1080"
            poster="video/maclister-demo-en-poster.jpg" src="video/maclister-demo-en.mp4"
-           aria-label="MacLister in under a minute: a lister opens where you double-click the desktop, copying between source and destination, drag and drop, archives opened like folders, find and synchronize, many listers, tabs in a lister, the folder tree, light and dark, custom buttons">
+           aria-label="MacLister in under a minute: a lister opens where you double-click the desktop, copying between source and destination, drag and drop, archives opened like folders, find and synchronize, many listers, tabs in a lister, the folder tree, groups, workspaces, light and dark, custom buttons">
       <img src="screenshots/lister-pair.jpg" alt="Two MacLister listers: Projects as the source with three files selected, a NAS as the destination, a copy in progress">
     </video>
     <button class="play" id="demo-toggle" type="button" aria-pressed="true">
@@ -244,6 +244,8 @@ const ICON = {
   search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
   tree: '<path d="M4 4h6v4H4zM14 10h6v4h-6zM14 16h6v4h-6z"/><path d="M7 8v10h7M7 12h7"/>',
   check: '<path d="m5 12.5 4.5 4.5L19 7"/>',
+  groups: '<rect x="3" y="3" width="18" height="5" rx="1.5"/><path d="M3 12h18M3 16h18M3 20h18"/>',
+  layout: '<rect x="3" y="4" width="8" height="7" rx="1.5"/><rect x="13" y="4" width="8" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/>',
   sync: '<path d="M21 12a9 9 0 0 0-15-6.7L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"/><path d="M16 16h5v5"/>'
 };
 const CARDS = [
@@ -263,6 +265,8 @@ const CARDS = [
   ['search', '#0ea5e9', 'Find, duplicates and checksums', 'Szukanie, duplikaty i sumy kontrolne', 'Search a folder by name, by the text inside files, size and date (Spotlight does the work), find duplicate files by content and move the extra copies to the Trash, and check MD5, SHA-1, SHA-256 or SHA-512 of any file.', 'Szukaj w folderze po nazwie, tekście wewnątrz plików, rozmiarze i dacie (pracuje Spotlight), znajduj duplikaty po zawartości i przenoś nadmiarowe kopie do Kosza oraz sprawdzaj MD5, SHA-1, SHA-256 lub SHA-512 dowolnego pliku.'],
   ['tabs', '#16a34a', 'Tabs in a lister', 'Karty w listerze', 'Open folders as tabs of one lister window, like in Finder: ⌘T, ⌃Tab to switch, tabs with names and colors (double-click a tab to name it). The source or destination role goes along with the tab you see, so a copy never lands in a folder you cannot see.', 'Otwieraj foldery jako karty jednego okna listera, jak w Finderze: ⌘T, przełączanie przez ⌃Tab, karty z nazwami i kolorami (dwuklik na karcie ją nazywa). Rola źródła lub celu przechodzi razem z widoczną kartą, więc kopia nigdy nie trafi do folderu, którego nie widzisz.'],
   ['tree', '#f59e0b', 'Folder tree, Finder sidebar and archives', 'Drzewo folderów, panel Findera i archiwa', 'An optional pane beside the list: Finder\'s own sidebar (Recents, Shared, Favorites, Locations, Tags, kept in step with Finder) above the folder tree. Plus a flat view of every file below a folder, and zip, tar, 7z or rar archives that open like folders (read-only).', 'Opcjonalny panel obok listy: panel boczny Findera (Ostatnie, Udostępniane, Ulubione, Miejsca, Tagi, zgodny z Finderem) nad drzewem folderów. Do tego widok płaski wszystkich plików pod folderem oraz archiwa zip, tar, 7z i rar otwierane jak foldery (tylko do odczytu).'],
+  ['groups', '#6366f1', 'Groups, as in Finder', 'Grupy, jak w Finderze', 'Group the files of a folder by name, kind, application, date (last opened, added, modified, created), size or tag, in the list and in the icon view. Each group has a header with its title and how many files it holds, and the grouping is remembered for each folder. A Group By button for the path bar or the button bar is optional.', 'Grupuj pliki folderu według nazwy, rodzaju, aplikacji, daty (ostatniego otwarcia, dołączenia, zmiany, utworzenia), rozmiaru albo tagu, na liście i w widoku ikon. Każda grupa ma nagłówek z tytułem i liczbą plików, a grupowanie jest pamiętane osobno dla każdego folderu. Przycisk grupowania w pasku ścieżki albo w pasku przycisków jest opcjonalny.'],
+  ['layout', '#ec4899', 'Workspaces', 'Przestrzenie robocze', 'Save the open listers under a name (folders, windows, tabs, two-panel windows, positions, sizes, sorting, roles, icons or list) and bring the whole layout back with one click, from the menu-bar icon, the Dock or Settings. The last session is saved when you quit and can open at launch.', 'Zapisz otwarte listery pod nazwą (foldery, okna, karty, okna dwupanelowe, położenie, rozmiar, sortowanie, role, ikony lub listę) i przywróć cały układ jednym kliknięciem, z ikony w pasku menu, z Docka albo z Ustawień. Ostatnia sesja jest zapisywana przy wyjściu i może otworzyć się przy starcie.'],
   ['sync', '#10b981', 'Synchronize and Copy As', 'Synchronizacja i Kopiuj jako', 'Compare two folders and see what would be copied before anything happens, one way or both ways. Copy or move with new names in one step. Snapshots remember a folder\'s window and sort order.', 'Porównaj dwa foldery i zobacz, co zostanie skopiowane, zanim cokolwiek się stanie, w jedną stronę albo w obie. Kopiuj lub przenoś pod nowymi nazwami w jednym kroku. Migawki pamiętają okno i sortowanie folderu.'],
   ['check', '#16a34a', 'A proper Mac app', 'Prawdziwa aplikacja na Maca', 'A normal Settings window, English and Polish interface, light and dark mode, and optional update checks (off by default).', 'Zwykłe okno Ustawień, interfejs po polsku i angielsku, tryb jasny i ciemny oraz opcjonalne sprawdzanie aktualizacji (domyślnie wyłączone).']
 ];
@@ -271,6 +275,7 @@ const SHOTS = [
   ['two-panel', 'A classic two-panel window', 'Klasyczne okno dwupanelowe', false, true],
   ['tabs', 'Tabs in a lister', 'Karty w listerze'],
   ['context-menu', 'Finder-style context menu', 'Menu jak w Finderze', false, true],
+  ['groups', 'Files grouped by date, kind or size, as in Finder', 'Pliki zgrupowane według daty, rodzaju lub rozmiaru, jak w Finderze'],
   ['folder-tree', 'The folder tree beside the list', 'Drzewo folderów obok listy'],
   ['find', 'Find by name, text, size and date', 'Szukanie po nazwie, tekście, rozmiarze i dacie'],
   ['find-duplicates', 'Find duplicate files by content', 'Szukanie duplikatów po zawartości'],
@@ -290,6 +295,7 @@ const SHOTS = [
   ['settings-general', 'Settings: General', 'Ustawienia: Ogólne'],
   ['settings-listers', 'Settings: Listers', 'Ustawienia: Listery'],
   ['settings-tabs', 'Settings: Tabs', 'Ustawienia: Karty'],
+  ['settings-workspaces', 'Settings: Workspaces', 'Ustawienia: Przestrzenie robocze'],
   ['settings-buttons', 'Settings: Buttons', 'Ustawienia: Przyciski'],
   ['settings-filetypes', 'Settings: Filetypes', 'Ustawienia: Typy plików'],
   ['settings-operations', 'Settings: Operations', 'Ustawienia: Operacje'],

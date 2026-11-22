@@ -64,15 +64,24 @@ enum DemoVideo {
     /// The video shows no close, minimise and zoom dots in the corner of the windows: every window the scenes open
     /// (listers, settings, dialogs) has them hidden as soon as it exists.
     private static func hideWindowButtons() {
-        func hide() {
-            for window in NSApp.windows {
-                for kind in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
-                    window.standardWindowButton(kind)?.isHidden = true
-                }
-            }
+        hideButtonsNow()
+        buttonHider = Timer.scheduledTimer(withTimeInterval: 0.01, repeats: true) { _ in MainActor.assumeIsolated { hideButtonsNow() } }
+    }
+
+    /// Hides the dots of every window that exists, and the scroll bars that a small window with wide columns would
+    /// show for good (the scrollers become the thin ones that only appear while scrolling). Call it right after
+    /// opening windows, in the same turn of the run loop, so that not even their first frame has them.
+    private static func hideButtonsNow() {
+        func overlayScrollers(in view: NSView) {
+            if let scroll = view as? NSScrollView, scroll.scrollerStyle != .overlay { scroll.scrollerStyle = .overlay }
+            for sub in view.subviews { overlayScrollers(in: sub) }
         }
-        hide()
-        buttonHider = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in MainActor.assumeIsolated { hide() } }
+        for window in NSApp.windows {
+            for kind in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+                window.standardWindowButton(kind)?.isHidden = true
+            }
+            if let content = window.contentView { overlayScrollers(in: content) }
+        }
     }
 
     private static func finish() {
@@ -104,6 +113,8 @@ enum DemoVideo {
         try await sceneTabs()
         try await sceneTwoPanel()
         try await sceneTree()
+        try await sceneGroups()
+        try await sceneWorkspaces()
         try await sceneDark()
         try await sceneButtons()
         try await sceneCard()
@@ -424,7 +435,97 @@ enum DemoVideo {
         try await pause(0.2)
     }
 
-    /// Scene 9: the same pair of listers in the dark appearance.
+    /// Scene 9: the files grouped as in Finder: by date, kind and size in the list, then the same groups as icons.
+    private static func sceneGroups() async throws {
+        clear()
+        UserDefaults.standard.register(defaults: ["showGroupButton": true])      // the Group By button of the path bar, in this scene only
+        let size = NSSize(width: 860, height: 480)
+        let controller = open(demo.projects, origin: NSPoint(x: region.midX - size.width / 2, y: region.maxY - 112 - size.height), size: size)
+        controller.model.setLabel(tr("Work"), color: "blue")
+        controller.window?.makeKeyAndOrderFront(nil)
+        await cursor?.move(to: restPoint, duration: 0.01)
+        try await pause(0.9)
+        mark("scene", "groups")
+        var caption = Overlay.caption(tr("Groups, as in Finder"), in: region)
+        try await pause(0.5)
+        if let window = controller.window { mark("zoom", "groups", focus: NSPoint(x: window.frame.midX, y: window.frame.maxY - 90)) }
+        // the Group By button of the path bar (Settings → Buttons), then each grouping from its menu
+        let button = point(of: tr("Group By"), in: controller.window)
+            ?? controller.window.map { NSPoint(x: $0.frame.maxX - 130, y: $0.frame.maxY - 92) } ?? restPoint
+        for key in [GroupKey.modified, .kind, .size] {
+            await cursor?.move(to: button, duration: 0.6)
+            await cursor?.click()
+            controller.model.setGroup(key)
+            caption.dismiss()
+            caption = Overlay.caption(tr("Group by: %@", key.title), in: region)
+            try await pause(key == .modified ? 2.2 : 1.7)
+        }
+        await cursor?.move(to: restPoint, duration: 0.5)
+        mark("zoomEnd", "groups")
+        controller.model.setGroup(.modified)
+        caption.dismiss()
+        caption = Overlay.caption(tr("In the list and as icons"), in: region)
+        let key = Overlay.key("⌘1", label: tr("Icons"), in: region)
+        try await pause(0.45)
+        controller.model.setShowAsIcons(true, remember: false)
+        try await pause(2.2)
+        key.dismiss()
+        caption.dismiss()
+        mark("end", "groups")
+        UserDefaults.standard.register(defaults: ["showGroupButton": false])
+        try await pause(0.2)
+    }
+
+    /// Scene 10: workspaces. A layout of listers is saved under a name; one click in Settings → Workspaces brings it back.
+    private static func sceneWorkspaces() async throws {
+        clear()
+        let store = WorkspaceStore.shared
+        store.reload()
+        for workspace in store.workspaces { store.remove(workspace.id) }
+        // two layouts are saved before the scene starts: the pair of listers of the day's work, and the photos as icons
+        let (left, right) = try await openPair(demo.projects, demo.backup)
+        ListerManager.shared.toggleRole(.source, for: left)
+        ListerManager.shared.toggleRole(.destination, for: right)
+        let work = store.addCurrent(name: tr("Work"), from: ListerManager.shared)
+        clear()
+        let photosSize = NSSize(width: 640, height: 470)
+        let photos = open(demo.project("f_photos"), origin: NSPoint(x: region.minX + 24, y: region.maxY - 124 - photosSize.height), size: photosSize)
+        photos.model.setLabel(tr("Photos"), color: "green")
+        photos.model.setShowAsIcons(true, remember: false)
+        store.addCurrent(name: tr("Photos"), from: ListerManager.shared)
+        photos.window?.makeKeyAndOrderFront(nil)
+        let settings = hosted(WorkspacesSettingsView(initialSelection: work.id).frame(width: 520, height: 520, alignment: .top).clipped(),
+                              title: tr("Workspaces"), size: NSSize(width: 520, height: 520),
+                              topLeft: NSPoint(x: region.maxX - 560, y: region.maxY - 110))
+        let prepared = await prepare(settings, anchor: nil, settle: 0.8)
+        await cursor?.move(to: restPoint, duration: 0.01)
+        try await pause(0.6)
+        mark("scene", "workspaces")
+        var caption = Overlay.caption(tr("Workspaces: a whole layout of listers"), in: region)
+        try await pause(0.7)
+        await prepared.show()
+        try await pause(1.3)
+        let open = point(of: tr("Open"), in: settings) ?? NSPoint(x: settings.frame.maxX - 60, y: settings.frame.maxY - 290)
+        await cursor?.move(to: open, duration: 0.8)
+        await cursor?.click()
+        store.open(work.id, replace: true)
+        hideButtonsNow()                                    // the listers that just opened have no dots, not even in their first frame
+        settings.orderFront(nil)
+        try await pause(0.15)
+        hideButtonsNow()
+        caption.dismiss()
+        caption = Overlay.caption(tr("Back in one click"), in: region)
+        try await pause(0.6)
+        settings.close()
+        await cursor?.move(to: restPoint, duration: 0.5)
+        try await pause(1.8)
+        caption.dismiss()
+        mark("end", "workspaces")
+        try await pause(0.2)
+        for workspace in store.workspaces { store.remove(workspace.id) }
+    }
+
+    /// Scene 11: the same pair of listers in the dark appearance.
     private static func sceneDark() async throws {
         clear()
         setAppearance(dark: true)
@@ -444,7 +545,7 @@ enum DemoVideo {
         setAppearance(dark: false)
     }
 
-    /// Scene 10: the button editor beside a lister.
+    /// Scene 12: the button editor beside a lister.
     private static func sceneButtons() async throws {
         let size = NSSize(width: 560, height: 440)
         let controller = open(demo.projects, origin: NSPoint(x: region.minX + 24, y: region.maxY - 130 - size.height), size: size)
@@ -473,7 +574,7 @@ enum DemoVideo {
         try await pause(0.2)
     }
 
-    /// Scene 11: the end card; it fades back to the bare desktop the video starts with, so a loop is seamless.
+    /// Scene 13: the end card; it fades back to the bare desktop the video starts with, so a loop is seamless.
     private static func sceneCard() async throws {
         clear()
         cursor?.orderOut(nil)
@@ -627,7 +728,12 @@ enum DemoVideo {
 
     /// Screen point of an accessibility element of a lister with this label (the SRC / DST badges).
     private static func badge(_ label: String, in controller: ListerWindowController) -> NSPoint? {
-        guard let root = controller.window?.contentView else { return nil }
+        point(of: label, in: controller.window)
+    }
+
+    /// Screen point of the accessibility element of a window with this label (a button, a badge).
+    private static func point(of label: String, in window: NSWindow?) -> NSPoint? {
+        guard let root = window?.contentView else { return nil }
         func search(_ element: Any, depth: Int) -> NSRect? {
             guard depth < 30, let object = element as? NSAccessibilityProtocol else { return nil }
             let node = element as AnyObject

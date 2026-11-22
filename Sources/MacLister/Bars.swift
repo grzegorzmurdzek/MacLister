@@ -216,6 +216,7 @@ extension PathBarView {
         // a menu button ignores the tint of its icon: the plate behind it says that the folder is grouped
         .background(RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(model.effectiveGroup == .none ? 0 : 0.35)))
         .disabled(!model.canGroup)
+        .accessibilityLabel(tr("Group By"))
         .help(model.canGroup ? "Group the files: by name, kind, date, size …" : "This folder cannot be grouped")
     }
 
@@ -314,9 +315,10 @@ extension PathBarView {
             if NSEvent.modifierFlags.contains(.option) { onToggleRoleLock(role) } else { onToggleRole(role) }
         } label: {
             HStack(spacing: 3) {
-                Text(title)
+                Text(title).lineLimit(1)
                 if active && model.roleLocked { Image(systemName: "lock.fill").imageScale(.small) }
             }
+                .fixedSize()                        // SRC and DST keep their size in a narrow lister: the path gives way
                 .font(.system(size: 11, weight: .bold))
                 // the lister that holds the role stands out; the other badge is muted, so the active one reads at a glance
                 .foregroundStyle(active ? Color.white : Color.secondary)

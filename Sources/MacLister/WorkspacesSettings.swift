@@ -10,6 +10,10 @@ struct WorkspacesSettingsView: View {
     @AppStorage("autosaveLastSession") private var autosave = true
     @State private var selection: UUID?
 
+    init(initialSelection: UUID? = nil) {
+        _selection = State(initialValue: initialSelection)
+    }
+
     private var selected: Workspace? { store.workspace(id: selection) }
     private var hasOpenListers: Bool { ListerManager.shared.openCount > 0 }
 
