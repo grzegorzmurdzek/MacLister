@@ -179,6 +179,10 @@ extension PathBarView {
             Toggle(tr("Ascending"), isOn: Binding(get: { model.ascending }, set: { _ in model.setSort(model.sortKey, ascending: true) }))
             Toggle(tr("Descending"), isOn: Binding(get: { !model.ascending }, set: { _ in model.setSort(model.sortKey, ascending: false) }))
         }
+        if model.hasSavedView {
+            Divider()
+            Button(tr("Forget the View of This Folder")) { model.forgetSavedView() }
+        }
     }
 
     fileprivate static let iconSortKeys: [ListerModel.SortKey] = [.name, .size, .date, .created, .kind, .ext]

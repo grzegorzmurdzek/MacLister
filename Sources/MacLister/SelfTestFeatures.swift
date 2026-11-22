@@ -36,6 +36,7 @@ enum SelfTestFeatures {
         let support = root.appendingPathComponent("support")
         AppSupport.override = support
         SnapshotStore.shared.reload()
+        ViewModeStore.shared.reload()
         let dirA = root.appendingPathComponent("A"), dirB = root.appendingPathComponent("B")
         for dir in [support, dirA.appendingPathComponent("big"), dirB] {
             try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -2634,6 +2635,32 @@ enum SelfTestFeatures {
                 to.applyViewMode()
                 check(!to.iconMode && to.listView === to.tableView && to.tableView.selectedRowIndexes == [0], "back to the list: the selection stays")
                 to.selectNoRows()
+                // the view is remembered for each folder the user chose it in
+                let here = to.model.url, elsewhere = here.deletingLastPathComponent()
+                let views = ViewModeStore.shared
+                let globalBefore = Settings.showAsIcons
+                to.model.setShowAsIcons(true)                               // chosen by the user in this folder
+                check(views.mode(for: here) == true && to.model.hasSavedView && Settings.showAsIcons, "choosing icons is remembered for the folder")
+                views.set(false, for: elsewhere)
+                to.model.navigate(to: elsewhere)
+                check(!to.model.showAsIcons && to.model.viewChangedByNavigation, "a folder with the list chosen shows the list again")
+                to.model.navigate(to: here)
+                check(to.model.showAsIcons, "back in the folder with icons: icons")
+                views.remove(elsewhere)
+                to.model.navigate(to: elsewhere)
+                check(to.model.showAsIcons == Settings.showAsIcons, "a folder without a choice shows the way the user last chose")
+                to.model.navigate(to: here)
+                to.model.forgetSavedView()
+                check(!views.contains(here) && !to.model.hasSavedView, "Forget removes the choice of the folder")
+                to.model.navigate(to: VirtualPlace.recents.url)
+                let modeInList = to.model.showAsIcons
+                to.model.setShowAsIcons(!modeInList)
+                check(!views.contains(VirtualPlace.recents.url) && views.entries.keys.allSatisfy { !$0.hasPrefix(VirtualPlace.scheme) }, "a list (Recents) takes no remembered view")
+                views.reload()
+                check(views.mode(for: here) == nil, "what was forgotten stays forgotten after a reload")
+                to.model.navigate(to: here)
+                Settings.showAsIcons = globalBefore
+                to.model.setShowAsIcons(false, remember: false)
             } else { check(false, "a lister with files for the icon view") }
             NSPasteboard.general.clearContents()
             for entries in pasteBoardBefore {

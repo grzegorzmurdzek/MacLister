@@ -118,7 +118,7 @@ extension ListerViewController {
         select(urls: selected)
         syncSelectionToModel()
         if hadKeyboard { view.window?.makeFirstResponder(listView) }
-        flash(iconMode ? tr("Icons") : tr("List"))
+        if !model.viewChangedByNavigation { flash(iconMode ? tr("Icons") : tr("List")) }
     }
 
     // MARK: Menu entries
@@ -167,6 +167,10 @@ extension ListerViewController {
         sort.addItem(up)
         sort.addItem(down)
         attach(sort)
+        if model.hasSavedView {
+            view.addItem(.separator())
+            view.addItem(make(tr("Forget the View of This Folder")) { [weak self] in self?.model.forgetSavedView() })
+        }
         let parent = NSMenuItem(title: view.title, action: nil, keyEquivalent: "")
         parent.submenu = view
         menu.addItem(parent)

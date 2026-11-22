@@ -64,8 +64,11 @@ final class ListerModel: ObservableObject {
     @Published var editingPath = false
     /// A locked role cannot be changed, cleared or swapped away until it is unlocked.
     @Published var roleLocked = false
-    /// Icons instead of a list (this lister). Choosing it also makes it the way new listers start.
+    /// Icons instead of a list (this lister). Choosing it is remembered for the folder, and it is the way folders
+    /// without a choice of their own, and new listers, start.
     @Published private(set) var showAsIcons = Settings.showAsIcons
+    /// The last change of showAsIcons came from entering a folder, not from the user: the lister need not announce it.
+    private(set) var viewChangedByNavigation = false
     @Published var selectedURLs: [URL] = []
     @Published private(set) var showHidden = false
     @Published private(set) var sortKey: SortKey = .name
@@ -123,6 +126,7 @@ final class ListerModel: ObservableObject {
     init(url: URL) {
         self.url = VirtualPlace.place(for: url) != nil ? url : (RemoteURL.isRemote(url) ? RemoteURL.normalized(url) : url.standardizedFileURL)
         applyFolderSort(for: self.url)
+        applyFolderView(for: self.url)
         reload()
         watchCurrentFolder()
         sharedObserver = NotificationCenter.default.addObserver(forName: .sharedPlacesChanged, object: nil, queue: .main) { [weak self] _ in
@@ -176,6 +180,28 @@ final class ListerModel: ObservableObject {
             sortKey = userSort.key
             ascending = userSort.ascending
         }
+    }
+
+    /// A folder the user chose icons or the list for shows that way again; any other folder keeps the view that is on.
+    /// (A lister that was brought to icons by one folder goes back to the way the user last chose for the next one.)
+    private func applyFolderView(for target: URL) {
+        guard ViewModeStore.isRemembered(target) else { return }
+        let wanted = ViewModeStore.shared.mode(for: target) ?? Settings.showAsIcons
+        guard wanted != showAsIcons else { return }
+        viewChangedByNavigation = true
+        showAsIcons = wanted
+    }
+
+    /// The user's choice for the folder shown has been saved.
+    var hasSavedView: Bool { ViewModeStore.shared.contains(url) }
+
+    /// Forgets the choice made for this folder: it shows the way the user last chose, like any other.
+    func forgetSavedView() {
+        guard hasSavedView else { return }
+        ViewModeStore.shared.remove(url)
+        let wanted = Settings.showAsIcons
+        if wanted != showAsIcons { viewChangedByNavigation = false; showAsIcons = wanted }
+        objectWillChange.send()
     }
 
     /// Leaving Recents / Shared brings back the sort order the user had.
@@ -303,6 +329,7 @@ final class ListerModel: ObservableObject {
         let sortBefore = (sortKey, ascending, sortBeforeVirtual)
         restoreSortAfterVirtual()
         applyFolderSort(for: target)
+        applyFolderView(for: target)
         do {
             let listing = Self.sorted(try list(target), by: sortKey, ascending: ascending)
             if recordHistory, target != url { backStack.append(url) }
@@ -526,9 +553,14 @@ final class ListerModel: ObservableObject {
     }
 
     func setShowAsIcons(_ icons: Bool, remember: Bool = true) {
+        if remember {
+            Settings.showAsIcons = icons
+            ViewModeStore.shared.set(icons, for: url)          // this folder shows this way from now on
+            objectWillChange.send()
+        }
         guard icons != showAsIcons else { return }
+        viewChangedByNavigation = false
         showAsIcons = icons
-        if remember { Settings.showAsIcons = icons }
     }
 
     func setSort(_ key: SortKey, ascending: Bool) {
