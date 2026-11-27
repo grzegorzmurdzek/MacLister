@@ -385,6 +385,7 @@ extension ListerAction {
     static let friendlyTitles: [ListerAction: String] = [.toggleTree: "Folder tree", .mergeListers: "Merge all listers into tabs",
                                                          .newTwoPanel: "New two-panel window", .joinTwoPanel: "Join into a two-panel window",
                                                          .splitTwoPanel: "Split into two listers", .expandToTwoPanel: "Expand into a two-panel window",
+                                                         .collapseToSinglePanel: "Collapse to single lister",
                                                          .toggleIconView: "Show as icons or list", .groupBy: "Group files by"]
 
     /// What a button with this action shows as its tooltip when it has none of its own. English: like the texts in
@@ -414,6 +415,7 @@ extension ListerAction {
         case .newTwoPanel: return "Open a window with two listers side by side (⌥⌘N)"
         case .joinTwoPanel: return "Put this lister and the other one (its destination or source) side by side in one window"
         case .splitTwoPanel: return "Make each pane of this window a lister window of its own"
+        case .collapseToSinglePanel: return "Close the other pane and keep the source pane as a single lister"
         default: return nil
         }
     }

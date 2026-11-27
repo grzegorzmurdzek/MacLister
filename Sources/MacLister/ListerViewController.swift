@@ -179,6 +179,9 @@ final class ListerViewController: NSViewController {
     let treeController = FolderTreeController()
     var splitView: NSSplitView?
     fileprivate var didPlaceTree = false
+    /// Anchor / cursor for Finder-like arrow navigation in icon view.
+    var iconNavigationAnchor: Int?
+    var iconNavigationCursor: Int?
     /// The extraction that feeds the open Quick Look panel; stopped when the selection moves on.
     var archiveQuickLookToken: CancelToken?
     /// Opens the folder under a dragged file after a moment (Settings: spring-loaded folders).
@@ -350,6 +353,12 @@ final class ListerViewController: NSViewController {
         NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
             .sink { [weak self] _ in self?.applyButtonBarPosition() }
             .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: .iconPreviewsChanged)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                if self?.iconMode == true { self?.reloadGrid() }
+            }
+            .store(in: &cancellables)
         // Combine's $items emits the *new* value before the property changes, so use the argument.
         model.$items
             .sink { [weak self] items in self?.apply(items) }
@@ -394,6 +403,19 @@ final class ListerViewController: NSViewController {
         treeController.onDrop = { [weak self] urls, folder, operation in
             self?.transfer(operation == .move ? .move : .copy, items: urls, into: folder)
         }
+        treeController.onOpenInNewLister = { [weak self] url in
+            guard let controller = self?.windowController else { return }
+            ListerManager.shared.openFolder(url, inNewListerFrom: controller)
+        }
+        treeController.onOpenInNewTab = { [weak self] url in
+            guard let controller = self?.windowController else { return }
+            if Settings.listerTabs, !controller.isPane {
+                ListerManager.shared.openFolder(url, inNewTabFrom: controller)
+            } else {
+                ListerManager.shared.openFolder(url, inNewListerFrom: controller)
+            }
+        }
+        treeController.onHideTree = { [weak self] in self?.setTree(visible: false, remember: true) }
     }
 
     /// Shows or hides the directory tree (and remembers it for new listers).
@@ -552,6 +574,8 @@ final class ListerViewController: NSViewController {
             for (i, item) in rows.enumerated() where previouslySelected.contains(item.url) { toSelect.insert(i) }
         }
         model.revealOnLoad = nil
+        iconNavigationAnchor = toSelect.first
+        iconNavigationCursor = toSelect.first
         selectRows(toSelect)
         if let first = toSelect.first {
             scrollRowToVisible(first)
@@ -701,6 +725,8 @@ final class ListerViewController: NSViewController {
             model.goParent()
         case 125 where command:                   // ⌘↓ → open selection
             openSelection()
+        case 123...126 where iconMode && (plain || mods == .shift):
+            return handleIconArrowKey(event.keyCode, extendSelection: mods == .shift)
         case 51 where command:                    // ⌘⌫ → Trash
             perform(ListerButton(title: tr("Delete"), symbol: nil, action: .delete))
         case 37 where mods == [.command, .shift]: // ⌘⇧L → all listers to the front
@@ -1062,6 +1088,7 @@ extension ListerViewController {
         case .joinTwoPanel:   if let c = windowController { ListerManager.shared.joinIntoTwoPanel(c) }
         case .splitTwoPanel:  splitTwoPanel()
         case .expandToTwoPanel: if let c = windowController { ListerManager.shared.expandToTwoPanel(c) }
+        case .collapseToSinglePanel: collapseToSinglePanel()
         case .duplicateFile:  duplicateSelection()
         case .selectPattern:  promptPattern(select: true)
         case .deselectPattern: promptPattern(select: false)
@@ -2001,6 +2028,7 @@ extension ListerViewController {
         }
         if controller?.isPane == true {
             add(tr("Split into Two Listers"), to: lister) { [weak self] in self?.splitTwoPanel() }
+            add(tr("Collapse to Single Lister (Keep SRC)"), to: lister) { [weak self] in self?.collapseToSinglePanel() }
         } else {
             add(tr("Expand into Two-Panel Window"), to: lister) { if let controller { manager.expandToTwoPanel(controller) } }
             // which lister it joins with: the usual partner (the destination of a source…) first, the others below
@@ -2270,6 +2298,10 @@ extension ListerViewController {
 }
 
 extension ListerViewController: NSSplitViewDelegate {
+    func splitView(_ splitView: NSSplitView, canCollapseSubview subview: NSView) -> Bool {
+        subview === treeController.paneView
+    }
+
     func splitView(_ splitView: NSSplitView, constrainMinCoordinate proposedMinimumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
         max(proposedMinimumPosition, 120)
     }
@@ -2280,10 +2312,14 @@ extension ListerViewController: NSSplitViewDelegate {
 
     func splitView(_ splitView: NSSplitView, shouldHideDividerAt dividerIndex: Int) -> Bool { !treeVisible }
 
-    /// The width you drag the divider to is the width of every tree from now on.
+    /// The width you drag the divider to is the width of every tree from now on; dragging all the way left hides it.
     func splitViewDidResizeSubviews(_ notification: Notification) {
         // only when the divider itself is dragged, not when the window is resized
         guard treeVisible, didPlaceTree, view.window?.inLiveResize != true, NSApp.currentEvent?.type == .leftMouseDragged else { return }
+        if splitView?.isSubviewCollapsed(treeController.paneView) == true {
+            DispatchQueue.main.async { [weak self] in self?.setTree(visible: false, remember: true) }
+            return
+        }
         let width = treeController.paneView.frame.width
         if width >= 120 { Settings.folderTreeWidth = width }
     }

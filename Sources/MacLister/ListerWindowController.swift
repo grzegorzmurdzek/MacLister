@@ -10,6 +10,36 @@ final class ListerWindow: NSWindow {
     private(set) var tabsAtClose: [NSWindow] = []
     /// A two-panel window hears when the keyboard moves, to know which pane you work in.
     var onFirstResponderChange: (() -> Void)?
+    private var customTitleView: TitlebarLabelView?
+
+    /// Applies left/center/right alignment to the window title in the title bar.
+    func applyTitleAlignment(_ alignment: TitleAlignment, title: String, subtitle: String, representedURL: URL?) {
+        titleVisibility = .hidden
+        guard let closeButton = standardWindowButton(.closeButton), let titlebar = closeButton.superview else { return }
+        let labelView: TitlebarLabelView
+        if let existing = customTitleView, existing.superview === titlebar {
+            labelView = existing
+        } else {
+            customTitleView?.removeFromSuperview()
+            let created = TitlebarLabelView()
+            created.translatesAutoresizingMaskIntoConstraints = false
+            titlebar.addSubview(created)
+            let safeLeading = standardWindowButton(.zoomButton)?.trailingAnchor ?? closeButton.trailingAnchor
+            NSLayoutConstraint.activate([
+                created.leadingAnchor.constraint(equalTo: titlebar.leadingAnchor),
+                created.trailingAnchor.constraint(equalTo: titlebar.trailingAnchor),
+                created.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
+                created.safeAreaGuide.leadingAnchor.constraint(equalTo: safeLeading, constant: 12),
+                created.safeAreaGuide.trailingAnchor.constraint(equalTo: titlebar.trailingAnchor, constant: -14),
+                created.safeAreaGuide.topAnchor.constraint(equalTo: created.topAnchor),
+                created.safeAreaGuide.bottomAnchor.constraint(equalTo: created.bottomAnchor),
+            ])
+            customTitleView = created
+            labelView = created
+        }
+        labelView.isHidden = false
+        labelView.update(alignment: alignment, title: title, subtitle: subtitle, representedURL: representedURL)
+    }
 
     override func makeFirstResponder(_ responder: NSResponder?) -> Bool {
         let done = super.makeFirstResponder(responder)
@@ -81,6 +111,106 @@ final class ListerWindow: NSWindow {
         if buttons.count == tabbed.count + 1 { buttons.removeLast() }      // the + button, right of the tabs
         guard buttons.count == tabbed.count, let index = buttons.firstIndex(where: { $0 === button }) else { return nil }
         return tabbed[index]
+    }
+}
+
+/// Title, subtitle and optional folder icon drawn inside the title bar for Left, Center and Right alignment.
+/// Returns nil from hitTest so title-bar dragging, double-clicks and right-click menus keep working naturally.
+private final class TitlebarLabelView: NSView {
+    let safeAreaGuide = NSLayoutGuide()
+    private let mainStack = NSStackView()
+    private let titleRow = NSStackView()
+    private let iconView = NSImageView()
+    private let titleField = NSTextField(labelWithString: "")
+    private let subtitleField = NSTextField(labelWithString: "")
+    private var alignmentConstraints: [NSLayoutConstraint] = []
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        addLayoutGuide(safeAreaGuide)
+
+        iconView.imageScaling = .scaleProportionallyDown
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            iconView.widthAnchor.constraint(equalToConstant: 15),
+            iconView.heightAnchor.constraint(equalToConstant: 15),
+        ])
+
+        titleField.font = .systemFont(ofSize: 13, weight: .semibold)
+        titleField.textColor = .labelColor
+        titleField.lineBreakMode = .byTruncatingTail
+        titleField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        titleRow.orientation = .horizontal
+        titleRow.alignment = .centerY
+        titleRow.spacing = 5
+        titleRow.addArrangedSubview(iconView)
+        titleRow.addArrangedSubview(titleField)
+
+        subtitleField.font = .systemFont(ofSize: 11)
+        subtitleField.textColor = .secondaryLabelColor
+        subtitleField.lineBreakMode = .byTruncatingTail
+        subtitleField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        mainStack.orientation = .vertical
+        mainStack.spacing = 0
+        mainStack.translatesAutoresizingMaskIntoConstraints = false
+        mainStack.addArrangedSubview(titleRow)
+        mainStack.addArrangedSubview(subtitleField)
+        addSubview(mainStack)
+
+        NSLayoutConstraint.activate([
+            mainStack.topAnchor.constraint(equalTo: topAnchor),
+            mainStack.bottomAnchor.constraint(equalTo: bottomAnchor),
+            mainStack.leadingAnchor.constraint(greaterThanOrEqualTo: safeAreaGuide.leadingAnchor),
+            mainStack.trailingAnchor.constraint(lessThanOrEqualTo: safeAreaGuide.trailingAnchor),
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    func update(alignment: TitleAlignment, title: String, subtitle: String, representedURL: URL?) {
+        titleField.stringValue = title
+        subtitleField.stringValue = subtitle
+        subtitleField.isHidden = subtitle.isEmpty
+        if let representedURL {
+            iconView.image = NSWorkspace.shared.icon(forFile: representedURL.path)
+            iconView.isHidden = false
+        } else {
+            iconView.image = nil
+            iconView.isHidden = true
+        }
+
+        switch alignment {
+        case .left:
+            titleField.alignment = .left
+            subtitleField.alignment = .left
+            mainStack.alignment = .leading
+        case .center:
+            titleField.alignment = .center
+            subtitleField.alignment = .center
+            mainStack.alignment = .centerX
+        case .right:
+            titleField.alignment = .right
+            subtitleField.alignment = .right
+            mainStack.alignment = .trailing
+        }
+
+        NSLayoutConstraint.deactivate(alignmentConstraints)
+        switch alignment {
+        case .left:
+            alignmentConstraints = [mainStack.leadingAnchor.constraint(equalTo: safeAreaGuide.leadingAnchor)]
+        case .center:
+            let center = mainStack.centerXAnchor.constraint(equalTo: centerXAnchor)
+            center.priority = .defaultHigh
+            alignmentConstraints = [center]
+        case .right:
+            alignmentConstraints = [mainStack.trailingAnchor.constraint(equalTo: safeAreaGuide.trailingAnchor)]
+        }
+        NSLayoutConstraint.activate(alignmentConstraints)
     }
 }
 
@@ -198,6 +328,7 @@ final class ListerWindowController: NSWindowController, NSWindowDelegate {
         window.subtitle = TitleFormat.render(TitleFormat.subtitle, context)
         // proxy icon; ⌘-click the title for the path menu (inside an archive: the archive itself)
         window.representedURL = model.url.isFileURL && !model.isVirtual ? ArchiveBrowser.shared.realFile(for: model.url) : nil
+        (window as? ListerWindow)?.applyTitleAlignment(TitleFormat.alignment, title: window.title, subtitle: window.subtitle, representedURL: window.representedURL)
         updateTab()
     }
 

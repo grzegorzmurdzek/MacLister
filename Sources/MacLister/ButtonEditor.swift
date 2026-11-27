@@ -368,7 +368,6 @@ struct ActionPicker: View {
 
     @State private var open = false
     @State private var query = ""
-    @FocusState private var searching: Bool
 
     /// Actions shown for `query`, by group, sorted by (translated) name inside each group.
     static func groups(matching query: String) -> [(category: ActionCategory, actions: [ListerAction])] {
@@ -406,11 +405,12 @@ struct ActionPicker: View {
     private var chooser: some View {
         let groups = Self.groups(matching: query)
         return VStack(spacing: 0) {
-            TextField("Search actions", text: $query)
-                .textFieldStyle(.roundedBorder)
-                .focused($searching)
-                .padding(8)
-                .onSubmit { if let first = groups.first?.actions.first { pick(first) } }
+            ActionSearchField(text: $query, placeholder: tr("Search actions"), onSubmit: {
+                if let first = groups.first?.actions.first { pick(first) }
+            }, onCancel: {
+                open = false
+            })
+            .padding(8)
             Divider()
             List {
                 if allowNone, query.isEmpty {
@@ -426,7 +426,6 @@ struct ActionPicker: View {
             .listStyle(.plain)
         }
         .frame(width: 300, height: 380)
-        .onAppear { searching = true }
     }
 
     private func row(_ action: ListerAction?) -> some View {
@@ -440,5 +439,49 @@ struct ActionPicker: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Native NSSearchField for the ActionPicker popover: avoids SwiftUI's popover @FocusState cursor-reset bug (RTL typing).
+private struct ActionSearchField: NSViewRepresentable {
+    @Binding var text: String
+    let placeholder: String
+    var onSubmit: () -> Void
+    var onCancel: () -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
+
+    func makeNSView(context: Context) -> NSSearchField {
+        let field = NSSearchField()
+        field.placeholderString = placeholder
+        field.sendsSearchStringImmediately = true
+        field.sendsWholeSearchString = false
+        field.delegate = context.coordinator
+        field.stringValue = text
+        DispatchQueue.main.async { [weak field] in
+            field?.window?.makeFirstResponder(field)
+        }
+        return field
+    }
+
+    func updateNSView(_ field: NSSearchField, context: Context) {
+        context.coordinator.parent = self
+        if field.stringValue != text { field.stringValue = text }
+    }
+
+    final class Coordinator: NSObject, NSSearchFieldDelegate {
+        var parent: ActionSearchField
+        init(parent: ActionSearchField) { self.parent = parent }
+
+        func controlTextDidChange(_ obj: Notification) {
+            guard let field = obj.object as? NSSearchField else { return }
+            parent.text = field.stringValue
+        }
+
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+            if selector == #selector(NSResponder.insertNewline(_:)) { parent.onSubmit(); return true }
+            if selector == #selector(NSResponder.cancelOperation(_:)) { parent.onCancel(); return true }
+            return false
+        }
     }
 }

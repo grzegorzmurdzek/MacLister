@@ -20,6 +20,8 @@ final class TreeNode: NSObject {
     var symbol: String?
     /// Files may be dropped on this shortcut (a favourite; not the Trash or the list of volumes).
     var acceptsDrops = false
+    /// True for an editable entry under Favorites.
+    var isFavorite = false
     /// The header this row sits under.
     weak var section: TreeNode?
     private(set) var children: [TreeNode] = []
@@ -83,6 +85,13 @@ final class TreeNode: NSObject {
 /// The outline view of the tree; tells when a drag over it ends or leaves.
 final class TreeOutlineView: NSOutlineView {
     var onDragEnd: (() -> Void)?
+    private(set) var clickedRowIndex = -1
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        clickedRowIndex = row(at: convert(event.locationInWindow, from: nil))
+        return super.menu(for: event)
+    }
+
     // only through super when NSOutlineView has the method (see ListerTableView)
     override func draggingExited(_ sender: NSDraggingInfo?) {
         onDragEnd?()
@@ -114,19 +123,91 @@ final class SidebarSplitView: NSSplitView {
 
     override func layout() {
         super.layout()
-        guard !placed, !isHidden, bounds.height > 200, arrangedSubviews.count == 2 else { return }
+        guard !placed, !isHidden, bounds.height > 200, arrangedSubviews.count == 2,
+              arrangedSubviews.allSatisfy({ !$0.isHidden }) else { return }
         placed = true
         onFirstLayout?()
     }
 }
 
-/// The pane beside the file list. Above it has what Finder's sidebar has (Recents, Shared, the Favorites, the
-/// Locations, the Tags), read from Finder itself, so the two stay the same. Below it is the directory tree, always in
-/// view: the home folder, iCloud Drive and every volume, folders only. The divider between them can be dragged.
-/// Choosing a row shows it in the lister; the pane follows the lister; folders accept dropped files.
-final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate, NSSplitViewDelegate {
+/// Container for the folder tree pane: an optional Tree | Favorites tab bar above the split/single view.
+final class FolderTreePaneView: NSView {
+    let tabBar = NSView()
+    let switcher = NSSegmentedControl(labels: [tr("Folder Tree"), tr("Favorites")], trackingMode: .selectOne, target: nil, action: nil)
+    private let tabDivider = NSBox()
+    let splitView = SidebarSplitView()
+    private var solidBackground = true
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        tabBar.translatesAutoresizingMaskIntoConstraints = false
+        switcher.translatesAutoresizingMaskIntoConstraints = false
+        switcher.segmentStyle = .automatic
+        switcher.controlSize = .small
+        tabDivider.boxType = .separator
+        tabDivider.translatesAutoresizingMaskIntoConstraints = false
+        splitView.translatesAutoresizingMaskIntoConstraints = false
+
+        tabBar.addSubview(switcher)
+        tabBar.addSubview(tabDivider)
+        addSubview(tabBar)
+        addSubview(splitView)
+
+        NSLayoutConstraint.activate([
+            tabBar.topAnchor.constraint(equalTo: topAnchor),
+            tabBar.leadingAnchor.constraint(equalTo: leadingAnchor),
+            tabBar.trailingAnchor.constraint(equalTo: trailingAnchor),
+            switcher.centerXAnchor.constraint(equalTo: tabBar.centerXAnchor),
+            switcher.topAnchor.constraint(equalTo: tabBar.topAnchor, constant: 6),
+            switcher.bottomAnchor.constraint(equalTo: tabDivider.topAnchor, constant: -6),
+            switcher.leadingAnchor.constraint(greaterThanOrEqualTo: tabBar.leadingAnchor, constant: 8),
+            switcher.trailingAnchor.constraint(lessThanOrEqualTo: tabBar.trailingAnchor, constant: -8),
+            tabDivider.leadingAnchor.constraint(equalTo: tabBar.leadingAnchor),
+            tabDivider.trailingAnchor.constraint(equalTo: tabBar.trailingAnchor),
+            tabDivider.bottomAnchor.constraint(equalTo: tabBar.bottomAnchor),
+
+            splitView.topAnchor.constraint(equalTo: tabBar.bottomAnchor),
+            splitView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            splitView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            splitView.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+        splitTopToSelf = splitView.topAnchor.constraint(equalTo: topAnchor)
+    }
+
+    private var splitTopToSelf: NSLayoutConstraint!
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    func setTabsVisible(_ visible: Bool) {
+        tabBar.isHidden = !visible
+        splitTopToSelf.isActive = !visible
+    }
+
+    func setSolidBackground(_ solid: Bool) {
+        solidBackground = solid
+        updateBackground()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateBackground()
+    }
+
+    private func updateBackground() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.backgroundColor = solidBackground ? NSColor.textBackgroundColor.cgColor : nil
+        }
+    }
+}
+
+/// The pane beside the file list. Shows the directory tree (home, iCloud Drive, volumes) and/or the Favorites/Locations/Tags
+/// sidebar, configurable as tabs, tree-only, favorites-only, or vertically split.
+final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate, NSSplitViewDelegate, NSMenuDelegate {
     /// The whole pane: put this beside the file list.
-    let paneView = SidebarSplitView()
+    let paneView = FolderTreePaneView()
+    private var splitView: SidebarSplitView { paneView.splitView }
     private let sidebarScroll = NSScrollView()
     private let treeScroll = NSScrollView()
     private let sidebarOutline = TreeOutlineView()
@@ -140,16 +221,22 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
     private var tagRows: [TreeNode] = []
     private var placeRows: [TreeNode] = []
     private var sidebarTags: [String] = []
+    private var forcingTreeOnly = false
     var showHidden = false
     /// The user chose a folder, a list or a tag search.
     var onSelect: ((URL) -> Void)?
     /// Files were dropped on a folder: urls, folder, the operation Finder rules chose.
     var onDrop: (([URL], URL, NSDragOperation) -> Void)?
+    var onOpenInNewLister: ((URL) -> Void)?
+    var onOpenInNewTab: ((URL) -> Void)?
+    var onHideTree: (() -> Void)?
     private var suppressSelection = false
     let springLoader = SpringLoader()
     private var lastRevealed: URL?
     private var volumeObservers: [NSObjectProtocol] = []
     private var sidebarObserver: NSObjectProtocol?
+    private var appearanceObserver: NSObjectProtocol?
+    private var favoritesObserver: NSObjectProtocol?
 
     /// The name of this Mac. Asked once: the system can be slow to answer, and buildRoots runs on every change.
     private static let computerName = Host.current().localizedName ?? tr("Computer")
@@ -160,6 +247,8 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
     deinit {
         volumeObservers.forEach { NSWorkspace.shared.notificationCenter.removeObserver($0) }
         if let sidebarObserver { NotificationCenter.default.removeObserver(sidebarObserver) }
+        if let appearanceObserver { NotificationCenter.default.removeObserver(appearanceObserver) }
+        if let favoritesObserver { NotificationCenter.default.removeObserver(favoritesObserver) }
     }
 
     override init() {
@@ -178,14 +267,24 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
             self.buildRoots()
             if let url = self.lastRevealed { self.reveal(url) }
         }
+        appearanceObserver = NotificationCenter.default.addObserver(forName: .treeAppearanceChanged, object: nil, queue: .main) { [weak self] _ in
+            self?.applyAppearance()
+            self?.applyPaneMode()
+        }
+        favoritesObserver = NotificationCenter.default.addObserver(forName: .favoritesChanged, object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            self.buildRoots()
+            if let url = self.lastRevealed { self.reveal(url) }
+        }
         for (outline, scroll) in [(sidebarOutline, sidebarScroll), (treeOutline, treeScroll)] {
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("tree"))
             column.resizingMask = .autoresizingMask
             outline.addTableColumn(column)
             outline.outlineTableColumn = column
             outline.headerView = nil
-            outline.rowSizeStyle = .small
-            outline.style = .sourceList
+            outline.rowSizeStyle = .custom
+            outline.rowHeight = 24
+            outline.intercellSpacing = NSSize(width: 3, height: 2)
             outline.floatsGroupRows = false
             outline.indentationPerLevel = 12
             outline.dataSource = self
@@ -193,32 +292,95 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
             outline.onDragEnd = { [weak self] in self?.springLoader.cancel() }
             outline.registerForDraggedTypes([.fileURL])
             outline.draggingDestinationFeedbackStyle = .regular
+            let menu = NSMenu()
+            menu.delegate = self
+            outline.menu = menu
             scroll.documentView = outline
             scroll.hasVerticalScroller = true
-            scroll.drawsBackground = false
+            scroll.automaticallyAdjustsContentInsets = false
+            scroll.contentInsets = NSEdgeInsets(top: 4, left: 0, bottom: 4, right: 0)
         }
-        paneView.isVertical = false
-        paneView.dividerStyle = .thin
-        paneView.delegate = self
-        paneView.addArrangedSubview(sidebarScroll)
-        paneView.addArrangedSubview(treeScroll)
-        paneView.setHoldingPriority(NSLayoutConstraint.Priority(260), forSubviewAt: 0)     // the tree takes the changes of height
-        paneView.onFirstLayout = { [weak self] in self?.placeDivider() }
+        paneView.switcher.target = self
+        paneView.switcher.action = #selector(tabSwitched(_:))
+        let headerMenu = NSMenu()
+        headerMenu.delegate = self
+        paneView.menu = headerMenu
+        paneView.tabBar.menu = headerMenu
+        paneView.switcher.menu = headerMenu
+        splitView.isVertical = false
+        splitView.dividerStyle = .thin
+        splitView.delegate = self
+        splitView.addArrangedSubview(sidebarScroll)
+        splitView.addArrangedSubview(treeScroll)
+        splitView.setHoldingPriority(NSLayoutConstraint.Priority(260), forSubviewAt: 0)     // the tree takes the changes of height
+        splitView.onFirstLayout = { [weak self] in self?.placeDivider() }
+        applyAppearance()
         buildRoots()
+    }
+
+    @objc private func tabSwitched(_ sender: NSSegmentedControl) {
+        Settings.treeSelectedTab = sender.selectedSegment
+        applyPaneMode()
+    }
+
+    /// Updates solid vs translucent background on both outlines and the container.
+    func applyAppearance() {
+        let solid = Settings.treeBackgroundStyle == .solid
+        paneView.setSolidBackground(solid)
+        for (outline, scroll) in [(sidebarOutline, sidebarScroll), (treeOutline, treeScroll)] {
+            outline.style = solid ? .plain : .sourceList
+            outline.backgroundColor = solid ? .textBackgroundColor : .clear
+            scroll.drawsBackground = solid
+            scroll.backgroundColor = .textBackgroundColor
+        }
+    }
+
+    /// Applies Settings.treePaneMode (tabs, tree-only, favorites-only, or vertically split).
+    func applyPaneMode() {
+        if forcingTreeOnly {
+            paneView.setTabsVisible(false)
+            sidebarScroll.isHidden = true
+            treeScroll.isHidden = false
+            splitView.adjustSubviews()
+            return
+        }
+        let mode = Settings.treePaneMode
+        switch mode {
+        case .tabs:
+            let selected = min(max(Settings.treeSelectedTab, 0), 1)
+            paneView.switcher.selectedSegment = selected
+            paneView.setTabsVisible(true)
+            treeScroll.isHidden = selected != 0
+            sidebarScroll.isHidden = selected != 1
+        case .treeOnly:
+            paneView.setTabsVisible(false)
+            sidebarScroll.isHidden = true
+            treeScroll.isHidden = false
+        case .favoritesOnly:
+            paneView.setTabsVisible(false)
+            sidebarScroll.isHidden = false
+            treeScroll.isHidden = true
+        case .split:
+            paneView.setTabsVisible(false)
+            sidebarScroll.isHidden = false
+            treeScroll.isHidden = false
+            placeDivider()
+        }
+        splitView.adjustSubviews()
     }
 
     // MARK: The two parts
 
     /// The sidebar keeps the height the user gave it; before that it takes 45 % of the pane.
     private func placeDivider() {
-        guard !sidebarScroll.isHidden else { return }
+        guard !sidebarScroll.isHidden, !treeScroll.isHidden else { return }
         let saved = Settings.sidebarHeight
-        let height = saved > 0 ? saved : paneView.bounds.height * 0.45
-        paneView.setPosition(min(max(height, 100), paneView.bounds.height - 120), ofDividerAt: 0)
+        let height = saved > 0 ? saved : splitView.bounds.height * 0.45
+        splitView.setPosition(min(max(height, 100), splitView.bounds.height - 120), ofDividerAt: 0)
     }
 
     func splitViewDidResizeSubviews(_ notification: Notification) {
-        guard !sidebarScroll.isHidden, paneView.bounds.height > 200, sidebarScroll.frame.height >= 80,
+        guard !sidebarScroll.isHidden, !treeScroll.isHidden, splitView.bounds.height > 200, sidebarScroll.frame.height >= 80,
               NSApp.currentEvent?.type == .leftMouseDragged else { return }       // the user dragging the divider
         Settings.sidebarHeight = sidebarScroll.frame.height
     }
@@ -231,22 +393,28 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
         min(proposedMaximumPosition, splitView.bounds.height - 100)
     }
 
+    func splitView(_ splitView: NSSplitView, shouldHideDividerAt dividerIndex: Int) -> Bool {
+        sidebarScroll.isHidden || treeScroll.isHidden
+    }
+
     // MARK: Roots
 
     /// Shows only these folders as the top of the tree (the screenshots use it, so they show no real folders).
     func setRoots(_ urls: [URL]) {
+        forcingTreeOnly = true
         roots = urls.map { TreeNode(url: $0) }
         sections = []
         shortcuts = []
         tagRows = []
         placeRows = []
-        sidebarScroll.isHidden = true           // only the tree
+        applyPaneMode()
         sidebarOutline.reloadData()
         treeOutline.reloadData()
     }
 
     /// Recents and Shared, then the Favorites, the Locations and the Tags of Finder's sidebar, and the folder tree below.
     func buildRoots() {
+        forcingTreeOnly = false
         let sidebar = FinderSidebarMonitor.shared.current
         let fm = FileManager.default
         let home = fm.homeDirectoryForCurrentUser
@@ -276,7 +444,8 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
         if sidebar.showsComputer {
             addShortcut(url: URL(fileURLWithPath: "/Volumes"), name: Self.computerName, symbol: "laptopcomputer")
         }
-        let volumes = fm.mountedVolumeURLs(includingResourceValuesForKeys: [.volumeNameKey], options: [.skipHiddenVolumes]) ?? []
+        let mounted = fm.mountedVolumeURLs(includingResourceValuesForKeys: [.volumeNameKey], options: [.skipHiddenVolumes]) ?? []
+        let volumes = mounted.isEmpty ? [URL(fileURLWithPath: "/", isDirectory: true)] : mounted
         for volume in volumes {
             let name = (try? volume.resourceValues(forKeys: [.volumeNameKey]).volumeName) ?? volume.lastPathComponent
             // the tree always has every disk; Finder's list may leave the start-up disk out
@@ -296,9 +465,13 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
         }
 
         var favorites: [TreeNode] = []
-        for favorite in sidebar.favorites {
+        let favoriteItems: [(name: String, url: URL)] = FinderSidebarMonitor.override != nil
+            ? sidebar.favorites.map { ($0.name, $0.url) }
+            : FavoriteStore.shared.entries.map { ($0.name, $0.url) }
+        for favorite in favoriteItems {
             let node = TreeNode(url: favorite.url, name: favorite.name, kind: .shortcut)
             node.acceptsDrops = true
+            node.isFavorite = true
             favorites.append(node)
             shortcutRows.append(node)
         }
@@ -314,7 +487,9 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
         }
         let recents = place(.recents, symbol: "clock"), shared = place(.shared, symbol: "person.2")
         var top = [recents, shared]
-        if !favorites.isEmpty { top.append(TreeNode(header: tr("Favorites"), key: "Favorites", children: favorites)) }
+        if !favorites.isEmpty || FinderSidebarMonitor.override == nil {
+            top.append(TreeNode(header: tr("Favorites"), key: "Favorites", children: favorites))
+        }
         top.append(TreeNode(header: tr("Locations"), key: "Locations", children: locations))
         if !tags.isEmpty { top.append(TreeNode(header: tr("Tags"), key: "Tags", children: tags)) }
 
@@ -324,7 +499,7 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
         self.tagRows = tagRows
         placeRows = [recents, shared]
         sidebarTags = sidebar.tags
-        sidebarScroll.isHidden = false
+        applyPaneMode()
         sidebarOutline.reloadData()
         treeOutline.reloadData()
         expandSections()
@@ -402,24 +577,40 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
         }
         let found = node.url.path == target
         if found { treeOutline.expandItem(node) }       // its sub-folders are what you will want next
-        // In a favourite's own folder Finder highlights the favourite; the tree below it stays open all the same.
-        select(shortcut(at: target) ?? (found ? node : nil))
+        if sidebarScroll.isHidden, treeScroll.isHidden == false {
+            // Tree-only or Tree tab: highlight the folder in the tree (and keep sidebar in sync in Tabs mode).
+            if Settings.treePaneMode == .tabs && !forcingTreeOnly, let fav = shortcut(at: target) {
+                select(fav, alsoInTree: found ? node : nil)
+            } else {
+                select(found ? node : nil)
+            }
+        } else {
+            // In a favourite's own folder Finder highlights the favourite; the tree below it stays open all the same.
+            select(shortcut(at: target) ?? (found ? node : nil))
+        }
     }
 
     /// The outline a row belongs to: folders are in the tree, everything else in the sidebar.
     private func outline(for node: TreeNode) -> TreeOutlineView { node.kind == .folder ? treeOutline : sidebarOutline }
 
-    private func select(_ node: TreeNode?) {
+    private func select(_ node: TreeNode?, alsoInTree treeNode: TreeNode? = nil) {
         suppressSelection = true
         defer { suppressSelection = false }
         sidebarOutline.deselectAll(nil)
         treeOutline.deselectAll(nil)
+        if let treeNode {
+            let treeRow = treeOutline.row(forItem: treeNode)
+            if treeRow >= 0 {
+                treeOutline.selectRowIndexes([treeRow], byExtendingSelection: false)
+                scrollToShow(treeNode)
+            }
+        }
         guard let node else { return }
         let outline = outline(for: node)
         let row = outline.row(forItem: node)
         if row >= 0 {
             outline.selectRowIndexes([row], byExtendingSelection: false)
-            scrollToShow(node)
+            if treeNode == nil { scrollToShow(node) }
         }
     }
 
@@ -568,7 +759,7 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
             cell.addSubview(text)
             cell.textField = text
             if node.kind == .header {
-                text.font = .systemFont(ofSize: 11, weight: .semibold)
+                text.font = .systemFont(ofSize: 11.5, weight: .semibold)
                 text.textColor = .secondaryLabelColor
                 NSLayoutConstraint.activate([
                     text.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
@@ -577,6 +768,7 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
                 ])
                 return cell
             }
+            text.font = .systemFont(ofSize: NSFont.systemFontSize)
             let image = NSImageView()
             image.translatesAutoresizingMaskIntoConstraints = false
             cell.addSubview(image)
@@ -585,7 +777,7 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
                 image.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 2),
                 image.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
                 image.widthAnchor.constraint(equalToConstant: 16), image.heightAnchor.constraint(equalToConstant: 16),
-                text.leadingAnchor.constraint(equalTo: image.trailingAnchor, constant: 5),
+                text.leadingAnchor.constraint(equalTo: image.trailingAnchor, constant: 6),
                 text.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -2),
                 text.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
             ])
@@ -664,9 +856,116 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
         }
     }
 
-    // MARK: Dropping files on a folder
+    // MARK: Context menu (add/remove Favorites, open)
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+
+        func add(_ title: String, to targetMenu: NSMenu = menu, checked: Bool = false, _ handler: @escaping () -> Void) {
+            let item = TreeMenuItem(title: title, action: #selector(TreeMenuItem.fire), keyEquivalent: "")
+            item.target = item
+            item.handler = handler
+            item.state = checked ? .on : .off
+            targetMenu.addItem(item)
+        }
+
+        let outline: TreeOutlineView?
+        if menu === sidebarOutline.menu {
+            outline = sidebarOutline
+        } else if menu === treeOutline.menu {
+            outline = treeOutline
+        } else {
+            outline = nil
+        }
+
+        if let outline {
+            let clicked = outline.clickedRowIndex
+            let node = clicked >= 0 ? outline.item(atRow: clicked) as? TreeNode : nil
+
+            if let node, node.kind != .header, node.kind != .allTags, node.kind != .airDrop {
+                if node.url.isFileURL {
+                    add(tr("Open in New Lister")) { [weak self] in self?.onOpenInNewLister?(node.url) }
+                    add(tr("Open in New Tab")) { [weak self] in self?.onOpenInNewTab?(node.url) }
+                    add(tr("Reveal in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([node.url]) }
+                    menu.addItem(.separator())
+                    if node.isFavorite {
+                        add(tr("Remove from Favorites")) { FavoriteStore.shared.remove(node.url) }
+                    } else if node.kind == .folder {
+                        if FavoriteStore.shared.contains(node.url) {
+                            add(tr("Remove from Favorites")) { FavoriteStore.shared.remove(node.url) }
+                        } else {
+                            add(tr("Add to Favorites")) { FavoriteStore.shared.add(node.url, name: node.name) }
+                        }
+                    }
+                }
+            }
+            if outline === sidebarOutline {
+                if !menu.items.isEmpty { menu.addItem(.separator()) }
+                add(tr("Add Folder to Favorites…")) { [weak self] in self?.promptAddFavorite() }
+                add(tr("Import Favorites from Finder")) { _ = FavoriteStore.shared.importFromFinder() }
+            }
+        }
+
+        if !menu.items.isEmpty { menu.addItem(.separator()) }
+        let showItem = NSMenuItem(title: tr("Show"), action: nil, keyEquivalent: "")
+        let showSubmenu = NSMenu()
+        for mode in TreePaneMode.allCases {
+            add(mode.menuTitle, to: showSubmenu, checked: Settings.treePaneMode == mode) {
+                Settings.treePaneMode = mode
+                NotificationCenter.default.post(name: .treeAppearanceChanged, object: nil)
+            }
+        }
+        showItem.submenu = showSubmenu
+        menu.addItem(showItem)
+
+        let bgItem = NSMenuItem(title: tr("Background"), action: nil, keyEquivalent: "")
+        let bgSubmenu = NSMenu()
+        for style in TreeBackgroundStyle.allCases {
+            add(style.menuTitle, to: bgSubmenu, checked: Settings.treeBackgroundStyle == style) {
+                Settings.treeBackgroundStyle = style
+                NotificationCenter.default.post(name: .treeAppearanceChanged, object: nil)
+            }
+        }
+        bgItem.submenu = bgSubmenu
+        menu.addItem(bgItem)
+
+        menu.addItem(.separator())
+        add(tr("Hide Folder Tree")) { [weak self] in self?.onHideTree?() }
+    }
+
+    private func promptAddFavorite() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = true
+        panel.prompt = tr("Add")
+        panel.message = tr("Choose folders to add to Favorites")
+        if panel.runModal() == .OK {
+            for url in panel.urls { FavoriteStore.shared.add(url) }
+        }
+    }
+
+    // MARK: Dropping files on a folder (or folders into Favorites)
+
+    private func isFavoritesHeaderOrSlot(in outlineView: NSOutlineView, item: Any?, childIndex index: Int) -> Bool {
+        guard outlineView === sidebarOutline else { return false }
+        if let node = item as? TreeNode {
+            if node.kind == .header && node.key == "Favorites" { return true }
+            if node.isFavorite && index != NSOutlineViewDropOnItemIndex { return true }
+        }
+        return false
+    }
 
     func outlineView(_ outlineView: NSOutlineView, validateDrop info: NSDraggingInfo, proposedItem item: Any?, proposedChildIndex index: Int) -> NSDragOperation {
+        let urls = ListerViewController.droppedURLs(from: info.draggingPasteboard)
+        if isFavoritesHeaderOrSlot(in: outlineView, item: item, childIndex: index) {
+            springLoader.cancel()
+            let allFolders = !urls.isEmpty && urls.allSatisfy { url in
+                var isDir: ObjCBool = false
+                return url.isFileURL && FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) && isDir.boolValue
+            }
+            return allFolders ? .copy : []
+        }
         guard let node = item as? TreeNode, node.isDropTarget, ArchiveBrowser.shared.location(of: node.url) == nil else { springLoader.cancel(); return [] }
         outlineView.setDropItem(node, dropChildIndex: NSOutlineViewDropOnItemIndex)
         // hold the files over a closed folder and it opens
@@ -675,18 +974,27 @@ final class FolderTreeController: NSObject, NSOutlineViewDataSource, NSOutlineVi
         } else {
             springLoader.cancel()
         }
-        let urls = ListerViewController.droppedURLs(from: info.draggingPasteboard)
         guard !urls.isEmpty else { return [] }
         return ListerViewController.dragOperation(for: urls, into: node.url, modifiers: NSEvent.modifierFlags, sourceMask: info.draggingSourceOperationMask)
     }
 
     func outlineView(_ outlineView: NSOutlineView, acceptDrop info: NSDraggingInfo, item: Any?, childIndex index: Int) -> Bool {
         springLoader.cancel()
-        guard let node = item as? TreeNode, node.isDropTarget else { return false }
         let urls = ListerViewController.droppedURLs(from: info.draggingPasteboard)
+        if isFavoritesHeaderOrSlot(in: outlineView, item: item, childIndex: index) {
+            var added = false
+            for url in urls { if FavoriteStore.shared.add(url) { added = true } }
+            return added
+        }
+        guard let node = item as? TreeNode, node.isDropTarget else { return false }
         let operation = ListerViewController.dragOperation(for: urls, into: node.url, modifiers: NSEvent.modifierFlags, sourceMask: info.draggingSourceOperationMask)
         guard !urls.isEmpty, operation != [] else { return false }
         onDrop?(urls, node.url, operation)
         return true
     }
+}
+
+private final class TreeMenuItem: NSMenuItem {
+    var handler: (() -> Void)?
+    @objc func fire() { handler?() }
 }

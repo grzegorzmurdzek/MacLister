@@ -51,7 +51,7 @@ enum Screenshots {
             queue("operation-log") { operationLog(named: "operation-log") }
             queue("button-editor") { buttonEditor(named: "button-editor") }
             queue("lister-title") { listerTitle(named: "lister-title") }
-            for (index, name) in ["general", "listers", "tabs", "workspaces", "buttons", "filetypes", "operations", "updates"].enumerated() {
+            for (index, name) in ["general", "listers", "foldertree", "tabs", "workspaces", "buttons", "filetypes", "operations", "updates"].enumerated() {
                 queue("settings-\(name)") { settings(tab: index, named: "settings-\(name)") }
             }
         }
@@ -472,7 +472,7 @@ enum Screenshots {
     private static func settings(tab: Int, named name: String) {
         if name == "settings-workspaces" { saveWorkspaces() }
         SettingsWindow.show(tab: tab)
-        guard let window = NSApp.windows.first(where: { $0.contentViewController is NSTabViewController }) else { finishScene(); return }
+        guard let window = NSApp.windows.first(where: { $0.contentViewController is SettingsSplitController }) else { finishScene(); return }
         window.setFrameOrigin(NSPoint(x: screen().minX + 260, y: screen().maxY - window.frame.height - 160))
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { capture(to: name); finishScene() }
     }

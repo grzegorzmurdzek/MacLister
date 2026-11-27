@@ -50,6 +50,8 @@ enum ListerAction: String, Codable, CaseIterable, Identifiable {
     case newTwoPanel, joinTwoPanel, splitTwoPanel
     /// This lister becomes the left pane of a two-panel window; the right pane opens in the same folder.
     case expandToTwoPanel
+    /// Turns a two-panel window back into a single lister, keeping the SRC (or active) pane.
+    case collapseToSinglePanel
     /// Shows the files as icons, or as a list again.
     case toggleIconView
     /// A menu under the button to choose what the files are grouped by (Finder's Group By).
@@ -316,6 +318,7 @@ extension ListerAction {
         case .joinTwoPanel: return "rectangle.split.2x1.fill"
         case .splitTwoPanel: return "rectangle.on.rectangle"
         case .expandToTwoPanel: return "rectangle.split.2x1"
+        case .collapseToSinglePanel: return "rectangle"
         case .separator: return "minus"
         }
     }
@@ -352,7 +355,7 @@ extension ListerAction {
         case .newLister, .duplicateLister, .setSource, .setDestination, .swapSourceDestination, .toggleRoleLock, .nameLister,
              .nextLister, .previousLister, .bringAllToFront, .gatherListers,
              .newTab, .nextTab, .previousTab, .moveTabToNewLister, .mergeListers,
-             .newTwoPanel, .joinTwoPanel, .splitTwoPanel, .expandToTwoPanel:
+             .newTwoPanel, .joinTwoPanel, .splitTwoPanel, .expandToTwoPanel, .collapseToSinglePanel:
             return .listers
         case .terminalHere, .shell, .separator:
             return .other

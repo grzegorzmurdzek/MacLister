@@ -519,6 +519,46 @@ enum SelfTestFeatures {
             check(FinderTags.aliases(of: "Czerwony").count >= 1 && FinderTags.aliases(of: "Praca") == ["Praca"], "a colour tag is also searched under its other name")
             FinderSidebarMonitor.override = nil
             FinderSidebarMonitor.shared.refresh()
+
+            // Tree pane modes, background style and editable Favorites
+            let modeBefore = Settings.treePaneMode
+            let bgBefore = Settings.treeBackgroundStyle
+            let favFile = AppSupport.directory.appendingPathComponent("favorites.json")
+            try? fm.removeItem(at: favFile)
+            FavoriteStore.shared.reload()
+            check(FavoriteStore.shared.add(dirA, name: "DirA"), "FavoriteStore adds a folder")
+            check(FavoriteStore.shared.contains(dirA) && fm.fileExists(atPath: favFile.path), "FavoriteStore saves favorites.json")
+            check(!FavoriteStore.shared.add(dirA), "FavoriteStore avoids duplicate favorites")
+            check(FavoriteStore.shared.remove(dirA) && !FavoriteStore.shared.contains(dirA), "FavoriteStore removes a favorite")
+            if let tvc = sidebarController.listerViewController {
+                Settings.treePaneMode = .treeOnly
+                Settings.treeBackgroundStyle = .solid
+                tvc.treeController.applyAppearance()
+                tvc.treeController.applyPaneMode()
+                check(tvc.treeController.paneView.tabBar.isHidden, "treeOnly mode hides the tab bar")
+                Settings.treePaneMode = .tabs
+                tvc.treeController.applyPaneMode()
+                check(!tvc.treeController.paneView.tabBar.isHidden, "tabs mode shows the switcher bar")
+                if let split = tvc.splitView {
+                    check(tvc.splitView(split, canCollapseSubview: tvc.treeController.paneView), "folder tree split view can collapse by dragging left")
+                }
+                let treeMenu = NSMenu()
+                tvc.treeController.menuNeedsUpdate(treeMenu)
+                check(treeMenu.items.map(\.title).contains(tr("Hide Folder Tree")), "folder tree context menu offers Hide Folder Tree")
+                check(treeMenu.items.map(\.title).contains(tr("Show")), "folder tree context menu offers Show submenu")
+                check(tvc.treeController.paneView.tabBar.menu != nil, "folder tree tab bar has a context menu")
+                check(tvc.treeController.paneView.switcher.menu === tvc.treeController.paneView.tabBar.menu, "folder tree switcher shares the tab bar context menu")
+                if let headerMenu = tvc.treeController.paneView.switcher.menu {
+                    tvc.treeController.menuNeedsUpdate(headerMenu)
+                    check(headerMenu.items.map(\.title).contains(tr("Hide Folder Tree")), "folder tree switcher context menu offers Hide Folder Tree")
+                }
+                tvc.treeController.onHideTree?()
+                check(!tvc.treeVisible && tvc.treeController.paneView.isHidden, "onHideTree hides the folder tree")
+                Settings.treePaneMode = modeBefore
+                Settings.treeBackgroundStyle = bgBefore
+                tvc.treeController.applyAppearance()
+                tvc.treeController.applyPaneMode()
+            }
             sidebarController.window?.close()
         }
         // a drag that leaves or ends over the list or the tree must not call a method AppKit's views lack (super's
@@ -1231,10 +1271,10 @@ enum SelfTestFeatures {
             let reread = (try? JSONDecoder().decode([FiletypeRule].self, from: Data(text.utf8))) ?? []
             check(reread.count == 2 && reread[0].extensions == ["abc"] && reread[1].menu?.first?.title == "Echo", "editor: the saved file reads back")
             check(FiletypeStore.shared.rule(for: URL(fileURLWithPath: "/x/f.ABC"))?.app == "com.apple.TextEdit" && FiletypeStore.shared.currentRules().count == 2, "editor: saved filetypes are used at once")
-            SettingsWindow.show(tab: 5)
-            if let window = NSApp.windows.first(where: { $0.contentViewController is NSTabViewController }),
-               let controller = window.contentViewController as? NSTabViewController {
-                check(controller.selectedTabViewItemIndex == 5 && window.title == tr("Filetypes"), "the Filetypes tab holds the editor: \(window.title)")
+            SettingsWindow.show(tab: 6)
+            if let window = NSApp.windows.first(where: { $0.contentViewController is SettingsSplitController }),
+               let controller = window.contentViewController as? SettingsSplitController {
+                check(controller.selectedIndex == 6 && window.title == tr("Filetypes"), "the Filetypes tab holds the editor: \(window.title)")
                 window.close()
             } else { check(false, "the Settings window opens on the Filetypes tab") }
             if let previous { try? previous.write(to: url, atomically: true, encoding: .utf8) }
@@ -2655,6 +2695,45 @@ enum SelfTestFeatures {
                     to.inlineRename?.cancelled = true
                     to.view.window?.makeFirstResponder(to.listView)
                 }
+                let iconDir = to.model.url
+                to.selectRows([0])
+                // Icon arrow-key navigation & word-wrapping & thumbnail checks
+                func iconKey(_ code: UInt16, _ flags: NSEvent.ModifierFlags = []) -> NSEvent {
+                    NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0,
+                                     windowNumber: to.view.window?.windowNumber ?? 0, context: nil,
+                                     characters: "", charactersIgnoringModifiers: "", isARepeat: false, keyCode: code)!
+                }
+                to.selectNoRows()
+                check(to.handleKey(iconKey(124)) && to.selectedRowIndexes == [0], "icon view: Right arrow with empty selection selects first item")
+                to.selectNoRows()
+                check(to.handleKey(iconKey(123)) && to.selectedRowIndexes == [to.rows.count - 1], "icon view: Left arrow with empty selection selects last item")
+                to.selectRows([0])
+                check(to.handleKey(iconKey(124)) && to.selectedRowIndexes == [1], "icon view: Right arrow advances sequentially")
+                check(to.handleKey(iconKey(123)) && to.selectedRowIndexes == [0], "icon view: Left arrow moves back sequentially")
+                check(to.handleKey(iconKey(124, .shift)) && to.selectedRowIndexes == [0, 1], "icon view: Shift+Right extends selection")
+                if let cell = to.collectionView.item(at: IndexPath(item: 0, section: 0)) as? IconGridItem {
+                    check(cell.nameField.lineBreakMode == .byWordWrapping, "icon view labels wrap by word, not by character")
+                }
+                // 1-item folder icon navigation
+                let singleDir = root.appendingPathComponent("SingleIconDir")
+                try? fm.createDirectory(at: singleDir, withIntermediateDirectories: true)
+                let singleImg = singleDir.appendingPathComponent("one.png")
+                let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 32, pixelsHigh: 32, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)
+                if let rep, let png = rep.representation(using: .png, properties: [:]) { try? png.write(to: singleImg) }
+                to.model.navigate(to: singleDir)
+                to.model.setShowAsIcons(true, remember: false)
+                to.applyViewMode()
+                to.collectionView.layoutSubtreeIfNeeded()
+                check(to.rows.count == 1 && to.selectedRowIndexes.isEmpty, "1-item folder starts unselected")
+                check(to.handleKey(iconKey(124)) && to.selectedRowIndexes == [0], "1-item folder: Right selects the single item (iconMode=\(to.iconMode), items=\(to.collectionView.numberOfItems(inSection: 0)), sel=\(Array(to.selectedRowIndexes)))")
+                to.selectNoRows()
+                check(to.handleKey(iconKey(123)) && to.selectedRowIndexes == [0], "1-item folder: Left selects the single item (sel=\(Array(to.selectedRowIndexes)))")
+                check(to.handleKey(iconKey(124)) && to.selectedRowIndexes == [0], "1-item folder: Right keeps the single item selected (sel=\(Array(to.selectedRowIndexes)))")
+                if let imgItem = to.rows.first {
+                    check(ThumbnailStore.shared.shouldPreview(imgItem), "ThumbnailStore enables previews for image files")
+                }
+                check(ActionPicker.groups(matching: "collapse").flatMap(\.actions).contains(.collapseToSinglePanel), "ActionPicker search finds collapseToSinglePanel")
+                to.model.navigate(to: iconDir)
                 to.selectRows([0])
                 to.model.setShowAsIcons(false, remember: false)
                 to.applyViewMode()

@@ -151,9 +151,16 @@ final class IconGridItem: NSCollectionViewItem {
     private let label = NSTextField(wrappingLabelWithString: "")
     private var iconConstraints: [NSLayoutConstraint] = []
     private var hidden = false
+    private var thumbnailToken = UUID()
 
     /// The field the name is edited in (Rename).
     var nameField: NSTextField { label }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        thumbnailToken = UUID()
+        picture.image = nil
+    }
 
     override func loadView() {
         let cell = IconCellView()
@@ -168,7 +175,7 @@ final class IconGridItem: NSCollectionViewItem {
         label.alignment = .center
         label.font = .systemFont(ofSize: 11.5)
         label.maximumNumberOfLines = 2
-        label.lineBreakMode = .byCharWrapping
+        label.lineBreakMode = .byWordWrapping
         label.cell?.truncatesLastVisibleLine = true
         label.isSelectable = false
         label.drawsBackground = false
@@ -196,7 +203,21 @@ final class IconGridItem: NSCollectionViewItem {
     }
 
     func configure(with file: FileItem, iconSize: CGFloat) {
-        picture.image = ListerViewController.icon(for: file)
+        let token = UUID()
+        thumbnailToken = token
+        let fallback = ListerViewController.icon(for: file)
+        if let cached = ThumbnailStore.shared.cached(for: file, iconSize: iconSize) {
+            picture.image = cached
+        } else {
+            picture.image = fallback
+            if ThumbnailStore.shared.shouldPreview(file) {
+                let scale = view.window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+                ThumbnailStore.shared.request(for: file, iconSize: iconSize, scale: scale) { [weak self] thumb in
+                    guard let self, self.thumbnailToken == token, let thumb else { return }
+                    self.picture.image = thumb
+                }
+            }
+        }
         label.stringValue = file.name
         label.toolTip = file.name
         hidden = file.isHidden

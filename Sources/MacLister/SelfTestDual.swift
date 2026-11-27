@@ -252,6 +252,16 @@ enum SelfTestDual {
         }
         later(0.6) {
             check(manager.openCount == 0 && manager.dualWindows.isEmpty, "closing the expanded window closes both panes")
+            // 11. Collapse to Single Lister: keeps SRC pane (or active pane when no SRC), closes the other.
+            let dualCollapse = manager.openDual(left: dirA, right: dirB, anchor: .origin(NSPoint(x: 100, y: 200)))
+            dualCollapse.activate(dualCollapse.rightPane, takeDestination: true)
+            let keptModel = dualCollapse.rightPane.model
+            check(keptModel.role == .source, "collapse test: right pane is SRC before collapsing")
+            let singleAfter = manager.collapseToSinglePanel(dualCollapse)
+            check(manager.dualWindows.isEmpty && manager.openCount == 1 && !singleAfter.isPane, "collapse turns dual window into one single lister")
+            check(singleAfter.model === keptModel && singleAfter.model.url.standardizedFileURL == dirB.standardizedFileURL && singleAfter.model.role == .source,
+                  "collapse keeps the SRC pane with its folder and role")
+            singleAfter.window?.performClose(nil)
         }
 
         runSteps {

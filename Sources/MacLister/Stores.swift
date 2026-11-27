@@ -53,6 +53,101 @@ final class BookmarkStore: ObservableObject {
     }
 }
 
+extension Notification.Name {
+    static let favoritesChanged = Notification.Name("MacListerFavoritesChanged")
+    static let treeAppearanceChanged = Notification.Name("MacListerTreeAppearanceChanged")
+    static let iconPreviewsChanged = Notification.Name("MacListerIconPreviewsChanged")
+}
+
+/// Editable Favorites shown in the folder tree pane (seeded once from Finder's sidebar, then managed in favorites.json).
+final class FavoriteStore: ObservableObject {
+    static let shared = FavoriteStore()
+
+    struct Entry: Codable, Equatable {
+        var name: String
+        var path: String
+
+        var url: URL { URL(fileURLWithPath: path, isDirectory: true) }
+    }
+
+    @Published private(set) var entries: [Entry] = []
+    private var file: URL { AppSupport.directory.appendingPathComponent("favorites.json") }
+
+    private init() {
+        reload()
+    }
+
+    func reload() {
+        if let data = try? Data(contentsOf: file), let saved = try? JSONDecoder().decode([Entry].self, from: data) {
+            entries = saved
+            return
+        }
+        if AppSupport.override == nil {
+            entries = FinderSidebar.read().favorites.map {
+                Entry(name: $0.name, path: $0.url.standardizedFileURL.path)
+            }
+            save()
+        } else {
+            entries = []
+        }
+    }
+
+    func contains(_ url: URL) -> Bool {
+        guard url.isFileURL else { return false }
+        let path = url.standardizedFileURL.path
+        return entries.contains { $0.path == path }
+    }
+
+    @discardableResult
+    func add(_ url: URL, name: String? = nil) -> Bool {
+        guard url.isFileURL else { return false }
+        let standardized = url.standardizedFileURL
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: standardized.path, isDirectory: &isDir), isDir.boolValue else { return false }
+        let path = standardized.path
+        guard !entries.contains(where: { $0.path == path }) else { return false }
+        let display = (name?.isEmpty == false ? name! : FileManager.default.displayName(atPath: path))
+        entries.append(Entry(name: display, path: path))
+        save()
+        NotificationCenter.default.post(name: .favoritesChanged, object: nil)
+        return true
+    }
+
+    @discardableResult
+    func remove(_ url: URL) -> Bool {
+        guard url.isFileURL else { return false }
+        let path = url.standardizedFileURL.path
+        let before = entries.count
+        entries.removeAll { $0.path == path }
+        guard entries.count != before else { return false }
+        save()
+        NotificationCenter.default.post(name: .favoritesChanged, object: nil)
+        return true
+    }
+
+    /// Appends any Finder sidebar favorites not yet present in MacLister's list.
+    @discardableResult
+    func importFromFinder() -> Int {
+        let existing = Set(entries.map(\.path))
+        var added = 0
+        for fav in FinderSidebar.read().favorites {
+            let path = fav.url.standardizedFileURL.path
+            guard !existing.contains(path) else { continue }
+            entries.append(Entry(name: fav.name, path: path))
+            added += 1
+        }
+        if added > 0 {
+            save()
+            NotificationCenter.default.post(name: .favoritesChanged, object: nil)
+        }
+        return added
+    }
+
+    private func save() {
+        try? JSONEncoder().encode(entries).write(to: file, options: .atomic)
+    }
+}
+
 /// Recently visited folders across all listers.
 final class PathHistory: ObservableObject {
     static let shared = PathHistory()

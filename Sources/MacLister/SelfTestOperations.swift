@@ -144,7 +144,7 @@ enum SelfTestOperations {
 
         // --- settings window
         let tabs = SettingsWindow.tabViews()
-        check(tabs.map(\.title) == ["General", "Listers", "Tabs", "Workspaces", "Buttons", "Filetypes", "Operations", "Updates"] || tabs.count == 8, "the settings window has eight tabs: \(tabs.map(\.title))")
+        check(tabs.map(\.title) == ["General", "Listers", "Folder Tree", "Tabs", "Workspaces", "Buttons", "Filetypes", "Operations", "Updates"] && tabs.count == 9, "the settings window has nine tabs: \(tabs.map(\.title))")
         // --- button bar pages: what does not fit goes to the next page (flip button)
         let row: [CGRect] = (0..<10).map { CGRect(x: CGFloat($0) * 36, y: 0, width: 34, height: 30) }       // ten buttons, 36 apart
         check(ButtonPaging.pages(frames: row, separators: [], barWidth: 600) == [0...9], "button bar: ten buttons that fit are one page")
@@ -164,10 +164,10 @@ enum SelfTestOperations {
             check(host.fittingSize.height <= 700, "the \(tab.title) tab is short enough for a small screen: \(host.fittingSize.height) (\(screenHeight) visible)")
         }
         SettingsWindow.show(tab: 1)
-        check(NSApp.windows.contains { $0.isVisible && ($0.contentViewController is NSTabViewController) }, "Settings… opens a window with tabs")
-        if let window = NSApp.windows.first(where: { $0.contentViewController is NSTabViewController }),
-           let controller = window.contentViewController as? NSTabViewController {
-            check(controller.tabStyle == .toolbar && controller.selectedTabViewItemIndex == 1, "toolbar style, second tab selected")
+        check(NSApp.windows.contains { $0.isVisible && ($0.contentViewController is SettingsSplitController) }, "Settings… opens a window with sidebar sections")
+        if let window = NSApp.windows.first(where: { $0.contentViewController is SettingsSplitController }),
+           let controller = window.contentViewController as? SettingsSplitController {
+            check(controller.splitViewItems.count == 2 && controller.selectedIndex == 1, "sidebar split layout, second section selected")
             check(window.title == tabs[1].title, "the title names the tab: \(window.title)")
             window.close()
         }
@@ -273,6 +273,20 @@ enum SelfTestOperations {
         check(titleContext.name == "A" && titleContext.path == titleModel.url.path && titleContext.items.contains("item") || titleContext.items.contains("element"), "context from a lister: \(titleContext.name) / \(titleContext.items)")
         let remoteContext = TitleFormat.context(for: { let m = ListerModel(url: dirA); return m }())
         check(!remoteContext.files.isEmpty && !remoteContext.folders.isEmpty, "file and folder counts")
+        let alignmentBefore = TitleFormat.alignment
+        TitleFormat.alignment = .left
+        check(TitleFormat.alignment == .left, "title alignment persists .left")
+        TitleFormat.alignment = .right
+        check(TitleFormat.alignment == .right, "title alignment persists .right")
+        TitleFormat.alignment = .center
+        check(TitleFormat.alignment == .center, "title alignment persists .center")
+        TitleFormat.alignment = alignmentBefore
+        let subtitleBefore = TitleFormat.subtitle
+        TitleFormat.subtitle = ""
+        check(TitleFormat.subtitle == "", "title subtitle can be cleared to empty")
+        TitleFormat.subtitle = TitleFormat.defaultSubtitle
+        check(TitleFormat.subtitle == TitleFormat.defaultSubtitle, "resetting subtitle restores default")
+        TitleFormat.subtitle = subtitleBefore
 
         // --- button clicks
         var sample = ListerButton(title: "Copy", symbol: "doc", action: .copy)

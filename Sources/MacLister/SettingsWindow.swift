@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Combine
 
 // MARK: - General
 
@@ -98,6 +99,7 @@ private struct ListersSettingsView: View {
     @AppStorage("browseArchives") private var browseArchives = true
     @AppStorage("springLoadedFolders") private var springLoaded = true
     @AppStorage("newWindowStyle") private var windowStyle = NewWindowStyle.lister.rawValue
+    @AppStorage("showIconPreviews") private var showIconPreviews = true
 
     var body: some View {
         Form {
@@ -121,12 +123,51 @@ private struct ListersSettingsView: View {
                 Toggle("Select by dragging from file names", isOn: $dragSelect)
                 Text("Dragging from empty space of a row always selects. With this on, an unselected file name does too; a selected file is always dragged as a file.")
                     .font(.caption).foregroundStyle(.secondary)
-                LabeledContent("Window title") {
-                    Button("Lister Title…") { TitleFormatWindow.show() }
-                }
+                Toggle("Show icon previews (thumbnails)", isOn: $showIconPreviews)
+                    .onChange(of: showIconPreviews) { _ in
+                        ThumbnailStore.shared.clearCache()
+                        NotificationCenter.default.post(name: .iconPreviewsChanged, object: nil)
+                    }
             }
             Section("Customize") {
-                LabeledContent("Keyboard") { Button("Keyboard Shortcuts…") { ShortcutsWindowController.shared.show() } }
+                LabeledContent("Window & keys") {
+                    HStack {
+                        Button("Lister Title…") { TitleFormatWindow.show() }
+                        Button("Keyboard Shortcuts…") { ShortcutsWindowController.shared.show() }
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .frame(width: 520)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+// MARK: - Folder Tree
+
+private struct FolderTreeSettingsView: View {
+    @AppStorage("treePaneMode") private var treePaneMode = TreePaneMode.tabs.rawValue
+    @AppStorage("treeBackgroundStyle") private var treeBackgroundStyle = TreeBackgroundStyle.solid.rawValue
+
+    var body: some View {
+        Form {
+            Section("Folder tree") {
+                Picker("Show", selection: $treePaneMode) {
+                    ForEach(TreePaneMode.allCases, id: \.rawValue) { Text($0.menuTitle).tag($0.rawValue) }
+                }
+                .onChange(of: treePaneMode) { _ in NotificationCenter.default.post(name: .treeAppearanceChanged, object: nil) }
+                Picker("Background", selection: $treeBackgroundStyle) {
+                    ForEach(TreeBackgroundStyle.allCases, id: \.rawValue) { Text($0.menuTitle).tag($0.rawValue) }
+                }
+                .onChange(of: treeBackgroundStyle) { _ in NotificationCenter.default.post(name: .treeAppearanceChanged, object: nil) }
+            }
+            Section {
+                LabeledContent("Favorites") {
+                    Button("Import Favorites from Finder") { _ = FavoriteStore.shared.importFromFinder() }
+                }
+            } footer: {
+                Text("Right-click a folder in the tree or drag it onto Favorites to add or remove items.")
             }
         }
         .formStyle(.grouped)
@@ -386,56 +427,155 @@ private struct UpdatesSettingsView: View {
 
 // MARK: - Window
 
-/// The Settings window: a toolbar of tabs, as every Mac app has it (⌘,).
+private final class SettingsSelectionModel: ObservableObject {
+    @Published var selectedIndex: Int
+
+    init(selectedIndex: Int) {
+        self.selectedIndex = selectedIndex
+    }
+}
+
+private struct SettingsSidebarView: View {
+    let items: [(title: String, symbol: String)]
+    @ObservedObject var model: SettingsSelectionModel
+
+    var body: some View {
+        List(Array(items.enumerated()), id: \.offset, selection: Binding<Int?>(
+            get: { model.selectedIndex },
+            set: { if let value = $0 { model.selectedIndex = value } }
+        )) { index, item in
+            Label(item.title, systemImage: item.symbol)
+                .tag(index)
+        }
+        .listStyle(.sidebar)
+    }
+}
+
+/// Split controller backing the Settings window: flat vertical sidebar on the left, scrollable pane on the right.
+final class SettingsSplitController: NSSplitViewController {
+    let tabs: [(title: String, symbol: String, view: AnyView, scrollable: Bool)]
+    private let model: SettingsSelectionModel
+    private let detailHost: NSHostingController<AnyView>
+    private var selectionCancellable: AnyCancellable?
+
+    private(set) var selectedIndex: Int
+
+    init(tabs: [(title: String, symbol: String, view: AnyView, scrollable: Bool)], initialTab: Int) {
+        self.tabs = tabs
+        let clamped = min(max(initialTab, 0), tabs.count - 1)
+        self.selectedIndex = clamped
+        let model = SettingsSelectionModel(selectedIndex: clamped)
+        self.model = model
+        self.detailHost = NSHostingController(rootView: Self.wrappedDetail(for: tabs[clamped], index: clamped))
+        self.detailHost.sizingOptions = []
+        super.init(nibName: nil, bundle: nil)
+
+        splitView.dividerStyle = .thin
+        let sidebarHost = NSHostingController(rootView: SettingsSidebarView(
+            items: tabs.map { ($0.title, $0.symbol) },
+            model: model
+        ))
+        sidebarHost.sizingOptions = []
+
+        let sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebarHost)
+        sidebarItem.canCollapse = false
+        sidebarItem.minimumThickness = 185
+        sidebarItem.maximumThickness = 230
+        sidebarItem.holdingPriority = .defaultHigh
+
+        let detailItem = NSSplitViewItem(viewController: detailHost)
+        detailItem.minimumThickness = 550
+
+        addSplitViewItem(sidebarItem)
+        addSplitViewItem(detailItem)
+
+        selectionCancellable = model.$selectedIndex
+            .dropFirst()
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] index in
+                self?.applySelection(index)
+            }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    func select(_ index: Int) {
+        let clamped = min(max(index, 0), tabs.count - 1)
+        if model.selectedIndex != clamped {
+            model.selectedIndex = clamped
+        }
+        applySelection(clamped)
+    }
+
+    private func applySelection(_ index: Int) {
+        guard tabs.indices.contains(index) else { return }
+        selectedIndex = index
+        detailHost.rootView = Self.wrappedDetail(for: tabs[index], index: index)
+        view.window?.title = tabs[index].title
+    }
+
+    private static func wrappedDetail(for tab: (title: String, symbol: String, view: AnyView, scrollable: Bool), index: Int) -> AnyView {
+        if tab.scrollable {
+            return AnyView(
+                ScrollView {
+                    tab.view
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity)
+                }
+                .id(index)
+            )
+        }
+        return AnyView(tab.view.frame(maxWidth: .infinity, maxHeight: .infinity).id(index))
+    }
+}
+
+/// The Settings window: a vertical sidebar of sections on the left and the active pane on the right (⌘,).
 enum SettingsWindow {
     private static var window: NSWindow?
 
     /// Index of the Workspaces tab.
-    static let workspacesTab = 3
+    static let workspacesTab = 4
 
     /// The views of the tabs, for the self-test.
     static func tabViews() -> [(title: String, view: AnyView)] {
         [(tr("General"), AnyView(GeneralSettingsView())), (tr("Listers"), AnyView(ListersSettingsView())),
+         (tr("Folder Tree"), AnyView(FolderTreeSettingsView())),
          (tr("Tabs"), AnyView(TabsSettingsView())), (tr("Workspaces"), AnyView(WorkspacesSettingsView())),
          (tr("Buttons"), AnyView(ButtonsSettingsView())),
          (tr("Filetypes"), AnyView(FiletypeEditorView())), (tr("Operations"), AnyView(OperationsSettingsView())), (tr("Updates"), AnyView(UpdatesSettingsView()))]
     }
 
-    static func show(tab: Int = 0) {
+    static func show(tab: Int? = nil) {
         if let window {
-            if let controller = window.contentViewController as? NSTabViewController, tab > 0,
-               controller.tabViewItems.indices.contains(tab) { controller.selectedTabViewItemIndex = tab }
+            if let tab, let controller = window.contentViewController as? SettingsSplitController,
+               controller.tabs.indices.contains(tab) {
+                controller.select(tab)
+            }
             NSApp.bringToFront()
             window.makeKeyAndOrderFront(nil)
             return
         }
-        let controller = NSTabViewController()
-        controller.tabStyle = .toolbar
-        let tabs: [(title: String, symbol: String, view: AnyView)] = [
-            (tr("General"), "gearshape", AnyView(GeneralSettingsView())),
-            (tr("Listers"), "macwindow", AnyView(ListersSettingsView())),
-            (tr("Tabs"), "rectangle.stack", AnyView(TabsSettingsView())),
-            (tr("Workspaces"), "rectangle.3.group", AnyView(WorkspacesSettingsView())),
-            (tr("Buttons"), "square.grid.2x2", AnyView(ButtonsSettingsView())),
-            (tr("Filetypes"), "doc.badge.gearshape", AnyView(FiletypeEditorView())),
-            (tr("Operations"), "clock.arrow.circlepath", AnyView(OperationsSettingsView())),
-            (tr("Updates"), "arrow.down.circle", AnyView(UpdatesSettingsView())),
+        let tabs: [(title: String, symbol: String, view: AnyView, scrollable: Bool)] = [
+            (tr("General"), "gearshape", AnyView(GeneralSettingsView()), true),
+            (tr("Listers"), "macwindow", AnyView(ListersSettingsView()), true),
+            (tr("Folder Tree"), "sidebar.left", AnyView(FolderTreeSettingsView()), true),
+            (tr("Tabs"), "rectangle.stack", AnyView(TabsSettingsView()), true),
+            (tr("Workspaces"), "rectangle.3.group", AnyView(WorkspacesSettingsView()), true),
+            (tr("Buttons"), "square.grid.2x2", AnyView(ButtonsSettingsView()), true),
+            (tr("Filetypes"), "doc.badge.gearshape", AnyView(FiletypeEditorView()), false),
+            (tr("Operations"), "clock.arrow.circlepath", AnyView(OperationsSettingsView()), true),
+            (tr("Updates"), "arrow.down.circle", AnyView(UpdatesSettingsView()), true),
         ]
-        for tab in tabs {
-            let host = NSHostingController(rootView: tab.view)
-            host.title = tab.title
-            host.sizingOptions = [.preferredContentSize]
-            let item = NSTabViewItem(viewController: host)
-            item.label = tab.title
-            item.image = NSImage(systemSymbolName: tab.symbol, accessibilityDescription: tab.title)
-            controller.addTabViewItem(item)
-        }
-        controller.selectedTabViewItemIndex = min(max(tab, 0), tabs.count - 1)
+        let initial = min(max(tab ?? 0, 0), tabs.count - 1)
+        let controller = SettingsSplitController(tabs: tabs, initialTab: initial)
         let created = NSWindow(contentViewController: controller)
-        created.styleMask = [.titled, .closable]
-        created.toolbarStyle = .preference
+        created.styleMask = [.titled, .closable, .resizable]
         created.isReleasedWhenClosed = false
-        created.title = tabs[controller.selectedTabViewItemIndex].title
+        created.setContentSize(NSSize(width: 820, height: 580))
+        created.contentMinSize = NSSize(width: 740, height: 480)
+        created.title = tabs[initial].title
         created.center()
         NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: created, queue: .main) { _ in window = nil }
         window = created

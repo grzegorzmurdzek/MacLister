@@ -112,7 +112,7 @@ struct FiletypeEditorView: View {
             }
             .padding(10)
         }
-        .frame(width: 700, height: 500)
+        .frame(minWidth: 560, idealWidth: 700, maxWidth: .infinity, minHeight: 460, idealHeight: 500, maxHeight: .infinity)
         .onChange(of: rules) { FiletypeStore.shared.save($0) }
         .onAppear {
             // the file may have been edited by hand since this tab was made

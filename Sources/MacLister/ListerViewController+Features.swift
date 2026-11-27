@@ -257,6 +257,12 @@ extension ListerViewController {
         ListerManager.shared.splitTwoPanel(dual)
     }
 
+    /// Collapse to Single Lister (a pane of a two-panel window): keeps SRC and closes the other pane.
+    func collapseToSinglePanel() {
+        guard let dual = windowController?.dualHost else { flash(tr("This lister is not part of a two-panel window")); return }
+        ListerManager.shared.collapseToSinglePanel(dual)
+    }
+
     /// ⌘T: a new tab on this folder.
     func newTab() {
         guard let controller = windowController else { return }

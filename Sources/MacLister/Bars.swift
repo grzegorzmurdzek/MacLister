@@ -62,6 +62,7 @@ struct PathBarView: View {
     /// Settings → Listers → "Show the Group By button in the path bar".
     @AppStorage("showGroupButton") private var showGroupButton = false
     @State private var text = ""
+    @State private var hoveringGo = false
     @FocusState private var fieldFocused: Bool
 
     var body: some View {
@@ -297,7 +298,23 @@ extension PathBarView {
             }
         } label: {
             Text("Go")
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(.primary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.primary.opacity(hoveringGo ? 0.12 : 0.06))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .stroke(Color.primary.opacity(0.14))
+                )
+                .contentShape(Rectangle())
+                .onHover { hoveringGo = $0 }
         }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
         .fixedSize()
         .help("Places, bookmarks and recent folders")
     }

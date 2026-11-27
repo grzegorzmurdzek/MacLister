@@ -1171,3 +1171,31 @@
 "Photos" = "Zdjęcia";
 "Workspaces: a whole layout of listers" = "Przestrzenie robocze: cały układ listerów";
 "Back in one click" = "I wszystko wraca jednym kliknięciem";
+
+/* 1.7.10 improvements */
+"Alignment" = "Wyrównanie";
+"Left" = "Do lewej";
+"Center" = "Wyśrodkowany";
+"Right" = "Do prawej";
+"Collapse to single lister" = "Zwiń do jednego panelu";
+"Collapse to Single Lister (Keep SRC)" = "Zwiń do jednego panelu (zostaw SRC)";
+"Close the other pane and keep the source pane as a single lister" = "Zamknij drugi panel i zostaw panel źródłowy (SRC) jako pojedynczy lister";
+"Show icon previews (thumbnails)" = "Pokazuj podglądy plików na ikonach (miniatury)";
+"Solid (matches file list)" = "Jednolite (jak lista plików)";
+"Translucent (macOS sidebar)" = "Półprzezroczyste (pasek boczny macOS)";
+"Tabs (Folder Tree | Favorites)" = "Zakładki (Drzewo | Ulubione)";
+"Folder Tree only" = "Tylko drzewo folderów";
+"Favorites only" = "Tylko ulubione";
+"Both (split vertically)" = "Oba (podzielone w pionie)";
+"Folder Tree" = "Drzewo folderów";
+"Show" = "Pokazuj";
+"Background" = "Tło";
+"Add Folder to Favorites…" = "Dodaj folder do ulubionych…";
+"Add to Favorites" = "Dodaj do ulubionych";
+"Remove from Favorites" = "Usuń z ulubionych";
+"Import Favorites from Finder" = "Importuj ulubione z Findera";
+"Choose folders to add to Favorites" = "Wybierz foldery do dodania do ulubionych";
+"Open in MacLister" = "Otwórz w MacListerze";
+"md, txt, tar.gz" = "md, txt, tar.gz";
+"Window & keys" = "Okno i klawisze";
+"Right-click a folder in the tree or drag it onto Favorites to add or remove items." = "Kliknij folder w drzewie prawym przyciskiem lub przeciągnij go na Ulubione, aby dodawać i usuwać elementy.";

@@ -281,6 +281,31 @@ extension ListerManager {
         return listers
     }
 
+    /// Collapse to Single Lister: closes the other pane and keeps the SRC pane (else active, else left) as a single
+    /// lister window where that pane was.
+    @discardableResult
+    func collapseToSinglePanel(_ dual: DualListerWindowController) -> ListerWindowController {
+        let frames = dual.paneFramesOnScreen
+        let keptIndex = dual.panes.firstIndex { $0.model.role == .source }
+            ?? dual.activePane.flatMap { active in dual.panes.firstIndex { $0 === active } }
+            ?? 0
+        let keptModel = dual.panes[keptIndex].model
+        let droppedRole = dual.panes.enumerated().contains { $0.offset != keptIndex && $0.element.model.role != .none }
+        dual.closeForSplit()
+        let lister = ListerWindowController(model: keptModel)
+        register(lister)
+        if let window = lister.window {
+            if frames.indices.contains(keptIndex) { window.setFrame(window.frameRect(forContentRect: frames[keptIndex]), display: false) }
+            lister.showWindow(nil)
+            raise(window)
+            NSApp.bringToFront()
+            window.makeKeyAndOrderFront(nil)
+            if let table = lister.listerViewController?.listView { window.makeFirstResponder(table) }
+        }
+        if droppedRole { fillRolesAfterClose() }
+        return lister
+    }
+
     /// What a desktop click, the global Open a lister shortcut and the Dock icon open: a lister, or a two-panel
     /// window (Settings → Listers → Two-panel window). Returns the lister, or the left pane.
     @discardableResult

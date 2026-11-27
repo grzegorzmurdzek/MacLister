@@ -80,7 +80,11 @@ extension ListerViewController {
         collectionView.keyHandler = { [weak self] in self?.handleKey($0) ?? false }
         collectionView.onDragEnd = { [weak self] in self?.springLoader.cancel() }
         collectionView.onDoubleClick = { [weak self] in self?.handleDoubleClick(row: $0) }
-        collectionView.onSelectionChange = { [weak self] in self?.syncSelectionToModel() }
+        collectionView.onSelectionChange = { [weak self] in
+            self?.iconNavigationAnchor = nil
+            self?.iconNavigationCursor = nil
+            self?.syncSelectionToModel()
+        }
         collectionView.servicesURLs = { [weak self] in
             guard let self, !self.isRemote else { return [] }
             return self.selectedItems.map(\.url)
@@ -109,6 +113,75 @@ extension ListerViewController {
         Settings.iconSize = size
         updateIconLayout()
         reloadGrid()
+    }
+
+    /// Finder-like arrow navigation for the icon view:
+    /// - When nothing is selected, Right/Down selects the first item and Left/Up selects the last item.
+    /// - When an item is selected, Left/Right step sequentially across items (even in 1-item folders without
+    ///   getting stuck on stale NSCollectionView focus), and Up/Down move to the closest item in the row above/below.
+    func handleIconArrowKey(_ keyCode: UInt16, extendSelection: Bool) -> Bool {
+        guard !rows.isEmpty else { return true }
+        let selected = selectedRowIndexes
+        let target: Int
+        if selected.isEmpty {
+            target = (keyCode == 124 || keyCode == 125) ? 0 : (rows.count - 1)
+            iconNavigationAnchor = target
+            selectRows([target])
+            scrollRowToVisible(target)
+            return true
+        }
+        let anchor = iconNavigationAnchor.flatMap { selected.contains($0) ? $0 : nil } ?? selected.first!
+        let cursor = iconNavigationCursor.flatMap { selected.contains($0) ? $0 : nil }
+            ?? ((keyCode == 123 || keyCode == 126) ? selected.first! : selected.last!)
+        switch keyCode {
+        case 123: // Left
+            target = max(0, cursor - 1)
+        case 124: // Right
+            target = min(rows.count - 1, cursor + 1)
+        case 125, 126: // Down / Up
+            target = verticalIconNeighbour(from: cursor, down: keyCode == 125) ?? cursor
+        default:
+            return false
+        }
+        iconNavigationCursor = target
+        if extendSelection {
+            iconNavigationAnchor = anchor
+            let lo = min(anchor, target), hi = max(anchor, target)
+            selectRows(IndexSet(integersIn: lo...hi))
+        } else {
+            iconNavigationAnchor = target
+            selectRows([target])
+        }
+        scrollRowToVisible(target)
+        return true
+    }
+
+    /// Finds the item directly below or above `row` in the grid (works across grouped sections too).
+    private func verticalIconNeighbour(from row: Int, down: Bool) -> Int? {
+        collectionView.layoutSubtreeIfNeeded()
+        func frame(of r: Int) -> NSRect? {
+            collectionView.collectionViewLayout?.layoutAttributesForItem(at: collectionView.indexPath(forRow: r))?.frame
+        }
+        guard let current = frame(of: row) else {
+            return down ? min(rows.count - 1, row + 1) : max(0, row - 1)
+        }
+        let isFlipped = collectionView.isFlipped
+        let candidates: [(index: Int, frame: NSRect)] = (0..<rows.count).compactMap { index in
+            guard let f = frame(of: index) else { return nil }
+            let strictlyOtherSide = isFlipped
+                ? (down ? f.midY > current.midY + 4 : f.midY < current.midY - 4)
+                : (down ? f.midY < current.midY - 4 : f.midY > current.midY + 4)
+            return strictlyOtherSide ? (index, f) : nil
+        }
+        guard !candidates.isEmpty else { return nil }
+        let targetRowY: CGFloat
+        if isFlipped {
+            targetRowY = down ? candidates.map(\.frame.midY).min()! : candidates.map(\.frame.midY).max()!
+        } else {
+            targetRowY = down ? candidates.map(\.frame.midY).max()! : candidates.map(\.frame.midY).min()!
+        }
+        let rowItems = candidates.filter { abs($0.frame.midY - targetRowY) < 6 }
+        return rowItems.min { abs($0.frame.midX - current.midX) < abs($1.frame.midX - current.midX) }?.index
     }
 
     /// The list turned into icons or the other way round: the other view takes over the rows, the selection and the keyboard.
@@ -221,9 +294,17 @@ extension ListerViewController: NSCollectionViewDataSource, NSCollectionViewDele
         return view
     }
 
-    func collectionView(_ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>) { syncSelectionToModel() }
+    func collectionView(_ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>) {
+        iconNavigationAnchor = nil
+        iconNavigationCursor = nil
+        syncSelectionToModel()
+    }
 
-    func collectionView(_ collectionView: NSCollectionView, didDeselectItemsAt indexPaths: Set<IndexPath>) { syncSelectionToModel() }
+    func collectionView(_ collectionView: NSCollectionView, didDeselectItemsAt indexPaths: Set<IndexPath>) {
+        iconNavigationAnchor = nil
+        iconNavigationCursor = nil
+        syncSelectionToModel()
+    }
 
     func collectionView(_ collectionView: NSCollectionView, pasteboardWriterForItemAt indexPath: IndexPath) -> NSPasteboardWriting? {
         dragWriter(forRow: self.collectionView.row(for: indexPath))

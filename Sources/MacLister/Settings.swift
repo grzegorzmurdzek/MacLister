@@ -83,6 +83,32 @@ enum TabDoubleClickAction: String, CaseIterable {
     }
 }
 
+/// How the folder tree pane's background is drawn.
+enum TreeBackgroundStyle: String, CaseIterable {
+    case solid, translucent
+
+    var menuTitle: String {
+        switch self {
+        case .solid:       return tr("Solid (matches file list)")
+        case .translucent: return tr("Translucent (macOS sidebar)")
+        }
+    }
+}
+
+/// What the folder tree pane shows: tabs to switch between the tree and Favorites, only one of them, or both stacked.
+enum TreePaneMode: String, CaseIterable {
+    case tabs, treeOnly, favoritesOnly, split
+
+    var menuTitle: String {
+        switch self {
+        case .tabs:          return tr("Tabs (Folder Tree | Favorites)")
+        case .treeOnly:      return tr("Folder Tree only")
+        case .favoritesOnly: return tr("Favorites only")
+        case .split:         return tr("Both (split vertically)")
+        }
+    }
+}
+
 /// Small preferences layer on top of UserDefaults.
 ///
 /// Hidden switches (set with `defaults write com.example.MacLister <key> ...`):
@@ -120,6 +146,10 @@ enum Settings {
             "tabDoubleClick": TabDoubleClickAction.nameTab.rawValue,
             "foldersFirst": true,
             "showGroupButton": false,
+            "showIconPreviews": true,
+            "treeBackgroundStyle": TreeBackgroundStyle.solid.rawValue,
+            "treePaneMode": TreePaneMode.tabs.rawValue,
+            "treeSelectedTab": 0,
         ])
     }
 
@@ -324,6 +354,30 @@ enum Settings {
     static var folderTreeWidth: CGFloat {
         get { let value = defaults.double(forKey: "folderTreeWidth"); return value >= 120 ? CGFloat(value) : 200 }
         set { defaults.set(Double(newValue), forKey: "folderTreeWidth") }
+    }
+
+    /// Show Quick Look thumbnails on files in icon view.
+    static var showIconPreviews: Bool {
+        get { defaults.bool(forKey: "showIconPreviews") }
+        set { defaults.set(newValue, forKey: "showIconPreviews") }
+    }
+
+    /// Background style of the folder tree pane.
+    static var treeBackgroundStyle: TreeBackgroundStyle {
+        get { TreeBackgroundStyle(rawValue: defaults.string(forKey: "treeBackgroundStyle") ?? "") ?? .solid }
+        set { defaults.set(newValue.rawValue, forKey: "treeBackgroundStyle") }
+    }
+
+    /// What the folder tree pane displays.
+    static var treePaneMode: TreePaneMode {
+        get { TreePaneMode(rawValue: defaults.string(forKey: "treePaneMode") ?? "") ?? .tabs }
+        set { defaults.set(newValue.rawValue, forKey: "treePaneMode") }
+    }
+
+    /// Active tab in the folder tree pane when treePaneMode == .tabs (0: tree, 1: favorites).
+    static var treeSelectedTab: Int {
+        get { defaults.integer(forKey: "treeSelectedTab") }
+        set { defaults.set(newValue, forKey: "treeSelectedTab") }
     }
 
     /// A double-click on an archive shows its contents like a folder (read-only) instead of handing it to the system.
